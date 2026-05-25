@@ -1,0 +1,21 @@
+{
+  "name": "courseflow-v2",
+  "private": true,
+  "scripts": {
+    "dev": "turbo dev --filter=@courseflow/web",
+    "dev:worker": "pnpm --filter @courseflow/worker dev",
+    "dev:all": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "sync-wvp": "node scripts/sync-wvp-skill.mjs"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "typescript": "^5.8.3"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  }
+}

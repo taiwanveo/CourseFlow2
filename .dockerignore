@@ -1,0 +1,11 @@
+node_modules
+.next
+dist
+.git
+.turbo
+*.md
+.env
+.env.*
+apps/web/.next
+apps/worker/dist
+**/.cursor

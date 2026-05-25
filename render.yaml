@@ -1,0 +1,71 @@
+# CourseFlow v2 — Render Blueprint（藍圖）
+# 請使用「v2 專用」Supabase / Redis，勿與 v1 共用。詳見 docs/INFRA-ISOLATION.md
+#
+# 部署：https://dashboard.render.com/blueprint/new?repo=https://github.com/taiwanveo/CourseFlow2
+
+envVarGroups:
+  - name: courseflow-v2-shared
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: API_KEY_ENCRYPTION_SECRET
+        sync: false
+
+services:
+  - type: web
+    name: courseflow-v2-web
+    runtime: docker
+    dockerfilePath: ./Dockerfile.web
+    dockerContext: .
+    plan: starter
+    region: singapore
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - fromGroup: courseflow-v2-shared
+      - key: NODE_ENV
+        value: production
+      - key: COURSEFLOW_EDITION
+        value: v2
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+
+  - type: worker
+    name: courseflow-v2-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile.worker
+    dockerContext: .
+    # MP4 渲染需 FFmpeg + Chrome，建議至少 starter；若 OOM 可改 standard
+    plan: starter
+    region: singapore
+    autoDeploy: true
+    envVars:
+      - fromGroup: courseflow-v2-shared
+      - key: NODE_ENV
+        value: production
+      - key: COURSEFLOW_EDITION
+        value: v2
+
+# 若不想用 Upstash，可改為 Render Key Value（鍵值儲存）並取消下方註解，
+# 並刪除 envVarGroups 裡手動設定的 REDIS_URL。
+#
+# services:
+#   - type: keyvalue
+#     name: courseflow-v2-redis
+#     plan: free
+#     region: singapore
+#     maxmemoryPolicy: allkeys_lru
+#     ipAllowList: []
+#
+# 然後在 courseflow-v2-shared 改為：
+#   - key: REDIS_URL
+#     fromService:
+#       type: keyvalue
+#       name: courseflow-redis
+#       property: connectionString

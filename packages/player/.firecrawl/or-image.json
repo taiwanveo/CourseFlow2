@@ -1,0 +1,614 @@
+OpenRouter Image Generation | Complete Documentation
+  URL: https://openrouter.ai/docs/guides/overview/multimodal/image-generation
+  To generate images, send a request to the /api/v1/chat/completions endpoint with the modalities parameter. The value depends on the model's capabilities: Models ...
+
+  --- Content ---
+  For AI agents: a documentation index is available at the root level at /llms.txt and /llms-full.txt. Append /llms.txt to any URL for a page-level index, or .md for the markdown version of any page.
+  
+  OpenRouter supports image generation via the [Chat Completions](https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request) and [Responses](https://openrouter.ai/docs/api/reference/responses/overview) endpoints. You can find the supported models, their capabilities, and pricing by filtering our [model list by image output](https://openrouter.ai/models?output_modalities=image).
+  
+  ## Model Discovery
+  
+  You can find image generation models in several ways:
+  
+  ### Via the API
+  
+  Use the `output_modalities` query parameter on the [Models API](https://openrouter.ai/docs/api-reference/models/get-models) to programmatically discover image generation models:
+  
+  ```
+  # List only image generation models
+  curl "https://openrouter.ai/api/v1/models?output_modalities=image"
+  
+  # List models that support both text and image output
+  curl "https://openrouter.ai/api/v1/models?output_modalities=text,image"
+  ```
+  
+  See [Models - Query Parameters](https://openrouter.ai/docs/guides/overview/models#query-parameters) for the full list of supported modality values.
+  
+  ### On the Models Page
+  
+  Visit the [Models page](https://openrouter.ai/docs/models) and filter by output modalities to find models capable of image generation. Look for models that list `"image"` in their output modalities.
+  
+  ### In the Chatroom
+  
+  When using the [Chatroom](https://openrouter.ai/docs/chat), click the **Image** button to automatically filter and select models with image generation capabilities. If no image-capable model is active, you’ll be prompted to add one.
+  
+  ## API Usage
+  
+  To generate images, send a request to the `/api/v1/chat/completions` endpoint with the `modalities` parameter. The value depends on the model’s capabilities:
+  
+  - **Models that output both text and images** (e.g., Gemini): Use `modalities: ["image", "text"]`
+  - **Models that only output images** (e.g., Sourceful, Flux): Use `modalities: ["image"]`
+  
+  ### Basic Image Generation
+  
+  TypeScript SDKPythonTypeScript (fetch)
+  
+  ```
+  import { OpenRouter } from '@openrouter/sdk';
+  
+  const openRouter = new OpenRouter({
+    apiKey: '{{API_KEY_REF}}',
+  });
+  
+  const result = await openRouter.chat.send({
+    model: '{{MODEL}}',
+    messages: [\
+      {\
+        role: 'user',\
+        content: 'Generate a beautiful sunset over mountains',\
+      },\
+    ],
+    modalities: ['image', 'text'],
+    stream: false,
+  });
+  
+  // The generated image will be in the assistant message
+  if (result.choices) {
+    const message = result.choices[0].message;
+    if (message.images) {
+      message.images.forEach((image, index) => {
+        const imageUrl = image.imageUrl.url; // Base64 data URL
+        console.log(`Generated image ${index + 1}: ${imageUrl.substring(0, 50)}...`);
+      });
+    }
+  }
+  ```
+  
+  ### Image Configuration Options
+  
+  Some image generation models support additional configuration through the `image_config` parameter.
+  
+  #### Aspect Ratio
+  
+  Set `image_config.aspect_ratio` to request specific aspect ratios for generated images.
+  
+  **Supported aspect ratios:**
+  
+  - `1:1` → 1024×1024 (default)
+  - `2:3` → 832×1248
+  - `3:2` → 1248×832
+  - `3:4` → 864×1184
+  - `4:3` → 1184×864
+  - `4:5` → 896×1152
+  - `5:4` → 1152×896
+  - `9:16` → 768×1344
+  - `16:9` → 1344×768
+  - `21:9` → 1536×672
+  
+  **Extended aspect ratios** (supported by [`google/gemini-3.1-flash-image-preview`](https://openrouter.ai/docs/models/google/gemini-3.1-flash-image-preview) only):
+  
+  - `1:4` → Tall, narrow format ideal for scrolling carousels and vertical UI elements
+  - `4:1` → Wide, short format for hero banners and horizontal layouts
+  - `1:8` → Extra-tall format for notification headers and narrow vertical spaces
+  - `8:1` → Extra-wide format for wide-format banners and panoramic layouts
+  
+  #### Image Size
+  
+  Set `image_config.image_size` to control the resolution of generated images.
+  
+  **Supported sizes:**
+  
+  - `1K` → Standard resolution (default)
+  - `2K` → Higher resolution
+  - `4K` → Highest resolution
+  - `0.5K` → Lower resolution, optimized for efficiency (supported by [`google/gemini-3.1-flash-image-preview`](https://openrouter.ai/docs/models/google/gemini-3.1-flash-image-preview) only)
+  
+  You can combine both `aspect_ratio` and `image_size` in the same request:
+  
+  PythonTypeScript
+  
+  ```
+  import requests
+  import json
+  
+  url = "https://openrouter.ai/api/v1/chat/completions"
+  headers = {
+      "Authorization": f"Bearer {API_KEY_REF}",
+      "Content-Type": "application/json"
+  }
+  
+  payload = {
+      "model": "{{MODEL}}",
+      "messages": [\
+          {\
+              "role": "user",\
+              "content": "Create a picture of a nano banana dish in a fancy restaurant with a Gemini theme"\
+          }\
+      ],
+      "modalities": ["image", "text"],
+      "image_config": {
+          "aspect_ratio": "16:9",
+          "image_size": "4K"
+      }
+  }
+  
+  response = requests.post(url, headers=headers, json=payload)
+  result = response.json()
+  
+  if result.get("choices"):
+      message = result["choices"][0]["message"]
+      if message.get("images"):
+          for image in message["images"]:
+              image_url = image["image_url"]["url"]
+              print(f"Generated image: {image_url[:50]}...")
+  ```
+  
+  #### Strength (Recraft only)
+  
+  Set `image_config.strength` to control how much the output image differs from the input image during image-to-image generation. This parameter only applies when input images are provided in `messages`. It is only supported by Recraft models.
+  
+  - **Range**: `0.0` to `1.0`
+  - **Default**: `0.2`
+  - Lower values produce outputs closer to the input image; higher values allow more creative deviation.
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "strength": 0.7
+    }
+  }
+  ```
+  
+  #### Text Layout (Recraft V3 only)
+  
+  Use `image_config.text_layout` to place text at specific positions on the generated image. Each entry specifies the text to render and a bounding box defined by four corner points in normalized coordinates (0 to 1). This parameter is only supported by Recraft V3 (`recraft/recraft-v3`) for both text-to-image and image-to-image requests. Recraft V4 and V4 Pro do not support `text_layout`.
+  
+  Each text layout entry is an object with:
+  
+  - `text` (required): The text string to render
+  - `bbox` (required): Array of 4 `[x, y]` coordinate pairs defining the bounding box corners (top-left, top-right, bottom-right, bottom-left), with values from 0 to 1
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "text_layout": [\
+        {\
+          "text": "Hello",\
+          "bbox": [[0.3, 0.45], [0.6, 0.45], [0.6, 0.55], [0.3, 0.55]]\
+        },\
+        {\
+          "text": "World",\
+          "bbox": [[0.35, 0.6], [0.65, 0.6], [0.65, 0.7], [0.35, 0.7]]\
+        }\
+      ]
+    }
+  }
+  ```
+  
+  #### Style (Recraft V3 only)
+  
+  Use `image_config.style` to apply a specific artistic style to the generated image. This parameter is only supported by Recraft V3 (`recraft/recraft-v3`). Recraft V4 and V4 Pro do not support styles.
+  
+  See the [full list of available styles](https://www.recraft.ai/docs/api-reference/styles#list-of-styles) in Recraft’s documentation. Note that vector styles are not supported.
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "style": "Photorealism"
+    }
+  }
+  ```
+  
+  #### RGB Colors (Recraft only)
+  
+  Use `image_config.rgb_colors` to specify a color palette that influences the generated image. Each color is a `[r, g, b]` array of three integers (0 to 255). This parameter is supported by Recraft models for both text-to-image and image-to-image requests.
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "rgb_colors": [\
+        [255, 0, 0],\
+        [0, 128, 0]\
+      ]
+    }
+  }
+  ```
+  
+  #### Background RGB Color (Recraft only)
+  
+  Use `image_config.background_rgb_color` to set a specific background color for the generated image. The value is a `[r, g, b]` array of three integers (0 to 255). This parameter is supported by Recraft models for both text-to-image and image-to-image requests.
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "background_rgb_color": [0, 0, 255]
+    }
+  }
+  ```
+  
+  You can combine `rgb_colors` and `background_rgb_color` in the same request:
+  
+  ```
+  {
+    "image_config": {
+      "rgb_colors": [[255, 0, 0]],
+      "background_rgb_color": [255, 255, 255]
+    }
+  }
+  ```
+  
+  #### Font Inputs (Sourceful only)
+  
+  Use `image_config.font_inputs` to render custom text with specific fonts in generated images. The text you want to render must also be included in your prompt for best results. This parameter is only supported by Sourceful models (`sourceful/riverflow-v2-fast` and `sourceful/riverflow-v2-pro`).
+  
+  Each font input is an object with:
+  
+  - `font_url` (required): URL to the font file
+  - `text` (required): Text to render with the font
+  
+  **Limits:**
+  
+  - Maximum 2 font inputs per request
+  - Additional cost: $0.03 per font input
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "font_inputs": [\
+        {\
+          "font_url": "https://example.com/fonts/custom-font.ttf",\
+          "text": "Hello World"\
+        }\
+      ]
+    }
+  }
+  ```
+  
+  **Tips for best results:**
+  
+  - Include the text in your prompt along with details about font name, color, size, and position
+  - The `text` parameter should match exactly what’s in your prompt - avoid extra wording or quotation marks
+  - Use line breaks or double spaces to separate headlines and sub-headers when using the same font
+  - Works best with short, clear headlines and sub-headlines
+  
+  #### Super Resolution References (Sourceful only)
+  
+  Use `image_config.super_resolution_references` to enhance low-quality elements in your input image using high-quality reference images. The output image will match the size of your input image, so use larger input images for better results. This parameter is only supported by Sourceful models (`sourceful/riverflow-v2-fast` and `sourceful/riverflow-v2-pro`) when using image-to-image generation (i.e., when input images are provided in `messages`).
+  
+  **Limits:**
+  
+  - Maximum 4 reference URLs per request
+  - Only works with image-to-image requests (ignored when there are no images in `messages`)
+  - Additional cost: $0.20 per reference
+  
+  **Example:**
+  
+  ```
+  {
+    "image_config": {
+      "super_resolution_references": [\
+        "https://example.com/reference1.jpg",\
+        "https://example.com/reference2.jpg"\
+      ]
+    }
+  }
+  ```
+  
+  **Tips for best results:**
+  
+  - Supply an input image where the elements to enhance are present but low quality
+  - Use larger input images for better output quality (output matches input size)
+  - Use high-quality reference images that show what you want the enhanced elements to look like
+  
+  ### Streaming Image Generation
+  
+  Image generation also works with streaming responses:
+  
+  PythonTypeScript
+  
+  ```
+  import requests
+  import json
+  
+  url = "https://openrouter.ai/api/v1/chat/completions"
+  headers = {
+      "Authorization": f"Bearer {API_KEY_REF}",
+      "Content-Type": "application/json"
+  }
+  
+  payload = {
+      "model": "{{MODEL}}",
+      "messages": [\
+          {\
+              "role": "user",\
+              "content": "Create an image of a futuristic city"\
+          }\
+      ],
+      "modalities": ["image", "text"],
+      "stream": True
+  }
+  
+  response = requests.post(url, headers=headers, json=payload, stream=True)
+  
+  for line in response.iter_lines():
+      if line:
+          line = line.decode('utf-8')
+          if line.startswith('data: '):
+              data = line[6:]
+              if data != '[DONE]':
+                  try:
+                      chunk = json.loads(data)
+                      if chunk.get("choices"):
+                          delta = chunk["choices"][0].get("delta", {})
+                          if delta.get("images"):
+                              for image in delta["images"]:
+                                  print(f"Generated image: {image['image_url']['url'][:50]}...")
+                  except json.JSONDecodeError:
+                      continue
+  ```
+  
+  ## Response Format
+  
+  When generating images, the assistant message includes an `images` field containing the generated images:
+  
+  ```
+  {
+    "choices": [\
+      {\
+        "message": {\
+          "role": "assistant",\
+          "content": "I've generated a beautiful sunset image for you.",\
+          "images": [\
+            {\
+              "type": "image_url",\
+              "image_url": {\
+                "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."\
+              }\
+            }\
+          ]\
+        }\
+      }\
+    ]
+  }
+  ```
+  
+  ### Image Format
+  
+  - **Format**: Images are returned as base64-encoded data URLs
+  - **Types**: Typically PNG format (`data:image/png;base64,`)
+  - **Multiple Images**: Some models can generate multiple images in a single response
+  - **Size**: Image dimensions vary by model capabilities
+  
+  ## Model Compatibility
+  
+  Not all models support image generation. To use this feature:
+  
+  1. **Check Output Modalities**: Ensure the model has `"image"` in its `output_modalities`
+  2. **Set Modalities Parameter**: Use `["image", "text"]` for models that output both, or `["image"]` for image-only models
+  3. **Use Compatible Models**: Examples include:
+  
+     - `google/gemini-3.1-flash-image-preview` (supports extended aspect ratios and 0.5K resolution)
+     - `google/gemini-2.5-flash-image`
+     - `black-forest-labs/flux.2-pro`
+     - `black-forest-labs/flux.2-flex`
+     - `sourceful/riverflow-v2-standard-preview`
+     - Other models with image generation capabilities
+  
+  ## Best Practices
+  
+  - **Clear Prompts**: Provide detailed descriptions for better image quality
+  - **Model Selection**: Choose models specifically designed for image generation
+  - **Error Handling**: Check for the `images` field in responses before processing
+  - **Rate Limits**: Image generation may have different rate limits than text generation
+  - **Storage**: Consider how you’ll handle and store the base64 image data
+  
+  ## Troubleshooting
+  
+  **No images in response?**
+  
+  - Verify the model supports image generation (`output_modalities` includes `"image"`)
+  - Ensure you’ve set the `modalities` parameter correctly: `["image", "text"]` for models that output both, or `["image"]` for image-only models
+  - Check that your prompt is requesting image generation
+  
+  **Model not found?**
+  
+  - Use the [Models page](https://openrouter.ai/docs/models) to find available image generation models
+  - Filter by output modalities to see compatible models
+  
+  Ask AI
+  
+  Assistant
+  
+  Responses are generated using AI and may contain mistakes.
+  
+  Hi, I'm an AI assistant with access to documentation and other content.
+  
+  Tip: You can toggle this pane with
+  
+  `⌘`
+  
+  +
+  
+  `/`
+  --- End Content ---
+
+How to make image generation model work through the OpenRouter ...
+  URL: https://www.reddit.com/r/OpenWebUI/comments/1s6216b/how_to_make_image_generation_model_work_through/
+  Apparently, Openrouter's api uses https://openrouter.ai/api/v1/chat/completions endpoint for image generators, while openwebui automatically ...
+
+OpenRouter Multimodal Capabilities - Complete Documentation
+  URL: https://openrouter.ai/docs/guides/overview/multimodal/overview
+  OpenRouter supports an asynchronous video generation API with configurable resolution, aspect ratio, duration, and optional reference images. Learn more about ...
+
+  --- Content ---
+  For AI agents: a documentation index is available at the root level at /llms.txt and /llms-full.txt. Append /llms.txt to any URL for a page-level index, or .md for the markdown version of any page.
+  
+  OpenRouter supports multiple input and output modalities beyond text, allowing you to send images, PDFs, audio, and video files to compatible models, or generate speech from text through our unified API. This enables rich multimodal interactions for a wide variety of use cases.
+  
+  ## Supported Modalities
+  
+  ### Images
+  
+  Send images to vision-capable models for analysis, description, OCR, and more. OpenRouter supports multiple image formats and both URL-based and base64-encoded images.
+  
+  [Learn more about image inputs →](https://openrouter.ai/docs/features/multimodal/images)
+  
+  ### Image Generation
+  
+  Generate images from text prompts using AI models with image output capabilities. OpenRouter supports various image generation models that can create high-quality images based on your descriptions.
+  
+  [Learn more about image generation →](https://openrouter.ai/docs/features/multimodal/image-generation)
+  
+  ### PDFs
+  
+  Process PDF documents with any model on OpenRouter. Our intelligent PDF parsing system extracts text and handles both text-based and scanned documents.
+  
+  [Learn more about PDF processing →](https://openrouter.ai/docs/features/multimodal/pdfs)
+  
+  ### Audio
+  
+  Send audio files to speech-capable models for transcription, analysis, and processing, or receive audio responses from models with audio output capabilities. OpenRouter supports common audio formats for both input and output.
+  
+  [Learn more about audio →](https://openrouter.ai/docs/features/multimodal/audio)
+  
+  ### Video
+  
+  Send video files to video-capable models for analysis, description, object detection, and action recognition. OpenRouter supports multiple video formats for comprehensive video understanding tasks.
+  
+  [Learn more about video inputs →](https://openrouter.ai/docs/features/multimodal/videos)
+  
+  ### Video Generation
+  
+  Generate videos from text prompts using AI models with video output capabilities. OpenRouter supports an asynchronous video generation API with configurable resolution, aspect ratio, duration, and optional reference images.
+  
+  [Learn more about video generation →](https://openrouter.ai/docs/features/multimodal/video-generation)
+  
+  ### Text-to-Speech
+  
+  Generate speech audio from text using a dedicated OpenAI-compatible endpoint. OpenRouter supports multiple TTS providers and voices with output in MP3 or PCM format.
+  
+  [Learn more about text-to-speech →](https://openrouter.ai/docs/features/multimodal/tts)
+  
+  ### Speech-to-Text
+  
+  Transcribe audio into text using a dedicated endpoint. OpenRouter supports multiple STT providers and models, returning structured JSON with transcribed text and usage statistics.
+  
+  [Learn more about speech-to-text →](https://openrouter.ai/docs/features/multimodal/stt)
+  
+  ## Getting Started
+  
+  Most multimodal inputs use the same `/api/v1/chat/completions` endpoint with the `messages` parameter. Different content types are specified in the message content array:
+  
+  - **Images**: Use `image_url` content type
+  - **PDFs**: Use `file` content type with PDF data
+  - **Audio**: Use `input_audio` content type
+  - **Video**: Use `video_url` content type
+  
+  You can combine multiple modalities in a single request, and the number of files you can send varies by provider and model.
+  
+  **Text-to-Speech** uses a separate dedicated endpoint at `/api/v1/audio/speech`. See the [TTS documentation](https://openrouter.ai/docs/features/multimodal/tts) for details.
+  
+  **Speech-to-Text** uses a separate dedicated endpoint at `/api/v1/audio/transcriptions`. See the [STT documentation](https://openrouter.ai/docs/features/multimodal/stt) for details.
+  
+  ## Model Compatibility
+  
+  Not all models support every modality. OpenRouter automatically filters available models based on your request content:
+  
+  - **Vision models**: Required for image processing
+  - **File-compatible models**: Can process PDFs natively or through our parsing system
+  - **Audio-capable models**: Required for audio input processing
+  - **Video-capable models**: Required for video input processing
+  
+  Use our [Models page](https://openrouter.ai/models) to find models that support your desired input modalities.
+  
+  ## Input Format Support
+  
+  OpenRouter supports both **direct URLs** and **base64-encoded data** for multimodal inputs:
+  
+  ### URLs (Recommended for public content)
+  
+  - **Images**: `https://example.com/image.jpg`
+  - **PDFs**: `https://example.com/document.pdf`
+  - **Audio**: Not supported via URL (base64 only)
+  - **Video**: Provider-specific (e.g., YouTube links for Gemini on AI Studio)
+  
+  ### Base64 Encoding (Required for local files)
+  
+  - **Images**: `data:image/jpeg;base64,{base64_data}`
+  - **PDFs**: `data:application/pdf;base64,{base64_data}`
+  - **Audio**: Raw base64 string with format specification
+  - **Video**: `data:video/mp4;base64,{base64_data}`
+  
+  URLs are more efficient for large files as they don’t require local encoding and reduce request payload size. Base64 encoding is required for local files or when the content is not publicly accessible.
+  
+  **Note for video URLs**: Video URL support varies by provider. For example, Google Gemini on AI Studio only supports YouTube links. See the [video inputs documentation](https://openrouter.ai/docs/features/multimodal/videos) for provider-specific details.
+  
+  ## Frequently Asked Questions
+  
+  ###### Can I mix different modalities in one request?
+  
+  Yes! You can send text, images, PDFs, audio, and video in the same request. The model will process all inputs together.
+  
+  ###### How is multimodal content priced?
+  
+  - **Images**: Typically priced per image or as input tokens
+  - **PDFs**: Free text extraction, paid OCR processing, or native model pricing
+  - **Audio input**: Priced as input tokens based on duration
+  - **Audio output**: Priced as completion tokens
+  - **Video**: Priced as input tokens based on duration and resolution
+  
+  ###### Which models support video input?
+  
+  Video support varies by model. Use the [Models page](https://openrouter.ai/docs/models?fmt=cards&input_modalities=video) to filter for video-capable models. Check each model’s documentation for specific video format and duration limits.
+  
+  ###### How does video generation work?
+  
+  Video generation uses an asynchronous API at `/api/v1/videos`. You submit a prompt, receive a job ID, then poll until the video is ready to download. See the [video generation documentation](https://openrouter.ai/docs/features/multimodal/video-generation) for details.
+  
+  ###### How does text-to-speech work?
+  
+  Text-to-speech uses a dedicated endpoint at `/api/v1/audio/speech`. Send text and receive a raw audio byte stream. The endpoint is compatible with the OpenAI Audio Speech API, so you can use OpenAI client libraries. See the [TTS documentation](https://openrouter.ai/docs/features/multimodal/tts) for details.
+  
+  ###### How does speech-to-text work?
+  
+  Speech-to-text uses a dedicated endpoint at `/api/v1/audio/transcriptions`. Send base64-encoded audio and receive a JSON response with the transcribed text and usage statistics. See the [STT documentation](https://openrouter.ai/docs/features/multimodal/stt) for details.
+  
+  Ask AI
+  
+  Assistant
+  
+  Responses are generated using AI and may contain mistakes.
+  
+  Hi, I'm an AI assistant with access to documentation and other content.
+  
+  Tip: You can toggle this pane with
+  
+  `⌘`
+  
+  +
+  
+  `/`
+  --- End Content ---

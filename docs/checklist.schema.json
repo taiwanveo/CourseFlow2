@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://courseflow.dev/schemas/chapter-craft-checklist.json",
+  "title": "CHAPTER-CRAFT 章節完工自檢",
+  "description": "對應 skills/web-video-presentation/references/CHAPTER-CRAFT.md 完工自檢清單",
+  "type": "object",
+  "required": ["chapterId", "passed", "items"],
+  "properties": {
+    "chapterId": { "type": "string" },
+    "passed": { "type": "boolean" },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "passed"],
+        "properties": {
+          "id": { "type": "string" },
+          "label": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "evidence": { "type": "string" },
+          "suggestion": { "type": "string" }
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "chapterId": "01-hook",
+      "passed": false,
+      "items": [
+        {
+          "id": "visual-demo",
+          "label": "每章至少 1~2 處 CSS/SVG/Canvas/JS 視覺演示",
+          "passed": true,
+          "evidence": "step 2: 橫條生長動畫"
+        },
+        {
+          "id": "step-variety",
+          "label": "不同 step 的主導動作不一樣",
+          "passed": false,
+          "suggestion": "step 3~5 皆為 fade-up，需改為內容驅動動畫"
+        }
+      ]
+    }
+  ],
+  "x-checklist-items": [
+    { "id": "visual-demo", "label": "每章至少 1~2 處 CSS/SVG/Canvas/JS 視覺演示" },
+    { "id": "step-variety", "label": "不同 step 的主導動作不一樣" },
+    { "id": "typography", "label": "字號大、留白舒服、配色舒服" },
+    { "id": "list-reveal", "label": "清單/列表 1 項 = 1 step" },
+    { "id": "dual-source", "label": "畫面資訊比口播稿多（有回 article 抽細節）" },
+    { "id": "anti-ai", "label": "無紫粉漸層/圓角彩框/emoji/假數據/假 logo" },
+    { "id": "placeholders", "label": "缺素材用 placeholder，非 fake" },
+    { "id": "tokens", "label": "顏色與字體家族走 token；primitive class 接入主題" },
+    { "id": "no-header-footer", "label": "無頁眉頁腳式 chrome" },
+    { "id": "no-wall-of-text", "label": "禁止大量純文字與過小字級" },
+    { "id": "tsc", "label": "npx tsc --noEmit 通過" },
+    { "id": "isolation", "label": "章節獨立 CSS 前綴、未跨章 import" },
+    { "id": "narrations-length", "label": "narrations.length === 最大 step + 1" },
+    { "id": "narrations-script", "label": "narration 與 script.md 語義一致" },
+    { "id": "anim-duration", "label": "每 step 視覺動畫時長 ≤ 口播時長" }
+  ]
+}
