@@ -2,6 +2,7 @@
   "name": "courseflow-v2",
   "private": true,
   "scripts": {
+    "build:packages": "turbo build --filter=./packages/*",
     "dev": "turbo dev --filter=@courseflow/web",
     "dev:worker": "pnpm --filter @courseflow/worker dev",
     "dev:all": "turbo dev",

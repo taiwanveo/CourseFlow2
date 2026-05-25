@@ -12,11 +12,14 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "@courseflow/core",
     "@courseflow/db",
+    "@courseflow/shared",
     "@courseflow/composition",
     "@courseflow/llm",
     "@courseflow/wvp-bridge",
     "@courseflow/hf-bridge",
     "@courseflow/player",
+    "@courseflow/presentation",
+    "@courseflow/craft-agent",
   ],
   serverExternalPackages: [
     "pdf-parse",

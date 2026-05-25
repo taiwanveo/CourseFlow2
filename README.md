@@ -44,13 +44,16 @@ supabase db push
 
 ```bash
 pnpm install
-pnpm --filter @courseflow/core build
-pnpm --filter @courseflow/shared build
-pnpm --filter @courseflow/presentation build
-pnpm --filter @courseflow/craft-agent build
-pnpm --filter @courseflow/wvp-bridge build
-pnpm --filter @courseflow/llm build
 pnpm dev
+```
+
+`pnpm dev` 會透過 Turbo **先編譯** `@courseflow/*` workspace 套件（輸出到各包的 `dist/`），再啟動 Next.js。
+
+若只跑 `next dev` 而沒建置，會出現 `Can't resolve '@courseflow/shared'`。可改用手動：
+
+```bash
+pnpm build:packages
+pnpm --filter @courseflow/web dev
 ```
 
 ### 5. WVP Skill
