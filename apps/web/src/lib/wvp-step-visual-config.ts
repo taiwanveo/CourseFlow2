@@ -1,5 +1,6 @@
 import type { LlmProviderId } from "@courseflow/llm";
 import {
+  analyzeStepVisualPlan,
   generateVisualConfig,
   loadDesignTokensForTheme,
   shouldStepHaveVisual,
@@ -13,12 +14,14 @@ export async function generateStepVisualConfigsForChapter(opts: {
   provider: LlmProviderId;
   apiKey: string;
   themeId: string;
+  courseTopic?: string;
   narrations: string[];
   screenContents: string[];
   articleExcerpt?: string;
 }): Promise<StepVisualEntry[]> {
   const theme = await loadDesignTokensForTheme(opts.themeId);
   const out: StepVisualEntry[] = [];
+  const courseTopic = opts.courseTopic?.trim() || "教學課程";
 
   const llm = async (system: string, user: string) => {
     const obj = await generateChapterPlan({
@@ -35,7 +38,10 @@ export async function generateStepVisualConfigsForChapter(opts: {
     const stepScreen = opts.screenContents[step] ?? "";
     if (!shouldStepHaveVisual(stepScript, stepScreen)) continue;
 
-    const r = await generateVisualConfig({
+    const director = await analyzeStepVisualPlan({
+      stepIndex: step,
+      courseTopic,
+      screenContent: stepScreen,
       stepScript,
       articleSnippet: opts.articleExcerpt,
       theme,
@@ -43,7 +49,25 @@ export async function generateStepVisualConfigsForChapter(opts: {
       maxRetries: 2,
     });
 
-    // 只要有明確「內容型」訊號才採用；避免把每一步都塞滿視覺
+    if (
+      director.plan.recommendedOutput === "none" ||
+      director.plan.recommendedOutput === "ai-image"
+    ) {
+      continue;
+    }
+
+    const r = await generateVisualConfig({
+      stepScript,
+      screenContent: stepScreen,
+      articleSnippet: opts.articleExcerpt,
+      theme,
+      directorPlan: director.plan,
+      llm,
+      maxRetries: 2,
+    });
+
+    if (r.source === "director-skip") continue;
+
     if (r.config.kind === "animation" && r.config.pattern === "callout") {
       const blob = `${stepScript}\n${stepScreen}`;
       if (!/\d+/.test(blob) && !/(?:第一|第二|第三|對照|相比|占比|比例|趨勢)/.test(blob)) {
@@ -56,4 +80,3 @@ export async function generateStepVisualConfigsForChapter(opts: {
 
   return out;
 }
-

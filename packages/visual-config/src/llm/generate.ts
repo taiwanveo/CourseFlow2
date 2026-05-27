@@ -1,5 +1,6 @@
 import { FALLBACK_CALLOUT, inferVisualConfigFromText } from "../heuristic.js";
 import { safeParseVisualConfig, type VisualConfig } from "../schema/visual.js";
+import type { VisualDirectorPlan } from "../schema/visual-director.js";
 import type { DesignTokens } from "../tokens/theme-bridge.js";
 import { buildVisualConfigSystemPrompt, buildVisualConfigUserPrompt } from "./prompt.js";
 
@@ -17,23 +18,52 @@ function extractJsonObject(text: string): unknown {
 
 export interface GenerateVisualConfigResult {
   config: VisualConfig;
-  source: "llm" | "heuristic" | "fallback";
+  source: "llm" | "heuristic" | "fallback" | "director-skip";
   attempts: number;
   error?: string;
+  directorPlan?: VisualDirectorPlan;
 }
 
 export async function generateVisualConfig(opts: {
   stepScript: string;
+  screenContent?: string;
   articleSnippet?: string;
   theme: DesignTokens;
+  directorPlan?: VisualDirectorPlan;
   llm?: LlmJsonCaller;
   maxRetries?: number;
 }): Promise<GenerateVisualConfigResult> {
   const maxRetries = opts.maxRetries ?? 2;
+  const director = opts.directorPlan;
+
+  if (director?.recommendedOutput === "none") {
+    return {
+      config: FALLBACK_CALLOUT,
+      source: "director-skip",
+      attempts: 0,
+      directorPlan: director,
+      error: director.skipReason ?? "Visual Director 判定不建議生成視覺",
+    };
+  }
+
+  if (director?.recommendedOutput === "ai-image") {
+    return {
+      config: FALLBACK_CALLOUT,
+      source: "director-skip",
+      attempts: 0,
+      directorPlan: director,
+      error: "本步由 AI 配圖處理，不使用 chart/table/animation",
+    };
+  }
 
   if (opts.llm) {
     const system = buildVisualConfigSystemPrompt(opts.theme);
-    const baseUser = buildVisualConfigUserPrompt(opts.stepScript, opts.articleSnippet);
+    const baseUser = buildVisualConfigUserPrompt(
+      opts.stepScript,
+      opts.articleSnippet,
+      opts.screenContent,
+      director,
+    );
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const user =
@@ -44,7 +74,12 @@ export async function generateVisualConfig(opts: {
         const parsed = extractJsonObject(raw);
         const validated = safeParseVisualConfig(parsed);
         if (validated.success) {
-          return { config: validated.data, source: "llm", attempts: attempt };
+          return {
+            config: validated.data,
+            source: "llm",
+            attempts: attempt,
+            directorPlan: director,
+          };
         }
       } catch {
         /* retry */
@@ -58,15 +93,31 @@ export async function generateVisualConfig(opts: {
   if (heuristic) {
     const validated = safeParseVisualConfig(heuristic);
     if (validated.success) {
-      return { config: validated.data, source: "heuristic", attempts: 0 };
+      return {
+        config: validated.data,
+        source: "heuristic",
+        attempts: 0,
+        directorPlan: director,
+      };
     }
   }
 
   const fallback: VisualConfig = {
     kind: "animation",
-    title: "重點",
+    title: director?.coreMessage.slice(0, 24) || "重點",
     pattern: "callout",
-    items: [{ text: opts.stepScript.trim().slice(0, 72) || "重點", emphasis: true }],
+    items: [
+      {
+        text: opts.stepScript.trim().slice(0, 72) || director?.coreMessage.slice(0, 72) || "重點",
+        emphasis: true,
+      },
+    ],
   };
-  return { config: fallback, source: "fallback", attempts: maxRetries, error: "llm/heuristic failed" };
+  return {
+    config: fallback,
+    source: "fallback",
+    attempts: maxRetries,
+    error: "llm/heuristic failed",
+    directorPlan: director,
+  };
 }

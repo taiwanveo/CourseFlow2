@@ -240,6 +240,7 @@ export async function generateChapterCraft(
               narrations: opts.narrations,
               screenContents,
               themeId: opts.themeId,
+              courseTopic: craft.title,
               articleExcerpt: articleChapterExcerpt,
             });
         const gen = generateChapterSources({

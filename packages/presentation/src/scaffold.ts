@@ -93,7 +93,7 @@ export async function scaffoldPresentation(
   await copyFile(join(t, "src/App.tsx"), join(targetDir, "src/App.tsx"));
 
   await copyFile(tokensSrc, join(targetDir, "src/styles/tokens.css"));
-  for (const css of ["base.css", "animations.css", "fonts.css"]) {
+  for (const css of ["base.css", "asian-slide-design.css", "animations.css", "fonts.css"]) {
     await copyFile(join(t, "src/styles", css), join(targetDir, "src/styles", css));
   }
 

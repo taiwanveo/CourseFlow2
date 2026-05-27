@@ -44,7 +44,7 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     await cp(join(t, "src/hooks", hook), join(hooksDir, hook), { force: true });
   }
   await cp(join(t, "src/App.tsx"), join(presentationDir, "src/App.tsx"), { force: true });
-  for (const css of ["animations.css"]) {
+  for (const css of ["animations.css", "asian-slide-design.css"]) {
     await cp(join(t, "src/styles", css), join(presentationDir, "src/styles", css), {
       force: true,
     });

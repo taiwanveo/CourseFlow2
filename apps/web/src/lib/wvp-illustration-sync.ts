@@ -6,10 +6,17 @@ import {
   generateStepImage,
   IMAGE_GENERATION_PROVIDERS,
   type LlmProviderId,
+  type StepImageDirectorHints,
 } from "@courseflow/llm";
+import {
+  analyzeStepVisualPlan,
+  loadDesignTokensForTheme,
+  type VisualDirectorPlan,
+} from "@courseflow/visual-config";
 import { writePresentationIllustrationFiles } from "@courseflow/presentation";
 import { decryptApiKey } from "@/lib/crypto";
 import { listConfiguredLlmProviders } from "@/lib/llm-provider";
+import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
@@ -39,6 +46,7 @@ export type WvpIllustrationSyncResult = {
   written: number;
   attempted: number;
   skippedNoKey: boolean;
+  directorSkipped: number;
 };
 
 function chapterTemplateKind(craft: CraftRow): string | undefined {
@@ -53,7 +61,17 @@ function chapterTemplateKind(craft: CraftRow): string | undefined {
   return cr?.chapterSource?.templateKind ?? cr?.appliedTemplate;
 }
 
-/** 哪些 WVP 步驟需要配圖（避免封面／幽靈格／純圖表步硬塞圖） */
+function directorHintsFromPlan(plan: VisualDirectorPlan): StepImageDirectorHints {
+  return {
+    coreMessage: plan.coreMessage,
+    sceneDescription: plan.sceneDescription,
+    imagePromptEn: plan.imagePromptEn,
+    avoidElements: plan.avoidElements,
+    layoutIntegration: plan.layoutIntegration,
+  };
+}
+
+/** 哪些 WVP 步驟需要配圖（避免 cover／幽靈格／純圖表步硬塞圖） */
 export function wvpStepNeedsIllustration(
   templateKind: string | undefined,
   stepIndex: number,
@@ -108,26 +126,56 @@ export async function syncPresentationIllustrations(
   crafts: CraftRow[],
   projectAssets?: WvpAssetRef[],
   styleFragment?: string,
+  themeId = "midnight-press",
 ): Promise<WvpIllustrationSyncResult> {
   const presentationDir = presentationDirForProject(projectId);
   const configured = await listConfiguredLlmProviders(supabase, userId);
   const imageProviders = IMAGE_GENERATION_PROVIDERS.filter((p) =>
     configured.includes(p),
   );
-  const provider: LlmProviderId | undefined = imageProviders[0];
-  let apiKey: string | undefined;
-  if (provider) {
+  const textProviders = configured;
+  const imageProvider: LlmProviderId | undefined = imageProviders[0];
+  const textProvider: LlmProviderId | undefined = textProviders[0];
+
+  let imageApiKey: string | undefined;
+  if (imageProvider) {
     const { data: keyRow } = await supabase
       .from("user_api_keys")
       .select("encrypted_key")
       .eq("user_id", userId)
-      .eq("provider", provider)
+      .eq("provider", imageProvider)
       .maybeSingle();
-    if (keyRow?.encrypted_key) apiKey = decryptApiKey(keyRow.encrypted_key);
+    if (keyRow?.encrypted_key) imageApiKey = decryptApiKey(keyRow.encrypted_key);
   }
+
+  let textApiKey: string | undefined;
+  if (textProvider) {
+    const { data: keyRow } = await supabase
+      .from("user_api_keys")
+      .select("encrypted_key")
+      .eq("user_id", userId)
+      .eq("provider", textProvider)
+      .maybeSingle();
+    if (keyRow?.encrypted_key) textApiKey = decryptApiKey(keyRow.encrypted_key);
+  }
+
+  const theme = await loadDesignTokensForTheme(themeId);
+  const directorLlm =
+    textProvider && textApiKey
+      ? async (system: string, user: string) => {
+          const obj = await generateChapterPlan({
+            provider: textProvider,
+            apiKey: textApiKey,
+            system,
+            user,
+          });
+          return JSON.stringify(obj);
+        }
+      : undefined;
 
   const files: { wvpChapterId: string; stepIndex: number; buffer: Buffer }[] = [];
   let attempted = 0;
+  let directorSkipped = 0;
 
   for (const craft of crafts) {
     const kind = chapterTemplateKind(craft);
@@ -151,6 +199,8 @@ export async function syncPresentationIllustrations(
       attempted++;
       const compStep = compSteps[stepIndex];
       const narration = narrations[stepIndex] ?? "";
+      const screen = compStep?.screenContent?.trim() ?? "";
+      const script = compStep?.script?.trim() ?? narration;
       let buffer: Buffer | null = null;
 
       const checkpoint = checkpointAssetForStep(
@@ -171,17 +221,42 @@ export async function syncPresentationIllustrations(
         buffer = await imageFromCompositionStep(supabase, composition, compStep.id);
       }
 
-      if (!buffer && apiKey && provider) {
-        const screen = compStep?.screenContent?.trim() ?? "";
-        const script = compStep?.script?.trim() ?? narration;
+      let directorPlan: VisualDirectorPlan | undefined;
+      if (directorLlm) {
+        try {
+          const analyzed = await analyzeStepVisualPlan({
+            stepIndex,
+            courseTopic: projectTitle,
+            screenContent: screen || narration.slice(0, 240),
+            stepScript: script,
+            theme,
+            llm: directorLlm,
+            maxRetries: 2,
+          });
+          directorPlan = analyzed.plan;
+
+          if (directorPlan.recommendedOutput !== "ai-image") {
+            directorSkipped++;
+            continue;
+          }
+        } catch (e) {
+          console.warn(
+            `[wvp] Visual Director 失敗 ${craft.wvp_chapter_id} step ${stepIndex + 1}:`,
+            (e as Error).message,
+          );
+        }
+      }
+
+      if (!buffer && imageApiKey && imageProvider) {
         try {
           const bytes = await generateStepImage(
-            { provider, apiKey },
+            { provider: imageProvider, apiKey: imageApiKey },
             buildStepImagePrompt({
               courseTopic: projectTitle,
               screenContent: screen || narration.slice(0, 240),
               script,
               styleFragment,
+              director: directorPlan ? directorHintsFromPlan(directorPlan) : undefined,
             }),
           );
           buffer = Buffer.from(bytes);
@@ -207,6 +282,7 @@ export async function syncPresentationIllustrations(
   return {
     written,
     attempted,
-    skippedNoKey: !apiKey && attempted > 0 && written === 0,
+    skippedNoKey: !imageApiKey && attempted > 0 && written === 0,
+    directorSkipped,
   };
 }

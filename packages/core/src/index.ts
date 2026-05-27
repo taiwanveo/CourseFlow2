@@ -7,3 +7,4 @@ export * from "./composition.js";
 export * from "./subtitle-style.js";
 export * from "./visual-element-style.js";
 export * from "./apply-theme.js";
+export * from "./asian-slide-design.js";

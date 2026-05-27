@@ -1,0 +1,91 @@
+/**
+ * asian-slide-design — CourseFlow 打包時強制套用的簡報版面準則。
+ * 對應 skills/asian-slide-design/SKILL.md 硬性規則。
+ */
+
+/* 預設內文左對齊；標題類可個別置中 */
+.scene-pad,
+.lr-scene,
+.vf-scene {
+  text-align: left;
+}
+
+/* 僅標題／引子大標可置中 */
+[class$="-cover-h"],
+.lr-intro-h,
+.vf-headline h1,
+.vf-headline h2 {
+  text-align: center;
+}
+
+/* 放大全站字級對比 */
+:root {
+  --t-h1: clamp(64px, 5.5vw, 96px);
+  --t-h2: clamp(44px, 4vw, 68px);
+  --t-body: clamp(20px, 1.35vw, 26px);
+  --t-lead: clamp(22px, 1.6vw, 30px);
+  --t-caption: clamp(14px, 1vw, 18px);
+}
+
+/* 禁止標題下裝飾底線（AI 風） */
+h1::after,
+h2::after,
+h3::after,
+.lr-intro-h::after,
+[class$="-split-h"]::after,
+[class$="-cover-h"]::after {
+  content: none !important;
+  display: none !important;
+}
+
+.scene-pad hr.rule,
+.lr-masthead .lr-rule {
+  display: none !important;
+}
+
+/* 插圖至少佔 30% 視覺重量 */
+.cf-chapter-figure {
+  max-width: min(720px, 55vw);
+  min-width: min(480px, 38vw);
+  flex: 1 1 38%;
+}
+
+.cf-chapter-figure img {
+  min-height: min(420px, 42vh);
+  max-height: min(640px, 58vh);
+  object-fit: cover;
+}
+
+/* 清單格：內文左對齊、字級放大 */
+.lr-intro-sub {
+  text-align: left;
+  font-size: var(--t-lead);
+  line-height: 1.55;
+  max-width: 72ch;
+}
+
+.lr-slot-title {
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+}
+
+.lr-slot-body {
+  font-size: var(--t-body);
+  line-height: 1.6;
+}
+
+/* 防止文字溢出 */
+.scene-pad,
+.lr-scene,
+.pull-quote,
+[class$="-split-body"],
+[class$="-cover-body"] {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* 禁止側邊色帶／整條橫幅裝飾（保留主題 accent 小元素） */
+.asd-no-banner::before,
+.asd-no-banner::after {
+  display: none !important;
+}

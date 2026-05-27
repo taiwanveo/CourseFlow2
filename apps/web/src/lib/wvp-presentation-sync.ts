@@ -234,6 +234,7 @@ export async function buildAnchorChapterPreview(
     [first] as Parameters<typeof syncPresentationIllustrations>[5],
     wvpSettings.assets,
     styleFragment,
+    themeId,
   );
   if (illus.skippedNoKey && illus.attempted > 0) {
     illustrationSyncWarning =
@@ -355,6 +356,7 @@ export async function syncFullWvpProject(
       (crafts ?? []) as Parameters<typeof syncPresentationIllustrations>[5],
       wvpSettings.assets,
       styleFragment,
+      themeId,
     );
     if (illus.skippedNoKey && illus.attempted > 0) {
       illustrationSyncWarning =

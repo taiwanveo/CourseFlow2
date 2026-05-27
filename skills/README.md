@@ -1,5 +1,9 @@
 # 內建 Agent Skills
 
+## asian-slide-design
+
+亞洲簡報設計參考準則（日本＋台灣實作派方法論）。CourseFlow 在 **Craft Agent**、**Visual Director**、**打包 scaffold/repair** 階段會自動引用；完整準則見 `skills/asian-slide-design/SKILL.md`，程式常量見 `packages/core/src/asian-slide-design.ts`。
+
 ## web-video-presentation
 
 本目錄為 [web-video-presentation](https://github.com/ConardLi/garden-skills/tree/main/skills/web-video-presentation) 的**專案內建副本**，供 CourseFlow 腳手架（`wvp scaffold`）與 Studio 使用，無需依賴本機 `~/.agents/skills/` 或設定 `WVP_SKILL_DIR`。

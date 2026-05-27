@@ -20,7 +20,10 @@ export interface ChapterChecklistResult {
 }
 
 const ANTI_AI =
-  /gradient.*135deg|from-purple|emoji|lucide|假.*萬|placeholder\.com|StepContentViz/i;
+  /gradient.*135deg|from-purple|emoji|lucide|假.*萬|placeholder\.com|StepContentViz|<hr[^>]*className="rule"/i;
+
+const ASIAN_SLIDE_VIOLATIONS =
+  /className="rule"|lr-rule|border-bottom:\s*[^;]+solid\s+var\(--accent\)|text-align:\s*center[^}]*asd-body|pure-text/i;
 
 export function runChapterCraftChecklist(opts: {
   wvpChapterId: string;
@@ -114,6 +117,18 @@ export function runChapterCraftChecklist(opts: {
     id: "anti-ai",
     label: "無 AI 味裝飾／假圖表",
     passed: !ANTI_AI.test(blob),
+  });
+
+  items.push({
+    id: "asian-slide",
+    label: "asian-slide-design：無底線/色帶、非純文字步",
+    passed:
+      !ASIAN_SLIDE_VIOLATIONS.test(blob) &&
+      (hasVisualDemoInSources(tsx, css) ||
+        tsx.includes("ChapterFigure") ||
+        tsx.includes("hero-num") ||
+        tsx.includes("HookImageStrip")),
+    suggestion: "移除 hr.rule、放大插圖、每步至少一個視覺元素",
   });
 
   const keyframes = css.match(/@keyframes\s+([\w-]+)/g) ?? [];

@@ -106,3 +106,4 @@ export {
   ARTICLE_GENERATION_SYSTEM_PROMPT,
 } from "./generate-article.js";
 export { generateStepImage, buildStepImagePrompt, IMAGE_GENERATION_PROVIDERS } from "./generate-step-image.js";
+export type { StepImageDirectorHints } from "./generate-step-image.js";

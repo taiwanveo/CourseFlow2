@@ -1,0 +1,7 @@
+{
+  "name": "asian-slide-design",
+  "version": "1.0.0",
+  "category": "Presentation Design",
+  "description": "製作簡報投影片時的設計參考準則，整合日本與台灣近十年的實作派簡報方法論。規劃版面、決定文字與圖表擺放、判斷配圖、擺脫 AI 風時必讀。",
+  "compat": ["cursor", "claude-code", "codex-cli"]
+}

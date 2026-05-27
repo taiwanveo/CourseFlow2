@@ -175,50 +175,97 @@ function stylePromptUsesChinese(styleFragment: string): boolean {
   return /[\u4e00-\u9fff]/.test(styleFragment);
 }
 
+/** Visual Director 傳入的生圖提示（避免 llm 依賴 visual-config） */
+export type StepImageDirectorHints = {
+  coreMessage?: string;
+  sceneDescription?: string;
+  imagePromptEn?: string;
+  avoidElements?: string[];
+  layoutIntegration?: string;
+};
+
 export function buildStepImagePrompt(params: {
   courseTopic: string;
   screenContent: string;
   script: string;
   /** BananaX 中文風格規範或英文風格片段 */
   styleFragment?: string;
+  director?: StepImageDirectorHints;
 }): string {
   const topic = params.courseTopic.trim() || "Educational course";
   const screen = params.screenContent.trim();
   const script = params.script.trim().slice(0, 1200);
   const styleFragment = params.styleFragment?.trim();
+  const director = params.director;
+
+  if (director?.imagePromptEn?.trim()) {
+    const avoid =
+      director.avoidElements?.length ? director.avoidElements.join(", ") : "";
+    return [
+      director.imagePromptEn.trim(),
+      director.sceneDescription?.trim()
+        ? `Scene composition: ${director.sceneDescription.trim()}`
+        : "",
+      director.coreMessage?.trim()
+        ? `Core teaching message (semantic only): ${director.coreMessage.trim()}`
+        : "",
+      director.layoutIntegration?.trim()
+        ? `Layout hint: ${director.layoutIntegration.trim()}`
+        : "",
+      "Strict rules: NO readable text, NO letters, NO numbers, NO watermark, NO logo, NO UI frames.",
+      "Single 16:9 educational illustration, one clear focal subject, enough negative space.",
+      avoid ? `Avoid: ${avoid}` : "",
+      styleFragment
+        ? `Style reference (palette/mood only): ${styleFragment.slice(0, 4000)}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
 
   if (styleFragment && stylePromptUsesChinese(styleFragment)) {
     const styleBlock = styleFragment.slice(0, 12000);
     return [
-      "請生成一張 16:9 比例的教學投影片配圖（大學線上課程用）。",
-      "用途：教學影片的輔助視覺背景，不是塞滿文字的資訊圖海報。",
-      "硬性規則：畫面中不可出現可辨識的文字、字母、數字、浮水印、商標或 UI 框架；簡報標題與字幕由系統另行疊加。",
-      "構圖：單一清晰主題、光線柔和、留白充足，適合與投影片排版並存。",
+      "你是「簡報視覺導演、動態插圖設計師、教學設計顧問」。",
+      "任務：先理解此頁真正要教會觀眾的概念，再生成一張最能補足理解的 16:9 教學配圖。",
+      "用途：教學影片中的輔助插圖，不是文字海報，不是 UI 截圖，不是泛用裝飾圖。",
+      "請優先做「內容感知」：讓圖像對應本頁的核心概念、關係、流程、風險、對比或情境，而非重複文字。",
+      "硬性規則：不可出現可辨識文字、字母、數字、浮水印、商標、品牌 logo、介面框、圖表軸標。",
+      "畫面原則：單一主視覺焦點、構圖清楚、留白足夠、視覺層次明確、可與投影片文字共存。",
+      "若內容更適合流程/關係表達，請在單張圖中用物件關係與視覺路徑表現，不要塞文字。",
+      "避免：過度科技感、過度抽象、過度雜亂、俗套商務素材風。",
       "【以下為 BananaX 視覺風格規範 — 僅套用配色、字體氣質、材質、構圖與氛圍，勿在圖中渲染可讀文字】",
       styleBlock,
       `課程主題：${topic}`,
-      screen ? `本步螢幕重點（勿畫成文字）：${screen}` : "",
-      script ? `口播內容（作為意象與隱喻參考）：${script}` : "",
-      "請依本步教學重點呈現一個有助理解的視覺意象。",
+      screen ? `螢幕文字重點（只可作語意理解，不可直接畫字）：${screen}` : "",
+      script ? `口播稿重點（只可作語意理解，不可直接畫字）：${script}` : "",
+      "請先判斷最適視覺類型（情境插圖/流程關係/風險警示/對比隱喻/系統互動），再輸出最終單張插圖。",
+      "輸出內容只要圖片，不要任何文字說明。",
     ]
       .filter(Boolean)
       .join("\n");
   }
 
   return [
-    "Create a single 16:9 educational presentation illustration for a university-level online course slide.",
-    "Purpose: supporting visual for a teaching video — NOT a poster with text.",
-    "Strict rules: NO text, NO letters, NO numbers, NO watermark, NO logo, NO UI mockup frames.",
-    "Composition: one clear focal subject, soft lighting, uncluttered, suitable behind or beside slide typography.",
+    "You are a presentation visual director and instructional design illustrator.",
+    "Task: infer the core teaching message of this slide, then generate ONE 16:9 supporting illustration that improves understanding.",
+    "Do content-aware visual design: represent abstract ideas, relationships, process, risk, contrast, or scenario; do not paraphrase text.",
+    "Purpose: supporting visual for a teaching video, NOT a text-heavy poster and NOT a UI screenshot.",
+    "Strict rules: NO text, NO letters, NO numbers, NO watermark, NO logo, NO branded marks, NO dashboard/UI frames.",
+    "Composition: one clear focal subject, clean hierarchy, enough negative space, readable with overlaid slide typography.",
+    "Avoid: over-sci-fi look, overly abstract noise, clutter, generic stock-business vibe.",
     styleFragment
-      ? `Visual style reference (apply color, texture, and mood only — do not add readable text): ${styleFragment}`
-      : "Style: clean modern flat or semi-flat design, professional.",
+      ? `Style reference (apply palette/material/mood only, never render readable text): ${styleFragment}`
+      : "Style: clean modern educational illustration, professional and concept-driven.",
     `Course subject / module theme: ${topic}`,
-    screen ? `What appears on screen (key ideas only, do not render as text): ${screen}` : "",
-    script
-      ? `What the instructor explains in voiceover (use for context and metaphors): ${script}`
+    screen
+      ? `On-screen key points (semantic guidance only, do not render as text): ${screen}`
       : "",
-    "Depict one clear concept that helps learners understand this specific step.",
+    script
+      ? `Voiceover meaning (semantic guidance only, do not render as text): ${script}`
+      : "",
+    "First infer the best visual type, then render one final still image.",
+    "Output image only.",
   ]
     .filter(Boolean)
     .join("\n");
