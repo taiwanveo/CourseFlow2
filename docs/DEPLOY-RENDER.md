@@ -90,14 +90,19 @@ git push -u origin main
 
 ## 部署方式 A：Blueprint（建議）
 
-1. 確認 `render.yaml` 已 push 到 `main`
-2. 開啟：
+> **若 Dashboard 顯示「Production is empty」**：代表只建了空的 **Project**，尚未從 GitHub 套用 `render.yaml`。請依下列步驟操作，完成後才會出現 `courseflow-v2-web` / `courseflow-v2-worker`。
+
+1. 確認 `render.yaml` 已 push 到 `main`（根目錄含 `projects: CourseFlow2`）
+2. 開啟（建議用此連結，不要只建空白 Project）：
    ```
    https://dashboard.render.com/blueprint/new?repo=https://github.com/taiwanveo/CourseFlow2
    ```
-3. 連結 GitHub OAuth，套用 Blueprint
-4. 為 `courseflow-v2-shared` 群組內 `sync: false` 的變數填入 **v2** Supabase / Redis 數值
-5. 點 **Apply**，等待 `courseflow-v2-web` 與 `courseflow-v2-worker` 都 **Live**
+3. 連結 GitHub OAuth，選分支 `main`，Render 會讀取根目錄 `render.yaml`
+4. 預覽應顯示 **2 個服務**（web + worker）與 **1 個 env group**（`courseflow-v2-shared`）
+5. 為所有 `sync: false` 的變數填入 **v2** Supabase / Redis / 加密密鑰（見下方表格）
+6. 點 **Apply**（套用），等待 `courseflow-v2-web` 與 `courseflow-v2-worker` 出現在 **CourseFlow2 → Production** 且狀態為 **Live**
+
+若已存在空的 CourseFlow2 Project：仍請用上方 Blueprint 連結；套用後服務會依 `render.yaml` 的 `projects.name: CourseFlow2` 歸入該專案。
 
 首次 Docker build 可能需 **15–25 分鐘**。
 
