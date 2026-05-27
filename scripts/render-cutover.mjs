@@ -75,34 +75,27 @@ async function patchService(serviceId, body) {
   });
 }
 
-async function putEnv(serviceId, envVars) {
-  return api(`/services/${serviceId}/env-vars`, {
+/** 單一變數 upsert（避免 bulk PUT 把 Dashboard 空 key / secret 占位一併送回去） */
+async function upsertEnv(serviceId, key, value) {
+  const k = key.trim();
+  if (!k) return;
+  const encoded = encodeURIComponent(k);
+  return api(`/services/${serviceId}/env-vars/${encoded}`, {
     method: "PUT",
-    body: JSON.stringify(
-      envVars.map(({ key, value }) => ({ envVar: { key, value } })),
-    ),
+    body: JSON.stringify({ key: k, value: value ?? "" }),
   });
 }
 
 async function mergeEnv(serviceId, envVars) {
-  const current = await api(`/services/${serviceId}/env-vars`);
-  const rows = Array.isArray(current) ? current : [];
-  const map = new Map();
-  for (const row of rows) {
-    const ev = row.envVar ?? row;
-    if (ev?.key) map.set(ev.key, ev.value ?? "");
+  for (const { key, value } of envVars) {
+    await upsertEnv(serviceId, key, value);
   }
-  for (const { key, value } of envVars) map.set(key, value);
-  return putEnv(
-    serviceId,
-    [...map.entries()].map(([key, value]) => ({ key, value })),
-  );
 }
 
 async function createDeploy(serviceId) {
   return api(`/services/${serviceId}/deploys`, {
     method: "POST",
-    body: JSON.stringify({ clearCache: true }),
+    body: JSON.stringify({ clearCache: "clear" }),
   });
 }
 
@@ -119,12 +112,16 @@ function dockerPatch(dockerfilePath) {
   };
 }
 
-async function cutoverService({ id, name, type, dockerfile }) {
+async function cutoverService({ id, name, type, dockerfile, skipGit }) {
   console.log(`\n→ ${name} (${id}, ${type})`);
-  await patchService(id, dockerPatch(dockerfile));
-  console.log("  Git / Docker 已指向 CourseFlow2");
+  if (!skipGit) {
+    await patchService(id, dockerPatch(dockerfile));
+    console.log("  Git / Docker 已指向 CourseFlow2");
+  } else {
+    console.log("  （略過 Git/Docker，僅更新 env + 部署）");
+  }
   await mergeEnv(id, MERGE_ENV);
-  console.log("  已合併 COURSEFLOW_EDITION=v2（其餘 Supabase/Redis 變數保留不變）");
+  console.log("  已設定 COURSEFLOW_EDITION=v2、NODE_ENV=production");
   const deploy = await createDeploy(id);
   const deployId = deploy?.id ?? deploy?.deploy?.id ?? "(unknown)";
   console.log(`  已觸發部署（clear cache）: ${deployId}`);
@@ -155,11 +152,14 @@ async function main() {
     worker = services.find((s) => s.type === "background_worker");
   }
 
+  const skipGit = process.env.RENDER_CUTOVER_SKIP_GIT === "1";
+
   await cutoverService({
     id: web.id,
     name: web.name,
     type: web.type,
     dockerfile: "./Dockerfile.web",
+    skipGit,
   });
 
   if (worker) {
@@ -168,12 +168,15 @@ async function main() {
       name: worker.name,
       type: worker.type,
       dockerfile: "./Dockerfile.worker",
+      skipGit,
     });
   } else {
     console.warn("\n⚠ 未找到 Background Worker，請在 Dashboard 手動改 worker 的 Git/Dockerfile.worker");
   }
 
-  console.log("\n完成。請在 Supabase 執行 v2 migrations，並確認 Auth 網址仍為 https://courseflow-web-txjr.onrender.com");
+  console.log(
+    "\n完成。Supabase migrations 若已套用，請至 Dashboard 確認 deploy 成功後開啟 https://courseflow-web-txjr.onrender.com",
+  );
 }
 
 main().catch((e) => {
