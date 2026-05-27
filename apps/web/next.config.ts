@@ -11,6 +11,10 @@ const nextConfig: NextConfig = {
   output: process.platform === "win32" ? undefined : "standalone",
   // pnpm monorepo：讓 standalone 能追蹤到 workspace 根目錄的 node_modules（含 edge-tts-universal）
   outputFileTracingRoot: monorepoRoot,
+  // WVP scaffold／主題 API 以 fs 讀 vendor，需手動納入 standalone trace
+  outputFileTracingIncludes: {
+    "/*": ["./packages/wvp-bridge/vendor/web-video-presentation/**/*"],
+  },
   transpilePackages: [
     "@courseflow/core",
     "@courseflow/db",

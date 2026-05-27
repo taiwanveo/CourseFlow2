@@ -86,6 +86,8 @@ git push -u origin main
 
 **Edge-TTS**：`apps/web` 需 `edge-tts-universal`，`next.config.ts` 設 `outputFileTracingRoot` 指向 monorepo 根目錄。
 
+**WVP 視覺動效**：`試執行第 1 章` 會從 `packages/wvp-bridge/vendor/web-video-presentation/templates` 複製 Vite 模板；`Dockerfile.web` 與 `outputFileTracingIncludes` 必須一併帶上 vendor，否則會出現 `ENOENT … vite.config.ts`。變更後請 **Clear build cache & deploy**。
+
 > 變更任一 `NEXT_PUBLIC_*` 後請 **Clear build cache & deploy**。
 
 ## 部署方式 A：Blueprint（建議）
