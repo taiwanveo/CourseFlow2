@@ -11,6 +11,7 @@
     "typecheck": "turbo typecheck",
     "sync-wvp": "node scripts/sync-wvp-skill.mjs",
     "bananax:catalog": "node scripts/build-bananax-catalog.mjs",
+    "render:cutover": "node scripts/render-cutover.mjs",
     "bananax:catalog:json": "node scripts/build-bananax-catalog.mjs --skip-download",
     "playwright:install": "pnpm --filter @courseflow/presentation exec playwright install chromium"
   },
