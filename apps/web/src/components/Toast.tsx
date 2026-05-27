@@ -1,5 +1,6 @@
 "use client";
 
+import { playFinishedSound, playWarningSound } from "@/lib/ui-sounds";
 import {
   createContext,
   useCallback,
@@ -11,6 +12,11 @@ import {
 
 export type ToastType = "success" | "error" | "info";
 
+export type ToastOptions = {
+  /** 長時間 AI／批次任務成功完成時播放 Finished 音效 */
+  taskComplete?: boolean;
+};
+
 type ToastItem = {
   id: string;
   message: string;
@@ -18,7 +24,7 @@ type ToastItem = {
 };
 
 type ToastContextValue = {
-  toast: (message: string, type?: ToastType) => void;
+  toast: (message: string, type?: ToastType, options?: ToastOptions) => void;
 };
 
 const ToastContext = createContext<ToastContextValue | null>(null);
@@ -33,9 +39,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toast = useCallback(
-    (message: string, type: ToastType = "info") => {
+    (message: string, type: ToastType = "info", options?: ToastOptions) => {
       const id = crypto.randomUUID();
       setToasts((prev) => [...prev, { id, message, type }]);
+      if (type === "error") {
+        playWarningSound();
+      } else if (type === "success" && options?.taskComplete) {
+        playFinishedSound();
+      }
       window.setTimeout(() => dismiss(id), TOAST_DURATION_MS);
     },
     [dismiss],

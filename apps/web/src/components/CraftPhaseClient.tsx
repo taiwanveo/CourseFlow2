@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { canAccessWvpPhase, type WvpPhaseLocks } from "@courseflow/core";
 import { WvpPhaseBottomActions, WvpPhaseNav } from "@/components/ProjectPhaseNav";
 import { useToast } from "@/components/Toast";
+import { playFinishedSound, playWarningSound } from "@/lib/ui-sounds";
 import { useConfiguredLlmProviders } from "@/hooks/useConfiguredLlmProviders";
 import { ImageStylePickerModal } from "@/components/ImageStylePickerModal";
 import type { ImageStyleCatalogEntry } from "@/data/image-style-catalog";
@@ -275,6 +276,7 @@ export function CraftPhaseClient({
         failed?: number;
       };
       if (s.failed && s.failed > 0) {
+        playWarningSound();
         toast(
           `已完成 ${s.generated ?? 0}/${s.total ?? 0} 章 AI 產生；${s.failed} 章有錯誤（見主控台或重試單章）`,
           "info",
@@ -283,6 +285,7 @@ export function CraftPhaseClient({
         toast(
           `已處理 ${s.total ?? chapters.length} 章：匯入口播 ${s.synced ?? 0}、產生畫面 ${s.generated ?? 0}。請前往「3. 語音生成」，再到「4. 預覽匯出」打包。`,
           "success",
+          { taskComplete: true },
         );
       }
     } catch (e) {
@@ -319,7 +322,7 @@ export function CraftPhaseClient({
         data.chapterSource === "llm"
           ? "（AI 依文稿客製視覺）"
           : "（文稿對齊模板，含內容化動效）";
-      toast(`本章畫面程式已產生${src}`, "success");
+      toast(`本章畫面程式已產生${src}`, "success", { taskComplete: true });
     } catch (e) {
       toast(e instanceof Error ? e.message : "AI 產生失敗", "error");
     } finally {
@@ -361,8 +364,11 @@ export function CraftPhaseClient({
             : "清單揭示";
       if (data.illustrationSyncWarning) {
         toast(`第 1 章試執行完成（${tpl}）。${data.illustrationSyncWarning}`, "info");
+        playFinishedSound();
       } else {
-        toast(`第 1 章試執行完成（自動套用 ${tpl} 模板）`, "success");
+        toast(`第 1 章試執行完成（自動套用 ${tpl} 模板）`, "success", {
+          taskComplete: true,
+        });
       }
     } catch (e) {
       toast(e instanceof Error ? e.message : "試執行失敗", "error");

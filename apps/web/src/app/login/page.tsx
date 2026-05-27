@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { BrandMark } from "@/components/BrandMark";
+import { usePlaySoundOnError } from "@/hooks/usePlaySoundOnError";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -12,6 +13,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  usePlaySoundOnError(error);
 
   async function handleAuth(mode: "signIn" | "signUp") {
     const supabase = createClient();

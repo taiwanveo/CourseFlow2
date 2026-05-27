@@ -33,6 +33,7 @@ import { ENTER_ANIMATIONS, TRANSITIONS } from "@courseflow/wvp-bridge/catalog";
 import { VISUAL_FONT_OPTIONS } from "@/lib/visual-options";
 import { nextZIndex, reorderElementLayer, type LayerAction } from "@/lib/visual-layer";
 import { useToast } from "@/components/Toast";
+import { playFinishedSound } from "@/lib/ui-sounds";
 import type { LlmProviderId } from "@courseflow/llm";
 import { IMAGE_GENERATION_PROVIDERS } from "@courseflow/llm";
 import { PROVIDER_LABELS } from "@/lib/llm-providers.constants";
@@ -522,7 +523,7 @@ export function VisualEditorCanvas({
         succeeded++;
       }
       setComposition(comp);
-      toast(`已為 ${succeeded} 個步驟生成並插入教學配圖`, "success");
+      toast(`已為 ${succeeded} 個步驟生成並插入教學配圖`, "success", { taskComplete: true });
     } catch (e) {
       setComposition(comp);
       toast(
@@ -531,6 +532,7 @@ export function VisualEditorCanvas({
       );
       if (succeeded > 0) {
         toast(`已完成 ${succeeded}/${steps.length} 個步驟`, "info");
+        playFinishedSound();
       }
     } finally {
       setGeneratingBatch(false);

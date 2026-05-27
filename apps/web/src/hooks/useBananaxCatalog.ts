@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePlaySoundOnError } from "@/hooks/usePlaySoundOnError";
 import {
   BANANAX_CATALOG_URL,
   type BananaxCatalogFile,
@@ -30,6 +31,8 @@ export function useBananaxCatalog() {
   const [catalog, setCatalog] = useState<BananaxCatalogFile | null>(clientCache);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(!clientCache);
+
+  usePlaySoundOnError(error);
 
   useEffect(() => {
     if (clientCache) {

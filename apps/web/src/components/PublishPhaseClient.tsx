@@ -101,7 +101,7 @@ export function PublishPhaseClient({
       if (result?.warning && !result.storageUploaded) {
         toast(`預覽已打包；雲端上傳略過：${result.warning}`, "info");
       } else {
-        toast("課程預覽已打包（含語音），可開啟播放", "success");
+        toast("課程預覽已打包（含語音），可開啟播放", "success", { taskComplete: true });
       }
       window.open(`/projects/${projectId}/wvp-play`, "_blank", "noopener,noreferrer");
       return;
@@ -159,7 +159,7 @@ export function PublishPhaseClient({
       if (data.warning && !data.storageUploaded) {
         toast(`預覽已打包；雲端上傳略過：${data.warning}`, "info");
       } else {
-        toast("課程預覽已打包（含語音），可開啟播放", "success");
+        toast("課程預覽已打包（含語音），可開啟播放", "success", { taskComplete: true });
       }
       window.open(`/projects/${projectId}/wvp-play`, "_blank", "noopener,noreferrer");
     } catch (e) {

@@ -82,7 +82,7 @@ export function ExportMp4Button({
         setDownloadUrl(data.downloadUrl);
         setStatus("completed");
         setStatusMessage("MP4 已就緒");
-        toast("MP4 渲染完成，可以下載了", "success");
+        toast("MP4 渲染完成，可以下載了", "success", { taskComplete: true });
         return;
       }
 

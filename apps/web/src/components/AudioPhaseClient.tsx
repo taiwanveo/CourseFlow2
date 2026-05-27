@@ -205,7 +205,7 @@ export function AudioPhaseClient({
       const status = data.job?.status as string | undefined;
       if (status === "completed") {
         await refreshComposition();
-        toast("語音合成完成", "success");
+        toast("語音合成完成", "success", { taskComplete: true });
         onDone();
         return;
       }
@@ -273,6 +273,7 @@ export function AudioPhaseClient({
         toast(
           payload.stepIds?.length === 1 ? "此步驟語音合成完成" : "語音合成完成",
           "success",
+          { taskComplete: true },
         );
         await refreshComposition();
         finish();

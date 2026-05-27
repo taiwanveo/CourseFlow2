@@ -139,7 +139,7 @@ export function ContentPhaseClient({
         return;
       }
       setArticleText(data.text ?? "");
-      toast(`教學內容已生成（${data.length ?? 0} 字）`, "success");
+      toast(`教學內容已生成（${data.length ?? 0} 字）`, "success", { taskComplete: true });
     } finally {
       setGeneratingArticle(false);
     }
@@ -168,7 +168,7 @@ export function ContentPhaseClient({
       }
       const proj = await fetch(`/api/projects/${projectId}`).then((r) => r.json());
       setComposition(proj.composition);
-      toast(`AI 產生完成：${data.stepCount} 個步驟`, "success");
+      toast(`AI 產生完成：${data.stepCount} 個步驟`, "success", { taskComplete: true });
     } finally {
       setGenerating(false);
     }
