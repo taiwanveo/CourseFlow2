@@ -17,13 +17,13 @@ const PRESENTATION_PACKAGE_JSON = {
     react: "^19.1.0",
     "react-dom": "^19.1.0",
     recharts: "^2.15.3",
+    "@vitejs/plugin-react": "^4.4.1",
+    typescript: "^5.8.3",
+    vite: "^6.3.5",
   },
   devDependencies: {
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
-    "@vitejs/plugin-react": "^4.4.1",
-    typescript: "^5.8.3",
-    vite: "^6.3.5",
     tsx: "^4.19.4",
   },
 } as const;
