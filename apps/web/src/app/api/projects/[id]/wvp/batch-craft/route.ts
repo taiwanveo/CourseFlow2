@@ -14,7 +14,7 @@ import { wvpPlayPagePath } from "@/lib/wvp-workdir";
 export const runtime = "nodejs";
 export const maxDuration = 600;
 
-/** 一鍵：全部章節 ②③，可選 ④ 打包預覽 */
+/** 一鍵：全課批次生成（視覺動效），可選一併打包預覽 */
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },

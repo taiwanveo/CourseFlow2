@@ -70,7 +70,7 @@ flowchart LR
 ### B3 — 接入 WVP Craft 管線
 
 - 每步 `composition.steps[]` 可選欄位：`visualConfig?: VisualConfig`
-- Craft ②③ 流程：
+- Craft（視覺動效）流程：
   1. 既有 `chapterKind` 路由（list / flow / magazine）
   2. 對「含數字／比例／對照」的 step，LLM 產 `visualConfig`，章節 TSX 改為 `<VisualBlock config={...} />` + 標題口播
 - 建置前 checklist 新增：`visual-config-valid`

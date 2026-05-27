@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
@@ -73,13 +73,20 @@ export async function POST(
         );
       }
 
-      void runWvpBuild({
+      const buildPayload = {
         projectId: id,
         userId: user.id,
         jobRunId: jobRun.id,
-      }).catch((err) => {
-        console.error("[wvp-build] 背景建置失敗:", err);
-      });
+      };
+      const runInBackground = () =>
+        runWvpBuild(buildPayload).catch((err) => {
+          console.error("[wvp-build] 背景建置失敗:", err);
+        });
+      try {
+        after(runInBackground);
+      } catch {
+        void runInBackground();
+      }
 
       return NextResponse.json(
         {

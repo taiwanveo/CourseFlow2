@@ -88,7 +88,7 @@ git push -u origin main
 
 **WVP 視覺動效**：`試執行第 1 章` 會從 `packages/wvp-bridge/vendor/web-video-presentation/templates` 複製 Vite 模板；`Dockerfile.web` 與 `outputFileTracingIncludes` 必須一併帶上 vendor，否則會出現 `ENOENT … vite.config.ts`。建置時會在 presentation 目錄執行 `npm install`，需設定可寫入的 `HOME`／`NPM_CONFIG_CACHE`（勿讓系統使用者落在 `/nonexistent`，否則 `EACCES … mkdir '/nonexistent'`）。容器若為 `NODE_ENV=production`，須以 `--include=dev` 安裝依賴，否則 `vite: not found`。
 
-**預覽匯出打包**：Render HTTP 請求約 30 秒逾時，完整課程 Vite 建置會改為 **背景任務**（`job_runs` + 前端輪詢）。若仍見 HTTP 502，請確認已部署含 `wvp-build` 非同步邏輯的版本。本機可用 `COURSEFLOW_INLINE_WVP_BUILD=1` 維持同步打包。
+**預覽匯出打包**：Render HTTP 請求約 30 秒逾時，完整課程 Vite 建置會改為 **背景任務**（`job_runs` + 前端輪詢）。Web 服務請設 `COURSEFLOW_ASYNC_WVP_BUILD=1`（`render.yaml` 已預設）；生產環境 `NODE_ENV=production` 也會自動走非同步。若仍見 HTTP 502：① 確認已重新 deploy 最新版 ② 勿設 `COURSEFLOW_INLINE_WVP_BUILD=1` ③ Dashboard 手動補上上述變數後 Clear build cache & deploy。本機同步打包：`COURSEFLOW_INLINE_WVP_BUILD=1`。
 
 變更後請 **Clear build cache & deploy**。
 

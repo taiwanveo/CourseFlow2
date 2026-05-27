@@ -668,7 +668,7 @@ export type BatchBuildResult = {
   illustrationSyncWarning?: string;
 };
 
-/** ②③ 全部章節 + ④ 打包預覽（含音訊同步與 Vite build） */
+/** 全課批次生成 + 打包預覽（含音訊同步與 Vite build） */
 export async function batchCraftAllChaptersAndBuild(
   supabase: SupabaseClient,
   projectId: string,

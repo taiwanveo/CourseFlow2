@@ -94,7 +94,7 @@ export default function App() {
         canNext={canNext}
       />
       <Stage onAdvance={stepper.next}>
-        <div key={ch.id} className="scene">
+        <div key={`${ch.id}-${stepper.cursor.step}`} className="scene">
           <Cmp step={stepper.cursor.step} />
         </div>
       </Stage>

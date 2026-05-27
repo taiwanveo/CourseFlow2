@@ -139,7 +139,7 @@ export function evaluateProjectExportReadiness(opts: {
     blockers.push(
       detail
         ? `部分章節未通過視覺自檢：${names}（${detail}）`
-        : `部分章節未通過視覺自檢：${names}，請在視覺動效重做 ②③`,
+        : `部分章節未通過視覺自檢：${names}，請回到「視覺動效」修正後再匯出。`,
     );
   }
   if (opts.audioReady === false && opts.audioMessage) {

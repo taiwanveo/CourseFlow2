@@ -26,7 +26,7 @@ export function WvpPlayNotReady({
       ? "資料庫顯示曾建置成功，但本機 dist 找不到（可能路徑或檔案被刪除）。請回到視覺動效重新試執行第 1 章，或於「4. 預覽匯出」重新打包。"
       : returnHref
         ? "請先在「2. 視覺動效」完成「試執行第 1 章」，建置成功後才能預覽。"
-        : "請依序完成：「2. 視覺動效」②③ →「3. 語音生成」批次 TTS →「4. 預覽匯出」打包。建置成功後才能進入播放畫面。";
+        : "請依序完成：「視覺動效」完成/鎖定 →「語音生成」批次 TTS →「預覽匯出」打包課程。建置成功後才能進入播放畫面。";
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black px-6">
