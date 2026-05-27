@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
+import { runWvpBuild } from "@/lib/run-wvp-build";
+import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { syncFullWvpProject } from "@/lib/wvp-presentation-sync";
 import { wvpEmbedBasePath, wvpPlayPagePath } from "@/lib/wvp-workdir";
 
@@ -48,6 +50,45 @@ export async function POST(
           audioGate,
         },
         { status: 400 },
+      );
+    }
+
+    if (shouldAsyncWvpBuild()) {
+      const { data: jobRun, error: jobError } = await supabase
+        .from("job_runs")
+        .insert({
+          project_id: id,
+          user_id: user.id,
+          job_type: "wvp-build",
+          status: "pending",
+          payload: {},
+        })
+        .select("id")
+        .single();
+
+      if (jobError || !jobRun) {
+        return NextResponse.json(
+          { error: jobError?.message ?? "無法建立建置任務" },
+          { status: 500 },
+        );
+      }
+
+      void runWvpBuild({
+        projectId: id,
+        userId: user.id,
+        jobRunId: jobRun.id,
+      }).catch((err) => {
+        console.error("[wvp-build] 背景建置失敗:", err);
+      });
+
+      return NextResponse.json(
+        {
+          ok: true,
+          queued: true,
+          jobRunId: jobRun.id,
+          message: "課程打包已開始，請稍候（首次可能需數分鐘）",
+        },
+        { status: 202 },
       );
     }
 

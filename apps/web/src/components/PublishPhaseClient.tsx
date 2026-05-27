@@ -77,6 +77,49 @@ export function PublishPhaseClient({
       .catch(() => undefined);
   }, [projectId]);
 
+  const pollWvpBuildJob = async (jobRunId: string, attempt = 0): Promise<void> => {
+    const res = await fetch(`/api/job-runs/${jobRunId}`);
+    const data = (await res.json()) as {
+      error?: string;
+      job?: {
+        status?: string;
+        error_message?: string | null;
+        result?: {
+          warning?: string;
+          storageUploaded?: boolean;
+        };
+      };
+    };
+    if (!res.ok) {
+      throw new Error(data.error ?? "無法查詢打包狀態");
+    }
+
+    const status = data.job?.status;
+    if (status === "completed") {
+      const result = data.job?.result;
+      setPreviewBuilt(true);
+      if (result?.warning && !result.storageUploaded) {
+        toast(`預覽已打包；雲端上傳略過：${result.warning}`, "info");
+      } else {
+        toast("課程預覽已打包（含語音），可開啟播放", "success");
+      }
+      window.open(`/projects/${projectId}/wvp-play`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (status === "failed") {
+      throw new Error(data.job?.error_message ?? "打包失敗");
+    }
+
+    if (attempt >= 180) {
+      throw new Error(
+        "打包時間過長仍未完成。請稍後重新整理頁面，或至 Render 查看 Web 服務日誌是否記憶體不足。",
+      );
+    }
+
+    await new Promise((r) => window.setTimeout(r, 2000));
+    return pollWvpBuildJob(jobRunId, attempt + 1);
+  };
+
   const buildWvpPreview = async () => {
     if (!audioGate.ready) {
       toast(audioGate.message ?? "請先完成語音合成", "error");
@@ -91,15 +134,25 @@ export function PublishPhaseClient({
         warning?: string;
         storageUploaded?: boolean;
         chaptersVisualUpgraded?: string[];
+        queued?: boolean;
+        jobRunId?: string;
+        message?: string;
       } = {};
       try {
         data = JSON.parse(text) as typeof data;
       } catch {
-        throw new Error(
-          res.ok
-            ? "建置回應格式錯誤"
-            : `建置失敗（HTTP ${res.status}）。請重啟 pnpm dev 後再試。`,
-        );
+        const hint =
+          res.status === 502 || res.status === 504
+            ? "伺服器逾時（雲端打包需數分鐘）。請確認已部署最新版並稍後重試。"
+            : res.status >= 500
+              ? "伺服器錯誤，請稍後再試或查看部署日誌。"
+              : "請確認本機已執行 pnpm dev，且 @courseflow/presentation 已編譯。";
+        throw new Error(`建置失敗（HTTP ${res.status}）。${hint}`);
+      }
+      if (res.status === 202 && data.jobRunId) {
+        toast(data.message ?? "課程打包已開始，請稍候…", "info");
+        await pollWvpBuildJob(data.jobRunId);
+        return;
       }
       if (!res.ok) throw new Error(data.error ?? "建置失敗");
       setPreviewBuilt(true);
