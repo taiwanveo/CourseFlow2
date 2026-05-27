@@ -74,7 +74,8 @@ pnpm sync-wvp
 
 ## 部署
 
-[docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) — Blueprint 服務名：`courseflow-v2-web` / `courseflow-v2-worker`。
+- **沿用既有 courseflow-web 網址（v1→v2 切換）**：[docs/DEPLOY-CUTOVER-courseflow-web.md](docs/DEPLOY-CUTOVER-courseflow-web.md)（可選 `pnpm render:cutover`）
+- **新建 Render 服務**：[docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) — Blueprint：`courseflow-v2-web` / `courseflow-v2-worker`
 
 ## 授權
 
