@@ -43,6 +43,7 @@ RUN pnpm turbo build --filter=@courseflow/worker...
 
 FROM base AS runner
 ENV NODE_ENV=production
+ENV COURSEFLOW_PRESENTATION_ROOT=/tmp/cf-presentations
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules

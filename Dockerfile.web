@@ -37,6 +37,8 @@ RUN pnpm turbo build --filter=@courseflow/web...
 FROM base AS runner
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
+# Presentation 工作目錄：非 root user 可寫入的 /tmp；build 產物上傳到 Supabase Storage
+ENV COURSEFLOW_PRESENTATION_ROOT=/tmp/cf-presentations
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs \
