@@ -44,7 +44,7 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     await cp(join(t, "src/hooks", hook), join(hooksDir, hook), { force: true });
   }
   await cp(join(t, "src/App.tsx"), join(presentationDir, "src/App.tsx"), { force: true });
-  for (const css of ["animations.css", "asian-slide-design.css"]) {
+  for (const css of ["base.css", "animations.css", "asian-slide-design.css"]) {
     await cp(join(t, "src/styles", css), join(presentationDir, "src/styles", css), {
       force: true,
     });
@@ -138,14 +138,21 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     if (!needsChapterContentUpgrade(tsx, css, narrations)) continue;
 
     const wvpId = folderName.replace(/^\d+-/, "") || folderName;
-    const titleMatch = tsx.match(/className="masthead"[^>]*>([^<]+)</);
+    const titleMatch = tsx.match(/className="brand"[^>]*>([^<]+)</);
     const title = titleMatch?.[1]?.trim() || wvpId;
+
+    let forceTemplate: import("@courseflow/core").WvpChapterKind | undefined;
+    if (/ListRevealGrid/.test(tsx)) forceTemplate = "list-reveal";
+    else if (/FlowDiagram/.test(tsx)) forceTemplate = "flow";
+    else if (/HookImageStrip/.test(tsx)) forceTemplate = "hook";
+    else if (/VisualBlock/.test(tsx)) forceTemplate = "magazine";
 
     const generated = generateChapterSources({
       folderName,
       wvpChapterId: wvpId,
       title,
       narrations,
+      forceTemplate,
       stepBeats: narrations.map((_, i) => ({
         step: i,
         dominantAction: truncateForBeat(narrations[i] ?? ""),

@@ -70,7 +70,8 @@ export async function runWvpBuild(payload: {
     return jobResult;
   } catch (e) {
     const message = e instanceof Error ? e.message : "建置失敗";
-    await patchJob({ status: "failed", error_message: message });
+    console.error("[wvp-build] 背景建置失敗:", message);
+    await patchJob({ status: "failed", error_message: message.slice(0, 2000) });
     throw e;
   }
 }

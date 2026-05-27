@@ -72,13 +72,21 @@ function run(cmd: string, args: string[], cwd: string, env: Record<string, strin
       shell: process.platform === "win32",
       stdio: ["ignore", "pipe", "pipe"],
     });
+    let out = "";
     let err = "";
+    child.stdout?.on("data", (d) => {
+      out += d.toString();
+    });
     child.stderr?.on("data", (d) => {
       err += d.toString();
     });
     child.on("close", (code) => {
       if (code === 0) resolve();
-      else reject(new Error(err || `${cmd} exited ${code}`));
+      else {
+        const tail = (err || out).slice(-4000);
+        console.error(`[wvp-build] ${cmd} ${args.join(" ")} failed:\n${tail}`);
+        reject(new Error(tail || `${cmd} exited ${code}`));
+      }
     });
     child.on("error", reject);
   });

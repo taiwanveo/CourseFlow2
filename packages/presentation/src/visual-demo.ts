@@ -26,6 +26,7 @@ function narrationSnippetInTsx(tsx: string, narration: string): boolean {
 export function hasVisualDemoInSources(tsx: string, css: string): boolean {
   const blob = `${tsx}\n${css}`;
   if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock|vf-chart|hk-solo-frame|cf-flow-svg|lr-slot-active/i.test(blob)) return true;
+  if (/ChapterFigure|hero-num|MaskReveal\s+show/i.test(blob)) return true;
   if (/NarrationBeat|cf-narration-beat/i.test(blob)) return true;
   if (/<svg|<canvas/i.test(blob)) return true;
   if (/@keyframes|animation:\s*[^n]/i.test(css)) return true;
@@ -62,13 +63,13 @@ export function needsChapterContentUpgrade(
   css: string,
   narrations: string[],
 ): boolean {
+  if (/StepContentViz/.test(tsx)) return true;
   if (/ListRevealGrid/.test(tsx) && !/imageUrl|lr-featured-img/.test(tsx)) return true;
   if (/FlowDiagram/.test(tsx) && !/stepImageUrl/.test(tsx)) return true;
-  if (/ChapterFigure/.test(tsx) && !/import\.meta\.env\.BASE_URL\}images/.test(tsx)) return true;
-  if (/StepContentViz/.test(tsx)) return true;
-  if (chapterUsesInvalidMaskReveal(tsx)) return true;
+  if (chapterUsesInvalidMaskReveal(tsx) && !/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) {
+    return true;
+  }
   if (!hasVisualDemoInSources(tsx, css)) return true;
-  if (!/ListRevealGrid|FlowDiagram|NarrationBeat/.test(tsx)) return true;
   if (!chapterBindsNarrationText(tsx, narrations)) return true;
   return false;
 }
