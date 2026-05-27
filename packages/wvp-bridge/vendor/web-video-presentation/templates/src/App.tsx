@@ -55,11 +55,14 @@ export default function App() {
     stepper.next();
   }, [stepper]);
 
-  const trailMs = mode === "auto" ? 1100 : 200;
+  /** 步與步之間：進入新 step 後稍停再播；auto 模式播完再留一拍才前進 */
+  const stepGapMs = mode === "manual" ? 0 : 1200;
+  const trailMs = mode === "auto" ? 1200 : 0;
 
   useAudioPlayer({
     src: audioSrc,
     mode,
+    leadMs: stepGapMs,
     trailMs,
     estimateFallbackMs: estimateMs(stepText),
     onAutoAdvance,

@@ -25,11 +25,11 @@ export function VisualBlock({
         </header>
       ) : null}
       {config.kind === "chart" ? (
-        <ChartRenderer config={config} />
+        <ChartRenderer key={step} config={config} />
       ) : config.kind === "table" ? (
-        <TableRenderer config={config} step={step} />
+        <TableRenderer key={step} config={config} step={step} />
       ) : (
-        <AnimationRenderer config={config} />
+        <AnimationRenderer key={step} config={config} />
       )}
     </div>
   );

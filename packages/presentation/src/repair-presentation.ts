@@ -35,10 +35,23 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
   const scaleSrc = join(t, "src/hooks/useStageScale.ts");
   const scaleDst = join(hooksDir, "useStageScale.ts");
   await cp(scaleSrc, scaleDst, { force: true });
-  for (const hook of ["useStepper.ts", "useAutoMode.ts", "usePlayControlBridge.ts"]) {
+  for (const hook of [
+    "useStepper.ts",
+    "useAutoMode.ts",
+    "usePlayControlBridge.ts",
+    "useAudioPlayer.ts",
+  ]) {
     await cp(join(t, "src/hooks", hook), join(hooksDir, hook), { force: true });
   }
   await cp(join(t, "src/App.tsx"), join(presentationDir, "src/App.tsx"), { force: true });
+  for (const css of ["animations.css"]) {
+    await cp(join(t, "src/styles", css), join(presentationDir, "src/styles", css), {
+      force: true,
+    });
+  }
+  await cp(join(t, "src/components/MaskReveal.tsx"), join(componentsDir, "MaskReveal.tsx"), {
+    force: true,
+  });
   for (const name of [
     "StageNav.tsx",
     "StageNav.css",

@@ -8,9 +8,9 @@ interface Options {
   /** `manual` = no playback. `audio` = play but don't auto-advance.
    *  `auto` = play and auto-advance when finished. */
   mode: PlaybackMode;
-  /** Small breathing pad (ms) after audio finishes before advancing,
-   *  in `auto` mode. Default 200ms. Set to 0 if mp3 already has trailing
-   *  silence. */
+  /** Pause (ms) after landing on a new step before starting audio. */
+  leadMs?: number;
+  /** Breathing pad (ms) after audio finishes before advancing, in `auto` mode. */
   trailMs?: number;
   /** Fallback duration (ms) for `auto` mode when the audio file is missing
    *  or fails to play. Typically computed from text length. */
@@ -25,29 +25,19 @@ interface Options {
 /**
  * Per-step audio playback for the presentation.
  *
- * Manages a single hidden `<audio>` element. Switches `src` whenever the
- * current step changes.
- *
- * In `auto` mode:
- *   • Audio file present → advance `trailMs` after the audio's `ended` event.
- *   • Audio file missing / blocked / src = null → advance after
- *     `estimateFallbackMs` (so previews and silent steps still work).
- *
- * Audio playback is the sole driver of step duration — there is intentionally
- * no "minimum hold" knob. If a chapter's visual animation needs more time,
- * the chapter should write longer narration, split the step, or speed the
- * animation up. This keeps Auto-mode behavior trivially predictable.
+ * Waits for `canplay` before `play()` so the opening of each mp3 is not clipped.
+ * Uses `leadMs` / `trailMs` for pacing between steps in auto mode.
  */
 export function useAudioPlayer({
   src,
   mode,
+  leadMs = 0,
   trailMs = 200,
   estimateFallbackMs = 1500,
   onAutoAdvance,
   autoStarted,
 }: Options) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // Latest callback ref so timers don't capture stale closures.
   const onAdvanceRef = useRef(onAutoAdvance);
   onAdvanceRef.current = onAutoAdvance;
 
@@ -64,42 +54,65 @@ export function useAudioPlayer({
     if (mode === "auto" && !autoStarted) return;
 
     let advanced = false;
-    let timer: number | null = null;
+    let leadTimer: number | null = null;
+    let trailTimer: number | null = null;
 
     const advanceAfter = (ms: number) => {
       if (mode !== "auto" || advanced) return;
-      timer = window.setTimeout(() => {
+      trailTimer = window.setTimeout(() => {
         if (advanced) return;
         advanced = true;
         onAdvanceRef.current();
       }, Math.max(0, ms));
     };
 
-    if (src) {
+    const startAudio = () => {
+      if (!src) {
+        if (mode === "auto") advanceAfter(estimateFallbackMs);
+        return;
+      }
+
       const audio = new Audio(src);
       audioRef.current = audio;
       audio.preload = "auto";
 
+      const playFromStart = () => {
+        if (advanced) return;
+        try {
+          audio.currentTime = 0;
+        } catch {
+          /* ignore */
+        }
+        void audio.play().catch((err) => {
+          console.warn("audio play failed:", err);
+          if (mode === "auto") advanceAfter(estimateFallbackMs);
+        });
+      };
+
       audio.addEventListener("ended", () => advanceAfter(trailMs));
       audio.addEventListener("error", () => {
-        // Audio file missing or undecodable — fall back to estimate.
         if (mode === "auto") advanceAfter(estimateFallbackMs);
       });
 
-      audio.play().catch((err) => {
-        // Autoplay blocked (rare, AutoStartGate should prevent this) or
-        // file missing — fall back to estimate in auto mode.
-        console.warn("audio play failed:", err);
-        if (mode === "auto") advanceAfter(estimateFallbackMs);
-      });
-    } else if (mode === "auto") {
-      // No audio for this step (silent / empty narration) — use estimate.
-      advanceAfter(estimateFallbackMs);
+      if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+        playFromStart();
+      } else {
+        audio.addEventListener("canplay", playFromStart, { once: true });
+        audio.load();
+      }
+    };
+
+    const lead = Math.max(0, leadMs);
+    if (lead > 0) {
+      leadTimer = window.setTimeout(startAudio, lead);
+    } else {
+      startAudio();
     }
 
     return () => {
       advanced = true;
-      if (timer != null) clearTimeout(timer);
+      if (leadTimer != null) clearTimeout(leadTimer);
+      if (trailTimer != null) clearTimeout(trailTimer);
       const a = audioRef.current;
       if (a) {
         a.pause();
@@ -108,5 +121,5 @@ export function useAudioPlayer({
         audioRef.current = null;
       }
     };
-  }, [src, mode, trailMs, estimateFallbackMs, autoStarted]);
+  }, [src, mode, leadMs, trailMs, estimateFallbackMs, autoStarted]);
 }
