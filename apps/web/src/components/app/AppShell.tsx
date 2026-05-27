@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { BrandMark } from "@/components/BrandMark";
+import { SettingsNavLink } from "@/components/SettingsNavLink";
 
 type AppShellProps = {
   children: ReactNode;
@@ -24,18 +26,14 @@ export function AppShell({
       <header className="cf-topbar">
         <div className="cf-topbar-inner">
           <Link href="/dashboard" className="cf-brand">
-            <span className="cf-brand-mark" aria-hidden>
-              CF
-            </span>
+            <BrandMark size="sm" />
             <span>CourseFlow</span>
           </Link>
           <nav className="cf-nav-actions" aria-label="主要導覽">
             <Link href="/dashboard" className="cf-btn cf-btn-ghost cf-btn-sm">
               我的專案
             </Link>
-            <Link href="/settings" className="cf-btn cf-btn-ghost cf-btn-sm">
-              設定
-            </Link>
+            <SettingsNavLink className="cf-btn cf-btn-ghost cf-btn-sm" />
             <form action="/auth/signout" method="post">
               <button type="submit" className="cf-btn cf-btn-secondary cf-btn-sm">
                 登出

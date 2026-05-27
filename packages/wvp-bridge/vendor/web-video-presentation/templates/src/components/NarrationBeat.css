@@ -1,0 +1,27 @@
+.cf-narration-beat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: min(720px, 100%);
+  margin-top: var(--space-5);
+}
+
+.cf-narration-beat-line {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  line-height: 1.45;
+  opacity: 0;
+  animation: cf-beat-line-in 0.55s ease forwards;
+  animation-delay: calc(0.12s + var(--i, 0) * 0.22s);
+}
+
+@keyframes cf-beat-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

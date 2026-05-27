@@ -81,6 +81,8 @@ export async function POST(
       });
       queued = true;
     } catch {
+      const { resetQueueConnection } = await import("@/lib/queue");
+      await resetQueueConnection();
       queued = false;
     }
   }

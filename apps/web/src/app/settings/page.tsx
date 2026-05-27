@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { useToast } from "@/components/Toast";
 import { Button } from "@/components/ui/Button";
+import { BrandMark } from "@/components/BrandMark";
+import { SETTINGS_RETURN_KEY } from "@/lib/settings-return";
 
 const PROVIDERS = [
   { id: "openai", label: "OpenAI" },
@@ -13,6 +16,7 @@ const PROVIDERS = [
 ];
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const [configured, setConfigured] = useState<string[]>([]);
   const [keys, setKeys] = useState<Record<string, string>>({});
@@ -23,6 +27,23 @@ export default function SettingsPage() {
       .then((r) => r.json())
       .then((d) => setConfigured((d.providers ?? []).map((p: { provider: string }) => p.provider)));
   }, []);
+
+  const goBack = useCallback(() => {
+    const stored =
+      typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem(SETTINGS_RETURN_KEY)
+        : null;
+    if (stored && stored !== "/settings" && stored.startsWith("/")) {
+      sessionStorage.removeItem(SETTINGS_RETURN_KEY);
+      router.push(stored);
+      return;
+    }
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push("/dashboard");
+  }, [router]);
 
   const save = async (provider: string) => {
     if (!keys[provider]?.trim()) {
@@ -54,9 +75,7 @@ export default function SettingsPage() {
       <header className="cf-topbar">
         <div className="cf-topbar-inner">
           <Link href="/dashboard" className="cf-brand">
-            <span className="cf-brand-mark" aria-hidden>
-              CF
-            </span>
+            <BrandMark size="sm" />
             <span>CourseFlow</span>
           </Link>
         </div>
@@ -64,10 +83,14 @@ export default function SettingsPage() {
 
       <main className="cf-page cf-page-narrow">
         <div className="mb-6">
-          <Link href="/dashboard" className="cf-btn cf-btn-secondary cf-btn-sm inline-flex">
+          <button
+            type="button"
+            onClick={goBack}
+            className="cf-btn cf-btn-secondary cf-btn-sm inline-flex"
+          >
             <ArrowLeft className="h-4 w-4" aria-hidden />
-            回到我的專案
-          </Link>
+            返回上一頁
+          </button>
         </div>
 
         <div className="cf-page-header">

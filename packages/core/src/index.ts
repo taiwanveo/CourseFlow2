@@ -2,6 +2,7 @@ export * from "./chapter-dividers.js";
 export * from "./phase-lock.js";
 export * from "./wvp-project.js";
 export * from "./wvp-phase-lock.js";
+export * from "./wvp-chapter-kind.js";
 export * from "./composition.js";
 export * from "./subtitle-style.js";
 export * from "./visual-element-style.js";

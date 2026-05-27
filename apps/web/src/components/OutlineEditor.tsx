@@ -5,6 +5,8 @@ import { GripVertical, Trash2 } from "lucide-react";
 import type { CourseComposition, CompositionChapter } from "@courseflow/core";
 import { ensureChapterDividerSteps, syncChapterDividerTitles } from "@courseflow/core";
 import { cn } from "@/lib/cn";
+import { ChapterOutlineImages } from "@/components/ChapterOutlineImages";
+import type { WvpAssetRef } from "@/lib/wvp-settings";
 import {
   addChapter as addChapterMutation,
   addStep as addStepMutation,
@@ -30,6 +32,11 @@ export function OutlineEditor({
   onSelectStep,
   onError,
   fillHeight = false,
+  projectId,
+  chapterWvpIds,
+  assets,
+  onAssetsChange,
+  assetsLocked = false,
 }: {
   composition: CourseComposition;
   onChange: (c: CourseComposition) => void;
@@ -37,6 +44,11 @@ export function OutlineEditor({
   onSelectStep: (id: string | null) => void;
   onError?: (message: string) => void;
   fillHeight?: boolean;
+  projectId?: string;
+  chapterWvpIds?: Map<string, string>;
+  assets?: WvpAssetRef[];
+  onAssetsChange?: (next: WvpAssetRef[]) => void;
+  assetsLocked?: boolean;
 }) {
   const [dragging, setDragging] = useState<DropHint>(null);
   const [dropHint, setDropHint] = useState<DropHint>(null);
@@ -213,6 +225,16 @@ export function OutlineEditor({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
+
+        {projectId && chapterWvpIds && assets && onAssetsChange ? (
+          <ChapterOutlineImages
+            projectId={projectId}
+            wvpChapterId={chapterWvpIds.get(chapter.id) ?? ""}
+            assets={assets}
+            onAssetsChange={onAssetsChange}
+            locked={assetsLocked}
+          />
+        ) : null}
 
         {steps.length > 0 ? (
           <ul

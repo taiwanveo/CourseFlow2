@@ -56,6 +56,7 @@ export function useAutoMode() {
         cycleMode();
       } else if (e.key === " " && mode === "auto" && !autoStarted) {
         e.preventDefault();
+        e.stopPropagation();
         setAutoStarted(true);
       }
     };

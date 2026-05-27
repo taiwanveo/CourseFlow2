@@ -1,0 +1,16 @@
+.cf-chapter-figure {
+  margin: 0;
+  max-width: min(420px, 36vw);
+  border-radius: var(--r-card, 8px);
+  overflow: hidden;
+  border: var(--rule-w, 1px) solid var(--rule, rgba(255, 255, 255, 0.12));
+  box-shadow: var(--shadow-card, 0 12px 40px rgba(0, 0, 0, 0.35));
+}
+
+.cf-chapter-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(520px, 52vh);
+  object-fit: cover;
+}

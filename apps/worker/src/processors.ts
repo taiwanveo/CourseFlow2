@@ -176,9 +176,42 @@ export async function processRender(payload: {
   userId: string;
   renderJobId: string;
   kind: "preview" | "export";
-  includeSubtitles?: boolean;
   quality?: "draft" | "standard" | "high";
+  pipeline?: "wvp" | "legacy";
 }) {
+  if (payload.pipeline === "wvp") {
+    const { processRenderWvp } = await import("./process-render-wvp.js");
+    const supabase = createServiceClient() as Supabase;
+    const jobs = supabase.from("render_jobs") as {
+      update: (v: unknown) => { eq: (a: string, b: string) => Promise<unknown> };
+    };
+    try {
+      await jobs
+        .update({ status: "processing", progress: 5, error_message: null })
+        .eq("id", payload.renderJobId);
+      const storagePath = await processRenderWvp({
+        projectId: payload.projectId,
+        userId: payload.userId,
+        renderJobId: payload.renderJobId,
+        onProgress: async (n) => {
+          await jobs.update({ progress: n }).eq("id", payload.renderJobId);
+        },
+      });
+      await jobs
+        .update({ status: "completed", progress: 100, output_path: storagePath, error_message: null })
+        .eq("id", payload.renderJobId);
+      console.log(`[render:wvp] ${payload.renderJobId} 完成 → ${storagePath}`);
+      return;
+    } catch (e) {
+      const message = (e as Error).message;
+      console.error(`[render:wvp] ${payload.renderJobId} 失敗:`, message);
+      await jobs
+        .update({ status: "failed", progress: 0, error_message: message })
+        .eq("id", payload.renderJobId);
+      throw e;
+    }
+  }
+
   const supabase = createServiceClient() as Supabase;
 
   const jobs = supabase.from("render_jobs") as {
@@ -221,7 +254,7 @@ export async function processRender(payload: {
 
     const hfProject = compileToHyperFrames(composition, workDir, {
       localAssets: true,
-      includeSubtitles: payload.includeSubtitles !== false,
+      includeSubtitles: false,
     });
     await setProgress(38);
 

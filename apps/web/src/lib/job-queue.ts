@@ -1,4 +1,5 @@
 import {
+  closeRedisConnection,
   createRedisConnection,
   isWorkerHeartbeatFresh,
 } from "@courseflow/shared";
@@ -12,8 +13,9 @@ async function isWorkerOnline(): Promise<boolean> {
     return presenceCache.workerOnline;
   }
 
-  const redis = createRedisConnection();
+  const redis = createRedisConnection(undefined, { probe: true });
   try {
+    await redis.connect();
     const workerOnline = await isWorkerHeartbeatFresh(redis);
     presenceCache = { checkedAt: now, workerOnline };
     return workerOnline;
@@ -21,7 +23,7 @@ async function isWorkerOnline(): Promise<boolean> {
     presenceCache = { checkedAt: now, workerOnline: false };
     return false;
   } finally {
-    redis.disconnect();
+    await closeRedisConnection(redis);
   }
 }
 

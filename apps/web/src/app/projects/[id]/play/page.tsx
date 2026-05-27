@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { buildThemeStylesCss } from "@courseflow/wvp-bridge";
 import { PlayPageClient } from "@/components/PlayPageClient";
+import { hasBuiltPresentation } from "@/lib/wvp-workdir";
 
 export default async function PlayPage({
   params,
@@ -23,6 +24,10 @@ export default async function PlayPage({
     .eq("user_id", user.id)
     .single();
   if (!project) redirect("/dashboard");
+
+  if (await hasBuiltPresentation(id)) {
+    redirect(`/projects/${id}/wvp-play`);
+  }
 
   const composition = await loadProjectComposition(supabase, id);
   const themeId = composition?.meta.themeId ?? project.theme_id;

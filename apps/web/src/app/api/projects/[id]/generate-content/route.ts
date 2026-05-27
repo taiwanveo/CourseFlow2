@@ -12,8 +12,10 @@ import { generateOutline, generateScripts } from "@courseflow/llm";
 import type { LlmProviderId } from "@courseflow/llm";
 import {
   createCompositionFromArticle,
+  expandListStepsInGeneratedChapters,
   mergeScripts,
 } from "@courseflow/composition";
+import type { GeneratedChapterInput } from "@courseflow/composition";
 import { saveComposition } from "@/lib/project-composition";
 import { defaultSubtitleForStep, defaultVisualForStep } from "@courseflow/db";
 import { resolveLlmProvider } from "@/lib/llm-provider";
@@ -84,7 +86,20 @@ export async function POST(
       model: body.model,
     };
     const outline = await generateOutline(creds, articleText, language);
-    let composition = createCompositionFromArticle(language, outline.chapters);
+    const chaptersForComposition: GeneratedChapterInput[] =
+      expandListStepsInGeneratedChapters(
+        outline.chapters.map((ch) => ({
+          title: ch.title,
+          sortOrder: ch.sortOrder,
+          steps: ch.steps.map((st) => ({
+            screenContent: st.screenContent,
+            infoPool: st.infoPool ?? [],
+            estimatedSeconds: st.estimatedSeconds,
+            script: st.script,
+          })),
+        })),
+      );
+    let composition = createCompositionFromArticle(language, chaptersForComposition);
     const scriptMap = await generateScripts(
       creds,
       composition.steps

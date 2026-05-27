@@ -35,7 +35,7 @@ export interface HyperFramesProject {
 export interface CompileOptions {
   /** 使用本機 assets/ 相對路徑，供 worker 離線渲染 */
   localAssets?: boolean;
-  /** 是否在匯出影片中燒錄字幕（預設 true） */
+  /** 是否在匯出影片中燒錄字幕（預設 false；本專案 v2 不提供字幕） */
   includeSubtitles?: boolean;
 }
 
@@ -93,7 +93,7 @@ export function compileToHyperFrames(
   options: CompileOptions = {},
 ): HyperFramesProject {
   const localAssets = options.localAssets ?? false;
-  const includeSubtitles = options.includeSubtitles !== false;
+  const includeSubtitles = options.includeSubtitles === true;
   mkdirSync(join(outputDir, "assets", "audio"), { recursive: true });
   mkdirSync(join(outputDir, "assets", "images"), { recursive: true });
   if (localAssets) {

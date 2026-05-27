@@ -1,0 +1,59 @@
+.cf-stage-nav {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 clamp(10px, 2vw, 24px);
+}
+
+.cf-stage-nav-col {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.cf-stage-nav-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(6, 6, 12, 0.78);
+  color: rgba(255, 255, 255, 0.94);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.12s ease;
+}
+
+.cf-stage-nav-btn:hover:not(:disabled) {
+  background: rgba(22, 22, 30, 0.92);
+  border-color: var(--accent, rgba(255, 255, 255, 0.4));
+  transform: scale(1.04);
+}
+
+.cf-stage-nav-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.cf-stage-nav-btn:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+}
+
+.cf-stage-nav-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
+}

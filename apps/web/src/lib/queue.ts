@@ -13,6 +13,15 @@ function getConnection(): IORedis {
   return connection;
 }
 
+/** 佇列連線失敗時釋放 singleton，避免後續請求沿用壞掉的 client */
+export async function resetQueueConnection(): Promise<void> {
+  if (!connection) return;
+  const c = connection;
+  connection = null;
+  const { closeRedisConnection } = await import("@courseflow/shared");
+  await closeRedisConnection(c);
+}
+
 export function getContentQueue() {
   return new Queue(QUEUE_NAMES.content, { connection: getConnection() });
 }

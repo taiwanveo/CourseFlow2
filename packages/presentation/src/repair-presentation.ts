@@ -1,0 +1,157 @@
+import { access, cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { WVP_TEMPLATES_DIR } from "./vendor-paths.js";
+import { generateChapterSources } from "./codegen/chapter.js";
+
+function truncateForBeat(s: string): string {
+  const t = s.trim();
+  return t.length <= 48 ? t : `${t.slice(0, 47)}…`;
+}
+import { writeChapterSourcesRaw } from "./write-sources.js";
+import { needsChapterContentUpgrade } from "./visual-demo.js";
+
+async function copyIfMissing(from: string, to: string) {
+  try {
+    await access(to);
+  } catch {
+    await mkdir(dirname(to), { recursive: true });
+    await cp(from, to);
+  }
+}
+
+/** 建置前：Studio 預覽放大舞台、補齊視覺元件、缺演示的章節回退增強模板 */
+export async function repairPresentationBeforeBuild(presentationDir: string): Promise<{
+  stageScalePatched: boolean;
+  vizComponentAdded: boolean;
+  chaptersUpgraded: string[];
+}> {
+  const t = WVP_TEMPLATES_DIR;
+  const hooksDir = join(presentationDir, "src", "hooks");
+  const componentsDir = join(presentationDir, "src", "components");
+
+  await mkdir(hooksDir, { recursive: true });
+  await mkdir(componentsDir, { recursive: true });
+
+  const scaleSrc = join(t, "src/hooks/useStageScale.ts");
+  const scaleDst = join(hooksDir, "useStageScale.ts");
+  await cp(scaleSrc, scaleDst, { force: true });
+  for (const hook of ["useStepper.ts", "useAutoMode.ts", "usePlayControlBridge.ts"]) {
+    await cp(join(t, "src/hooks", hook), join(hooksDir, hook), { force: true });
+  }
+  await cp(join(t, "src/App.tsx"), join(presentationDir, "src/App.tsx"), { force: true });
+  for (const name of [
+    "StageNav.tsx",
+    "StageNav.css",
+    "ChapterFigure.tsx",
+    "ChapterFigure.css",
+    "NarrationBeat.tsx",
+    "NarrationBeat.css",
+    "AutoStartGate.tsx",
+    "AutoStartGate.css",
+  ]) {
+    await cp(join(t, "src/components", name), join(componentsDir, name), { force: true });
+  }
+
+  for (const name of [
+    "ListRevealGrid.tsx",
+    "ListRevealGrid.css",
+    "FlowDiagram.tsx",
+    "FlowDiagram.css",
+    "ChapterFigure.tsx",
+    "ChapterFigure.css",
+    "HookImageStrip.tsx",
+    "HookImageStrip.css",
+    "VisualBlock.tsx",
+    "VisualBlock.css",
+  ]) {
+    await cp(join(t, "src/components", name), join(componentsDir, name), { force: true });
+  }
+  const visualNames = [
+    "ChartRenderer.tsx",
+    "ChartRenderer.css",
+    "TableRenderer.tsx",
+    "TableRenderer.css",
+    "table-utils.ts",
+    "AnimationRenderer.tsx",
+    "AnimationRenderer.css",
+  ];
+  await mkdir(join(componentsDir, "visual"), { recursive: true });
+  for (const name of visualNames) {
+    await copyIfMissing(
+      join(t, "src/components/visual", name),
+      join(componentsDir, "visual", name),
+    );
+  }
+
+  const chaptersUpgraded: string[] = [];
+  const chaptersRoot = join(presentationDir, "src", "chapters");
+  let folderNames: string[];
+  try {
+    folderNames = await readdir(chaptersRoot);
+  } catch {
+    return { stageScalePatched: true, vizComponentAdded: true, chaptersUpgraded };
+  }
+
+  for (const folderName of folderNames) {
+    if (folderName === "01-example" || folderName.startsWith(".")) continue;
+    const dir = join(chaptersRoot, folderName);
+    const files = await readdir(dir);
+    const tsxFile = files.find((f) => f.endsWith(".tsx"));
+    if (!tsxFile) continue;
+    const componentName = tsxFile.replace(/\.tsx$/, "");
+    const tsxPath = join(dir, tsxFile);
+    const cssPath = join(dir, `${componentName}.css`);
+    const narrPath = join(dir, "narrations.ts");
+
+    let narrations: string[] = [];
+    try {
+      const narrSrc = await readFile(narrPath, "utf8");
+      for (const hit of narrSrc.matchAll(/^\s+("(?:\\.|[^"\\])*"),/gm)) {
+        narrations.push(JSON.parse(hit[1]!) as string);
+      }
+    } catch {
+      continue;
+    }
+    if (narrations.length === 0) continue;
+
+    let tsx = await readFile(tsxPath, "utf8");
+    let css = "";
+    try {
+      css = await readFile(cssPath, "utf8");
+    } catch {
+      /* empty */
+    }
+
+    if (!needsChapterContentUpgrade(tsx, css, narrations)) continue;
+
+    const wvpId = folderName.replace(/^\d+-/, "") || folderName;
+    const titleMatch = tsx.match(/className="masthead"[^>]*>([^<]+)</);
+    const title = titleMatch?.[1]?.trim() || wvpId;
+
+    const generated = generateChapterSources({
+      folderName,
+      wvpChapterId: wvpId,
+      title,
+      narrations,
+      stepBeats: narrations.map((_, i) => ({
+        step: i,
+        dominantAction: truncateForBeat(narrations[i] ?? ""),
+      })),
+    });
+
+    await writeChapterSourcesRaw(presentationDir, {
+      folderName,
+      componentName,
+      narrations,
+      chapterTsx: generated.tsx,
+      chapterCss: generated.css,
+    });
+    chaptersUpgraded.push(folderName);
+  }
+
+  return {
+    stageScalePatched: true,
+    vizComponentAdded: true,
+    chaptersUpgraded,
+  };
+}

@@ -4,6 +4,26 @@ import {
   canAccessWvpPhase,
 } from "./wvp-project.js";
 
+/** 修正不一致的鎖定狀態；checkpoint 欄位僅相容舊資料（content 鎖定時視為已通過） */
+export function normalizeWvpPhaseLocks(locks: WvpPhaseLocks): WvpPhaseLocks {
+  const n = { ...locks };
+  if (!n.content) {
+    n.checkpoint = false;
+    n.craft = false;
+    n.audio = false;
+    n.publish = false;
+  } else {
+    n.checkpoint = true;
+    if (!n.craft) {
+      n.audio = false;
+      n.publish = false;
+    } else if (!n.audio) {
+      n.publish = false;
+    }
+  }
+  return n;
+}
+
 export function canEditWvpPhase(locks: WvpPhaseLocks, phase: WvpPhaseId): boolean {
   if (locks[phase]) return false;
   return canAccessWvpPhase(locks, phase);
@@ -19,19 +39,18 @@ export function lockWvpPhase(
   if (phase === "checkpoint" && !locks.content) {
     return { ok: false, error: "請先鎖定內容階段" };
   }
-  if (phase === "craft" && (!locks.content || !locks.checkpoint)) {
-    return { ok: false, error: "請先鎖定內容與 Checkpoint" };
+  if (phase === "craft" && !locks.content) {
+    return { ok: false, error: "請先鎖定文稿內容" };
   }
-  if (phase === "audio" && (!locks.content || !locks.checkpoint || !locks.craft)) {
-    return { ok: false, error: "請先鎖定 Craft 階段" };
+  if (phase === "audio" && (!locks.content || !locks.craft)) {
+    return { ok: false, error: "請先鎖定視覺動效" };
   }
-  if (
-    phase === "publish" &&
-    (!locks.content || !locks.checkpoint || !locks.craft || !locks.audio)
-  ) {
-    return { ok: false, error: "請先鎖定音訊階段" };
+  if (phase === "publish" && (!locks.content || !locks.craft || !locks.audio)) {
+    return { ok: false, error: "請先鎖定語音生成" };
   }
-  return { ok: true, locks: { ...locks, [phase]: true } };
+  const next: WvpPhaseLocks = { ...locks, [phase]: true };
+  if (phase === "content") next.checkpoint = true;
+  return { ok: true, locks: next };
 }
 
 export function unlockWvpPhase(locks: WvpPhaseLocks, phase: WvpPhaseId): WvpPhaseLocks {

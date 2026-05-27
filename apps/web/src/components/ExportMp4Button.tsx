@@ -3,17 +3,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { useToast } from "@/components/Toast";
+import { LottieMark } from "@/components/lottie/LottieMark";
+import { AnimatePresence, motion } from "framer-motion";
+import { useUiMotion } from "@/components/motion/presets";
 
 type ExportStatus = "idle" | "pending" | "processing" | "completed" | "failed";
 
-function renderProgressLabel(progress: number, quickDraft: boolean): string {
+function renderProgressLabel(
+  progress: number,
+  quickDraft: boolean,
+  pipeline?: string,
+): string {
+  if (pipeline === "wvp") {
+    if (progress < 30) return "準備 WVP 簡報…";
+    if (progress < 55) return "Playwright 錄製中（?auto=1）…";
+    if (progress < 85) return "轉檔 / 上傳 MP4…";
+    if (progress < 100) return "完成中…";
+    return "完成";
+  }
   if (progress < 15) return "準備中…";
   if (progress < 30) return "下載素材…";
   if (progress < 40) return "編譯場景…";
   if (progress < 85) {
     return quickDraft
       ? "快速渲染中（draft，通常較快）…"
-      : "渲染影片中（步驟多時可能需 10–30 分鐘，請看 worker 終端機的 [hyperframes] 日誌）…";
+      : "渲染影片中（HyperFrames，可能較久）…";
   }
   if (progress < 100) return "上傳影片…";
   return "完成";
@@ -31,17 +45,23 @@ export function ExportMp4Button({
   compact?: boolean;
 }) {
   const { toast } = useToast();
+  const { fadeSlide } = useUiMotion();
   const [status, setStatus] = useState<ExportStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("");
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [includeSubtitles, setIncludeSubtitles] = useState(true);
   const [quickDraft, setQuickDraft] = useState(false);
+  const [pipeline, setPipeline] = useState<string | undefined>();
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const quickDraftRef = useRef(quickDraft);
+  const pipelineRef = useRef(pipeline);
 
   useEffect(() => {
     quickDraftRef.current = quickDraft;
   }, [quickDraft]);
+
+  useEffect(() => {
+    pipelineRef.current = pipeline;
+  }, [pipeline]);
 
   const clearPoll = useCallback(() => {
     if (pollRef.current) {
@@ -76,7 +96,9 @@ export function ExportMp4Button({
       if (jobStatus === "processing") {
         const pct = data.job?.progress ?? 0;
         setStatus("processing");
-        setStatusMessage(`${renderProgressLabel(pct, quickDraftRef.current)} ${pct}%`);
+        setStatusMessage(
+          `${renderProgressLabel(pct, quickDraftRef.current, pipelineRef.current)} ${pct}%`,
+        );
       } else if (jobStatus === "pending") {
         setStatus("pending");
         setStatusMessage("排隊中…");
@@ -92,15 +114,27 @@ export function ExportMp4Button({
   const startExport = async () => {
     clearPoll();
     setStatus("pending");
-    setStatusMessage("啟動中…");
+    setStatusMessage("檢查匯出條件…");
     setDownloadUrl(null);
+    setPipeline(undefined);
 
+    const readyRes = await fetch(`/api/projects/${projectId}/wvp/export-readiness`);
+    const readyData = await readyRes.json();
+    if (readyRes.ok && readyData.ready === false) {
+      const msg =
+        (readyData.blockers as string[])?.join("；") ?? "尚未符合 WVP 匯出條件";
+      setStatus("failed");
+      setStatusMessage(msg);
+      toast(msg, "error");
+      return;
+    }
+
+    setStatusMessage("啟動中…");
     const res = await fetch(`/api/projects/${projectId}/export`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         kind: "export",
-        includeSubtitles,
         quality: quickDraft ? "draft" : "standard",
       }),
     });
@@ -112,7 +146,18 @@ export function ExportMp4Button({
       return;
     }
 
-    setStatusMessage("已加入佇列…");
+    setPipeline(data.pipeline as string | undefined);
+    setStatusMessage(
+      data.pipeline === "wvp"
+        ? "WVP 錄製已加入佇列…"
+        : data.inline
+          ? "WVP 內嵌錄製中…"
+          : "已加入佇列…",
+    );
+    if (data.inline && data.renderJob?.id) {
+      poll(data.renderJob.id);
+      return;
+    }
     poll(data.renderJob.id);
   };
 
@@ -120,21 +165,6 @@ export function ExportMp4Button({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <label
-        className={cn(
-          "flex cursor-pointer items-center gap-1.5 text-sm text-zinc-400",
-          compact && "text-xs text-white/80",
-        )}
-      >
-        <input
-          type="checkbox"
-          checked={includeSubtitles}
-          disabled={busy}
-          onChange={(e) => setIncludeSubtitles(e.target.checked)}
-          className="rounded border-zinc-600"
-        />
-        匯出含字幕
-      </label>
       <label
         className={cn(
           "flex cursor-pointer items-center gap-1.5 text-sm text-zinc-400",
@@ -161,19 +191,35 @@ export function ExportMp4Button({
           buttonClassName,
         )}
       >
-        {busy ? "匯出中…" : quickDraft ? "快速匯出" : "匯出"}
+        {busy ? (
+          <span className="inline-flex items-center gap-2">
+            <LottieMark variant="loading" size={16} ariaLabel="匯出中" />
+            <span>匯出中…</span>
+          </span>
+        ) : quickDraft ? (
+          "快速匯出"
+        ) : (
+          "匯出"
+        )}
       </button>
-      {statusMessage ? (
-        <span
-          className={cn(
-            "text-sm",
-            status === "failed" ? "text-red-400" : "text-zinc-400",
-            compact && "text-xs text-white/80",
-          )}
-        >
-          {statusMessage}
-        </span>
-      ) : null}
+      <AnimatePresence mode="popLayout" initial={false}>
+        {statusMessage ? (
+          <motion.span
+            key={statusMessage}
+            variants={fadeSlide}
+            initial="hidden"
+            animate="show"
+            exit="exit"
+            className={cn(
+              "text-sm",
+              status === "failed" ? "text-red-400" : "text-zinc-400",
+              compact && "text-xs text-white/80",
+            )}
+          >
+            {statusMessage}
+          </motion.span>
+        ) : null}
+      </AnimatePresence>
       {downloadUrl ? (
         <a
           href={downloadUrl}
@@ -182,7 +228,10 @@ export function ExportMp4Button({
             compact ? "play-page-btn" : "cf-btn cf-btn-sm cf-btn-primary",
           )}
         >
-          下載
+          <span className="inline-flex items-center gap-2">
+            <LottieMark variant="success" size={16} ariaLabel="完成" loop={false} />
+            <span>下載</span>
+          </span>
         </a>
       ) : null}
     </div>

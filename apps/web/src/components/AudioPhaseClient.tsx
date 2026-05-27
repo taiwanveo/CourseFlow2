@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { CourseComposition, PhaseLocks } from "@courseflow/core";
-import { DEFAULT_SUBTITLE_STYLE, getOrderedSteps, resolveSubtitlePosition, resolveSubtitleStyle } from "@courseflow/core";
+import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
+import { getOrderedSteps } from "@courseflow/core";
 import type { TtsModel, TtsVoice } from "@courseflow/tts/types";
 import { edgeTtsVisibleForLanguage, formatVoiceLabel } from "@courseflow/tts/types";
 import { PhaseBottomActions, ProjectPhaseNav } from "@/components/ProjectPhaseNav";
@@ -14,7 +15,7 @@ import {
   TTS_PROVIDER_LABELS,
   upsertStepTtsConfig,
 } from "@/lib/step-tts";
-import { SubtitlePreviewEditor } from "@/components/SubtitlePreviewEditor";
+import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 
 const TTS_PROVIDER_ORDER = ["openai", "gemini", "openrouter", "edge-tts"] as const;
 
@@ -47,7 +48,7 @@ export function AudioPhaseClient({
 }: {
   projectId: string;
   initialComposition: CourseComposition;
-  initialLocks: PhaseLocks;
+  initialLocks: WvpPhaseLocks;
   language: string;
   initialVoices?: TtsVoice[];
   initialModels?: Partial<Record<string, TtsModel[]>>;
@@ -76,6 +77,8 @@ export function AudioPhaseClient({
   const { toast } = useToast();
   const router = useRouter();
   const locked = locks.audio;
+
+  const audioGate = useMemo(() => evaluateWvpAudioBuildGate(composition), [composition]);
 
   const orderedSteps = useMemo(() => getOrderedSteps(composition), [composition]);
   const step = orderedSteps[stepIndex];
@@ -317,7 +320,7 @@ export function AudioPhaseClient({
       return;
     }
     if (!step.script.trim()) {
-      toast("此步驟沒有口說稿", "error");
+      toast("此步驟沒有口播稿", "error");
       return;
     }
 
@@ -345,76 +348,39 @@ export function AudioPhaseClient({
     }
   };
 
-  const updateAllSubtitleStyle = (patch: Partial<typeof DEFAULT_SUBTITLE_STYLE>) => {
-    setComposition({
-      ...composition,
-      subtitles: composition.subtitles.map((item) => ({
-        ...item,
-        style: { ...item.style, ...patch },
-      })),
-    });
-  };
-
-  const updateAllSubtitlePosition = (patch: {
-    x?: number;
-    y?: number;
-    scale?: number;
-    width?: number;
-    height?: number;
-  }) => {
-    setComposition({
-      ...composition,
-      subtitles: composition.subtitles.map((item) => ({
-        ...item,
-        position: { ...item.position, ...patch },
-      })),
-    });
-  };
-
   const save = useCallback(async () => {
     setSaving(true);
     try {
-      const sharedStyle = resolveSubtitleStyle(composition.subtitles[0]?.style);
-      const sharedPos = resolveSubtitlePosition(composition.subtitles[0]?.position);
-      const normalized = {
-        ...composition,
-        subtitles: composition.subtitles.map((item) => ({
-          ...item,
-          style: sharedStyle,
-          position: sharedPos,
-        })),
-      };
       const res = await fetch(`/api/projects/${projectId}/composition`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: "audio", composition: normalized }),
+        body: JSON.stringify({ phase: "audio", composition }),
       });
       if (!res.ok) {
         toast((await res.json()).error ?? "儲存失敗", "error");
         return;
       }
-      setComposition(normalized);
-      toast("語音字幕已儲存", "success");
+      toast("語音設定已儲存", "success");
     } finally {
       setSaving(false);
     }
   }, [projectId, composition, toast]);
 
   const unlockPhase = async () => {
-    const res = await fetch(`/api/projects/${projectId}/phases/audio/lock`, {
+    const res = await fetch(`/api/projects/${projectId}/wvp/phases/audio/lock`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "unlock" }),
     });
     const data = await res.json();
-    setLocks(data.phase_locks);
+    if (!res.ok) {
+      toast(data.error ?? "解除鎖定失敗", "error");
+      return;
+    }
+    setLocks(data.wvp_phase_locks);
     router.refresh();
     toast("已解除鎖定", "info");
   };
-
-  const sharedSubtitle = composition.subtitles[0];
-  const subStyle = resolveSubtitleStyle(sharedSubtitle?.style);
-  const subPos = resolveSubtitlePosition(sharedSubtitle?.position);
 
   return (
     <div className="space-y-6">
@@ -426,10 +392,22 @@ export function AudioPhaseClient({
         onBeforeLock={save}
       />
 
+      <section className="cf-card cf-card-padded space-y-3">
+        <p
+          className={`text-xs ${audioGate.ready ? "text-emerald-600/90" : "text-amber-500/90"}`}
+          role="status"
+        >
+          語音進度：{audioGate.synthesizedSteps}/{audioGate.totalSteps} 步
+          {audioGate.ready
+            ? "（已完成，可前往「4. 預覽匯出」打包）"
+            : "（完成後請至「4. 預覽匯出」打包預覽）"}
+        </p>
+      </section>
+
       <section className="cf-card cf-card-padded">
-        <h2 className="cf-section-title">批次 TTS 語音</h2>
+        <h2 className="cf-section-title">批次TTS語音</h2>
         <p className="mt-1 text-xs text-zinc-500">
-          使用相同語音一次合成所有步驟。若需逐步調整，請在下方「單步語音」區塊操作。
+          使用相同語音一次合成所有步驟。若需逐步調整，請在下方「單步TTS語音」區塊操作。
           {voicesLoading ? " 正在載入語音列表…" : null}
           {!voicesLoading && availableProviders.length === 0 ? (
             <span className="text-amber-400">
@@ -500,10 +478,9 @@ export function AudioPhaseClient({
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="cf-card cf-card-padded space-y-4">
+      <section className="cf-card cf-card-padded space-y-4">
           <div>
-            <h2 className="cf-section-title">單步語音</h2>
+            <h2 className="cf-section-title">單步TTS語音</h2>
             <p className="mt-1 text-xs text-zinc-500">可為每個步驟指定不同語音並單獨合成。</p>
           </div>
 
@@ -610,19 +587,13 @@ export function AudioPhaseClient({
               ) : null}
             </>
           ) : null}
-        </section>
 
-        <section className="cf-card cf-card-padded">
-          <h2 className="cf-section-title">字幕樣式</h2>
-          <SubtitlePreviewEditor
-            style={subStyle}
-            position={subPos}
-            locked={locked}
-            onStyleChange={updateAllSubtitleStyle}
-            onPositionChange={updateAllSubtitlePosition}
-          />
-        </section>
-      </div>
+        <div className="border-t border-zinc-800 pt-4">
+          <Link href={`/projects/${projectId}/publish`} className="cf-btn cf-btn-secondary">
+            下一步：預覽匯出 →
+          </Link>
+        </div>
+      </section>
 
       <PhaseBottomActions
         projectId={projectId}

@@ -1,3 +1,4 @@
+.firecrawl/
 node_modules
 .turbo
 dist
@@ -8,6 +9,10 @@ dist
 .DS_Store
 coverage
 tmp
+data/presentations
 renders
 *.mp4
 *.tsbuildinfo
+
+# BananaX 預覽圖（執行 pnpm bananax:catalog 下載；catalog JSON 仍納版控）
+apps/web/public/image-styles/bananax/

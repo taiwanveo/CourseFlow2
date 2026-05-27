@@ -15,6 +15,7 @@
     "@courseflow/db": "workspace:*",
     "@courseflow/hf-bridge": "workspace:*",
     "@courseflow/llm": "workspace:*",
+    "@courseflow/presentation": "workspace:*",
     "@courseflow/shared": "workspace:*",
     "@courseflow/tts": "workspace:*",
     "@supabase/supabase-js": "^2.49.8",

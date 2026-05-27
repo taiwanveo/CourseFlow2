@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { BrandMark } from "@/components/BrandMark";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -34,10 +35,9 @@ export default function LoginPage() {
     <div className="cf-shell flex min-h-screen items-center justify-center p-6">
       <div className="cf-card cf-card-padded w-full max-w-md">
         <div className="mb-6 text-center">
-          <span className="cf-brand-mark mx-auto mb-4 inline-grid">CF</span>
-          <h1 className="text-2xl font-bold tracking-tight">登入 CourseFlow</h1>
-          <p className="mt-2 text-sm text-zinc-400">多租戶 SaaS 教學影片平台</p>
-        </div>
+          <BrandMark size="lg" className="mx-auto mb-4" />
+          <h1 className="text-2xl font-bold tracking-tight">CourseFlow 教學影片製作平台</h1>
+          </div>
         <div className="space-y-4">
           <div>
             <label className="cf-label" htmlFor="email">

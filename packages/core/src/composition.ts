@@ -12,6 +12,8 @@ export interface CompositionChapter {
   parentId: string | null;
   title: string;
   sortOrder: number;
+  /** WVP Craft：章節視覺型別（list-reveal / flow / hook / magazine） */
+  chapterKind?: import("./wvp-chapter-kind.js").WvpChapterKind;
 }
 
 export interface CompositionStep {
@@ -24,6 +26,8 @@ export interface CompositionStep {
   screenContent: string;
   infoPool: string[];
   estimatedSeconds?: number;
+  /** B3：宣告式視覺 JSON（VisualConfig） */
+  visualConfig?: Record<string, unknown>;
 }
 
 export interface StepAudio {
@@ -201,7 +205,7 @@ export function validateContentPhase(composition: CourseComposition): string[] {
   for (const step of composition.steps) {
     if (step.stepKind === "chapter") continue;
     if (!step.script.trim()) {
-      errors.push(`步驟「${step.screenContent || step.id}」缺少口說稿`);
+      errors.push(`步驟「${step.screenContent || step.id}」缺少口播稿`);
     }
   }
   return errors;

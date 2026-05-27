@@ -5,7 +5,19 @@ import type { ChapterDef } from "../registry/types";
  * Bump this when chapter step counts / structure change so old persisted
  * cursors don't land mid-removed-step.
  */
-const STORAGE_KEY = "presentation-cursor-v4";
+const STORAGE_KEY = "presentation-cursor-v5";
+
+function readStorageKey(): string {
+  if (typeof window === "undefined") return STORAGE_KEY;
+  const project = new URLSearchParams(window.location.search).get("cf_project");
+  return project ? `${STORAGE_KEY}-${project}` : STORAGE_KEY;
+}
+
+function shouldStartFresh(): boolean {
+  if (typeof window === "undefined") return false;
+  const q = new URLSearchParams(window.location.search);
+  return q.get("start") === "1" || q.get("reset") === "1";
+}
 
 export type Cursor = { chapter: number; step: number };
 
@@ -42,8 +54,9 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   const [cursor, setCursor] = useState<Cursor>(() => {
     const fallback = { chapter: 0, step: 0 };
     if (typeof window === "undefined") return fallback;
+    if (shouldStartFresh()) return fallback;
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw = window.localStorage.getItem(readStorageKey());
       if (raw) return sanitize(JSON.parse(raw), chapters);
     } catch {
       /* ignore */
@@ -64,8 +77,9 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   }, [chapters]);
 
   useEffect(() => {
+    if (shouldStartFresh()) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cursor));
+      window.localStorage.setItem(readStorageKey(), JSON.stringify(cursor));
     } catch {
       /* ignore */
     }
@@ -139,7 +153,11 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
+      const autoGateOpen =
+        new URLSearchParams(window.location.search).get("auto") === "1" &&
+        document.querySelector(".auto-gate");
       if (e.key === "ArrowRight" || e.key === " ") {
+        if (autoGateOpen) return;
         e.preventDefault();
         next();
       } else if (e.key === "ArrowLeft" || e.key === "Backspace") {

@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition } from "@/lib/project-composition";
-import type { PhaseLocks } from "@courseflow/core";
+import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
+import { parseWvpSettings } from "@/lib/wvp-settings";
 import { ContentPhaseClient } from "@/components/ContentPhaseClient";
 import { AppShell } from "@/components/app/AppShell";
 
@@ -26,7 +27,7 @@ export default async function ContentPage({
   if (!project) redirect("/dashboard");
 
   const composition = await loadProjectComposition(supabase, id);
-  const locks = project.phase_locks as PhaseLocks;
+  const locks = resolveWvpPhaseLocks(project);
 
   const article = project.article as { rawText?: string } | null;
   const initialArticleText = article?.rawText ?? "";
@@ -35,7 +36,7 @@ export default async function ContentPage({
     <AppShell
       width="wide"
       title={`${project.title} — 文稿內容`}
-      description="匯入教學文件、AI 產生大綱與口說稿，完成後鎖定進入下一階段。"
+      description="第一階段：生成教學內容（或匯入教學文件）、AI產生大綱與口播稿。"
       breadcrumb={[
         { label: "我的專案", href: "/dashboard" },
         { label: project.title },
@@ -47,6 +48,8 @@ export default async function ContentPage({
         initialComposition={composition!}
         initialLocks={locks}
         initialArticleText={initialArticleText}
+        initialWvpSettings={parseWvpSettings(project.wvp_settings)}
+        initialThemeId={project.theme_id}
       />
     </AppShell>
   );

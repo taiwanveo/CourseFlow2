@@ -1,0 +1,13 @@
+.vf-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  color: var(--text);
+}
+.vf-headline {
+  margin-bottom: var(--space-5);
+}
+.vf-headline-text {
+  font-size: var(--t-h2);
+}

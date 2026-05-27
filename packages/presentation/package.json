@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./record": {
+      "types": "./dist/record.d.ts",
+      "import": "./dist/record.js"
     }
   },
   "scripts": {
@@ -17,7 +21,10 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@courseflow/wvp-bridge": "workspace:*"
+    "@courseflow/core": "workspace:*",
+    "@courseflow/visual-config": "workspace:*",
+    "@courseflow/wvp-bridge": "workspace:*",
+    "playwright": "^1.52.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.21",

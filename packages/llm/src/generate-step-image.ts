@@ -39,7 +39,7 @@ type OpenRouterImagePart = {
   imageUrl?: { url?: string };
 };
 
-async function generateStepImageOpenRouter(
+async function generateStepImageOpenRouterOnce(
   apiKey: string,
   prompt: string,
   model: string,
@@ -110,6 +110,23 @@ async function generateStepImageOpenRouter(
   throw new Error("OpenRouter 生圖 API 未回傳圖片");
 }
 
+async function generateStepImageOpenRouter(
+  apiKey: string,
+  prompt: string,
+  model: string,
+): Promise<Uint8Array> {
+  const attempts = [prompt, `${prompt}\n\nOutput one clear 16:9 illustration image only.`];
+  let lastError: Error | undefined;
+  for (const body of attempts) {
+    try {
+      return await generateStepImageOpenRouterOnce(apiKey, body, model);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+    }
+  }
+  throw lastError ?? new Error("OpenRouter 生圖 API 未回傳圖片");
+}
+
 /** 依步驟內容生成 16:9 教學簡報配圖 */
 export async function generateStepImage(
   creds: LlmCredentials,
@@ -154,20 +171,48 @@ export async function generateStepImage(
   return new Uint8Array(await imageRes.arrayBuffer());
 }
 
+function stylePromptUsesChinese(styleFragment: string): boolean {
+  return /[\u4e00-\u9fff]/.test(styleFragment);
+}
+
 export function buildStepImagePrompt(params: {
   courseTopic: string;
   screenContent: string;
   script: string;
+  /** BananaX 中文風格規範或英文風格片段 */
+  styleFragment?: string;
 }): string {
   const topic = params.courseTopic.trim() || "Educational course";
   const screen = params.screenContent.trim();
   const script = params.script.trim().slice(0, 1200);
+  const styleFragment = params.styleFragment?.trim();
+
+  if (styleFragment && stylePromptUsesChinese(styleFragment)) {
+    const styleBlock = styleFragment.slice(0, 12000);
+    return [
+      "請生成一張 16:9 比例的教學投影片配圖（大學線上課程用）。",
+      "用途：教學影片的輔助視覺背景，不是塞滿文字的資訊圖海報。",
+      "硬性規則：畫面中不可出現可辨識的文字、字母、數字、浮水印、商標或 UI 框架；簡報標題與字幕由系統另行疊加。",
+      "構圖：單一清晰主題、光線柔和、留白充足，適合與投影片排版並存。",
+      "【以下為 BananaX 視覺風格規範 — 僅套用配色、字體氣質、材質、構圖與氛圍，勿在圖中渲染可讀文字】",
+      styleBlock,
+      `課程主題：${topic}`,
+      screen ? `本步螢幕重點（勿畫成文字）：${screen}` : "",
+      script ? `口播內容（作為意象與隱喻參考）：${script}` : "",
+      "請依本步教學重點呈現一個有助理解的視覺意象。",
+    ]
+      .filter(Boolean)
+      .join("\n");
+  }
 
   return [
     "Create a single 16:9 educational presentation illustration for a university-level online course slide.",
     "Purpose: supporting visual for a teaching video — NOT a poster with text.",
     "Strict rules: NO text, NO letters, NO numbers, NO watermark, NO logo, NO UI mockup frames.",
-    "Style: clean modern flat or semi-flat design, professional, clear focal subject, soft lighting, uncluttered composition, suitable behind or beside slide typography.",
+    "Composition: one clear focal subject, soft lighting, uncluttered, suitable behind or beside slide typography.",
+    styleFragment
+      ? `Visual style reference (apply color, texture, and mood only — do not add readable text): ${styleFragment}`
+      : "Style: clean modern flat or semi-flat design, professional.",
     `Course subject / module theme: ${topic}`,
     screen ? `What appears on screen (key ideas only, do not render as text): ${screen}` : "",
     script

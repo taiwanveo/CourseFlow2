@@ -1,11 +1,12 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import type { PhaseId } from "@courseflow/core";
-import { lockPhase, unlockPhase, DEFAULT_PHASE_LOCKS } from "@courseflow/core";
+import { lockPhase, unlockPhase, DEFAULT_PHASE_LOCKS, lockWvpPhase, unlockWvpPhase } from "@courseflow/core";
 import type { PhaseLocks } from "@courseflow/core";
 import { validateContentPhase } from "@courseflow/core";
 import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition, saveComposition } from "@/lib/project-composition";
+import { resolveWvpPhaseLocks, syncWvpLocksFromLegacyLock } from "@/lib/wvp-locks";
 
 export async function PATCH(
   req: NextRequest,
@@ -25,7 +26,7 @@ export async function PATCH(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("phase_locks, composition_snapshot")
+    .select("phase_locks, wvp_phase_locks, composition_snapshot")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -33,6 +34,7 @@ export async function PATCH(
 
   const body = (await req.json()) as { action: "lock" | "unlock" };
   let locks = (project.phase_locks as PhaseLocks) ?? DEFAULT_PHASE_LOCKS;
+  let wvpLocks = resolveWvpPhaseLocks(project);
 
   if (body.action === "lock") {
     if (phaseId === "content") {
@@ -49,16 +51,28 @@ export async function PATCH(
     const result = lockPhase(locks, phaseId);
     if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
     locks = result.locks;
+    wvpLocks = syncWvpLocksFromLegacyLock(wvpLocks, phaseId, true);
+    if (phaseId === "content") {
+      const wvpResult = lockWvpPhase(wvpLocks, "content");
+      if (wvpResult.ok) wvpLocks = wvpResult.locks;
+    }
   } else {
     locks = unlockPhase(locks, phaseId);
+    wvpLocks = syncWvpLocksFromLegacyLock(wvpLocks, phaseId, false);
+    if (phaseId === "content") wvpLocks = unlockWvpPhase(wvpLocks, "content");
+    else if (phaseId === "audio") wvpLocks = unlockWvpPhase(wvpLocks, "audio");
+    else if (phaseId === "visual") wvpLocks = unlockWvpPhase(wvpLocks, "craft");
   }
 
   const { data, error } = await supabase
     .from("projects")
-    .update({ phase_locks: locks })
+    .update({ phase_locks: locks, wvp_phase_locks: wvpLocks })
     .eq("id", id)
-    .select("phase_locks")
+    .select("phase_locks, wvp_phase_locks")
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ phase_locks: data.phase_locks });
+  return NextResponse.json({
+    phase_locks: data.phase_locks,
+    wvp_phase_locks: data.wvp_phase_locks,
+  });
 }

@@ -7,5 +7,5 @@ export default async function ExportPageRedirect({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/projects/${id}/visual`);
+  redirect(`/projects/${id}/publish`);
 }

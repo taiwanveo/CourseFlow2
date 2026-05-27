@@ -1,0 +1,131 @@
+.vf-table-wrap {
+  width: 100%;
+  max-width: 92%;
+  margin: 0 auto;
+}
+.vf-table-card {
+  border: var(--rule-w) solid var(--rule);
+  border-radius: var(--r-card);
+  padding: var(--space-5);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.vf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-body);
+}
+.vf-th {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--rule-w) solid var(--accent);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--t-cue);
+  letter-spacing: 0.06em;
+}
+.vf-th-hi {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-bottom-color: var(--accent);
+}
+.vf-tr {
+  animation: vf-row-in var(--dur-base) var(--ease-quart) backwards;
+}
+.vf-tr:nth-child(odd) .vf-td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.vf-tr-hi .vf-td {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+@keyframes vf-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.vf-td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--rule-w) solid var(--rule);
+  color: var(--text-2);
+  animation: vf-cell-in var(--dur-base) var(--ease-quart) backwards;
+}
+.vf-td-hi {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+.vf-td-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.vf-cell {
+  display: inline-block;
+}
+.vf-th-label {
+  display: inline;
+}
+.vf-th-unit {
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.75;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+.vf-td-best {
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.vf-td-barcell {
+  min-width: 7rem;
+}
+.vf-barcell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 1.6em;
+  width: 100%;
+}
+.vf-barcell-track {
+  position: absolute;
+  inset: 0.35em 0;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.vf-barcell-fill {
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  bottom: 0.35em;
+  border-radius: 2px;
+  background: var(--accent-soft);
+  border-right: 2px solid var(--accent);
+  opacity: 0.85;
+  transition: width var(--dur-base) var(--ease-quart);
+}
+.vf-barcell-val {
+  position: relative;
+  z-index: 1;
+  padding-left: var(--space-2);
+}
+.vf-table-dense .vf-td,
+.vf-table-dense .vf-th {
+  padding: var(--space-2) var(--space-3);
+}
+@keyframes vf-cell-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

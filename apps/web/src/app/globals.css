@@ -133,8 +133,6 @@
 
   .cf-brand-mark {
     display: grid;
-    height: 2rem;
-    width: 2rem;
     place-items: center;
     border-radius: var(--radius-cf-md);
     background: linear-gradient(145deg, #2dd4bf, #0d9488);

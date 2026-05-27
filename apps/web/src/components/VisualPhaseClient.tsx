@@ -7,10 +7,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import dynamic from "next/dynamic";
+import { LottieMark } from "@/components/lottie/LottieMark";
 
 import type { CourseComposition } from "@courseflow/core";
 
-import type { PhaseLocks } from "@courseflow/core";
+import type { WvpPhaseLocks } from "@courseflow/core";
 
 import { PhaseBottomActions, ProjectPhaseNav } from "@/components/ProjectPhaseNav";
 
@@ -30,7 +31,15 @@ const VisualEditorCanvas = dynamic(
 
   () => import("@/components/VisualEditorCanvas").then((m) => m.VisualEditorCanvas),
 
-  { ssr: false, loading: () => <p className="text-sm text-zinc-500">載入編輯器…</p> },
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center gap-2 text-sm text-zinc-500">
+        <LottieMark variant="loading" size={18} ariaLabel="載入中" />
+        <span>載入編輯器…</span>
+      </div>
+    ),
+  },
 
 );
 
@@ -45,7 +54,7 @@ export function VisualPhaseClient({
   projectId: string;
   projectTitle: string;
   initialComposition: CourseComposition;
-  initialLocks: PhaseLocks;
+  initialLocks: WvpPhaseLocks;
 }) {
 
   const [composition, setComposition] = useState(initialComposition);
@@ -79,7 +88,7 @@ export function VisualPhaseClient({
 
   const router = useRouter();
 
-  const locked = locks.visual;
+  const locked = locks.craft;
 
 
 
@@ -173,13 +182,17 @@ export function VisualPhaseClient({
 
 
   const unlockPhase = async () => {
-    const res = await fetch(`/api/projects/${projectId}/phases/visual/lock`, {
+    const res = await fetch(`/api/projects/${projectId}/wvp/phases/craft/lock`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "unlock" }),
     });
     const data = await res.json();
-    setLocks(data.phase_locks);
+    if (!res.ok) {
+      toast(data.error ?? "解除鎖定失敗", "error");
+      return;
+    }
+    setLocks(data.wvp_phase_locks);
     router.refresh();
     toast("已解除鎖定", "info");
   };
@@ -190,7 +203,7 @@ export function VisualPhaseClient({
 
       <ProjectPhaseNav
         projectId={projectId}
-        current="visual"
+        current="craft"
         locks={locks}
         onLocksChange={setLocks}
         onBeforeLock={save}
@@ -279,7 +292,7 @@ export function VisualPhaseClient({
 
 
       <VisualEditorCanvas
-        key={String(locks.visual)}
+        key={String(locks.craft)}
         projectId={projectId}
         projectTitle={projectTitle}
         composition={composition}
@@ -293,7 +306,7 @@ export function VisualPhaseClient({
 
       <PhaseBottomActions
         projectId={projectId}
-        phase="visual"
+        phase="craft"
         locks={locks}
         onUnlock={unlockPhase}
       />

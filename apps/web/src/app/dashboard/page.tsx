@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   return (
     <AppShell
       title="我的專案"
-      description="管理教學影片專案，從文稿到匯出 MP4 的完整工作流。"
+      description="教學影片專案管理。"
     >
       <DashboardClient initialProjects={initialProjects} />
     </AppShell>

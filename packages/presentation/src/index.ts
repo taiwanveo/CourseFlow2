@@ -1,7 +1,21 @@
 export * from "./paths.js";
-
-/**
- * WVP 模板來源（vendored skill）。
- * 實際 scaffold 將在 M2 複製 templates 到專案 presentation/。
- */
-export const WVP_TEMPLATE_VENDOR_REL = "packages/wvp-bridge/vendor/web-video-presentation/templates";
+export * from "./vendor-paths.js";
+export * from "./scaffold.js";
+export * from "./codegen/chapter.js";
+export * from "./codegen/step-visuals.js";
+export * from "./codegen/router.js";
+export * from "./chapter-checklist.js";
+export * from "./registry.js";
+export * from "./build.js";
+export * from "./static-server.js";
+export * from "./sync-audio.js";
+export * from "./sync-illustrations.js";
+export * from "./illustration-paths.js";
+export * from "./dist-storage.js";
+export * from "./write-sources.js";
+export * from "./visual-demo.js";
+export * from "./narration-phrases.js";
+export * from "./repair-presentation.js";
+export * from "./stepper-bump.js";
+/** Playwright 錄製請用 `@courseflow/presentation/record`，勿從主入口 import（避免 Next 打包） */
+export { WVP_TEMPLATE_VENDOR_REL } from "./paths-legacy.js";

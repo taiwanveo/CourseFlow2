@@ -12,8 +12,10 @@ import {
 } from "@courseflow/llm";
 import type { LlmProviderId } from "@courseflow/llm";
 import { getOrderedSteps } from "@courseflow/core";
+import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { listConfiguredLlmProviders } from "@/lib/llm-provider";
+import { parseWvpSettings } from "@/lib/wvp-settings";
 
 export async function POST(
   req: NextRequest,
@@ -28,7 +30,7 @@ export async function POST(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("phase_locks, title")
+    .select("phase_locks, title, wvp_settings")
     .eq("id", projectId)
     .eq("user_id", user.id)
     .single();
@@ -87,12 +89,16 @@ export async function POST(
     return NextResponse.json({ error: `找不到 ${provider} API Key` }, { status: 400 });
   }
 
+  const wvpSettings = parseWvpSettings(project.wvp_settings);
+  const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+
   const prompt =
     body.prompt?.trim() ||
     buildStepImagePrompt({
       courseTopic: project.title ?? composition.meta.language,
       screenContent: step.screenContent,
       script: step.script ?? "",
+      styleFragment,
     });
 
   try {

@@ -1,10 +1,16 @@
 import { randomUUID } from "node:crypto";
-import type { CompositionChapter, CompositionStep, CourseComposition } from "@courseflow/core";
+import type {
+  CompositionChapter,
+  CompositionStep,
+  CourseComposition,
+  WvpChapterKind,
+} from "@courseflow/core";
 import { createEmptyComposition } from "@courseflow/core";
 
 export interface GeneratedChapterInput {
   title: string;
   sortOrder: number;
+  chapterKind?: WvpChapterKind;
   children?: GeneratedChapterInput[];
   steps: {
     screenContent: string;
@@ -29,6 +35,7 @@ export function flattenGeneratedChapters(
         parentId: parent,
         title: ch.title,
         sortOrder: ch.sortOrder ?? ci,
+        chapterKind: ch.chapterKind,
       });
       ch.steps.forEach((st, si) => {
         outSteps.push({

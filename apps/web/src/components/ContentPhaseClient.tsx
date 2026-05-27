@@ -1,24 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PhaseBottomActions, ProjectPhaseNav } from "@/components/ProjectPhaseNav";
 import { OutlineEditor } from "@/components/OutlineEditor";
-import type { CourseComposition, PhaseLocks } from "@courseflow/core";
+import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import type { LlmProviderId } from "@courseflow/llm";
 import { useToast } from "@/components/Toast";
+import { LottieMark } from "@/components/lottie/LottieMark";
 import { useConfiguredLlmProviders } from "@/hooks/useConfiguredLlmProviders";
+import type { WvpSettings } from "@/lib/wvp-settings";
+import { wvpChapterIdMap } from "@/lib/wvp-chapter-id-map";
 
 export function ContentPhaseClient({
   projectId,
   initialComposition,
   initialLocks,
   initialArticleText = "",
+  initialWvpSettings = {},
+  initialThemeId = null,
 }: {
   projectId: string;
   initialComposition: CourseComposition;
-  initialLocks: PhaseLocks;
+  initialLocks: WvpPhaseLocks;
   initialArticleText?: string;
+  initialWvpSettings?: WvpSettings;
+  initialThemeId?: string | null;
 }) {
   const { toast } = useToast();
   const router = useRouter();
@@ -37,7 +44,9 @@ export function ContentPhaseClient({
   const [generatingArticle, setGeneratingArticle] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [wvpSettings, setWvpSettings] = useState<WvpSettings>(initialWvpSettings);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const chapterWvpIds = useMemo(() => wvpChapterIdMap(composition), [composition]);
 
   useEffect(() => {
     if (defaultProvider) setLlmProvider(defaultProvider);
@@ -57,11 +66,27 @@ export function ContentPhaseClient({
         toast((await res.json()).error ?? "儲存失敗", "error");
         return;
       }
-      toast("文稿已儲存", "success");
+      const wvpRes = await fetch(`/api/projects/${projectId}/wvp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wvpSettings: {
+            ...wvpSettings,
+            devMode: "sequential",
+            assets: wvpSettings.assets ?? [],
+          },
+          themeId: wvpSettings.themeId ?? initialThemeId,
+        }),
+      });
+      if (!wvpRes.ok) {
+        toast((await wvpRes.json()).error ?? "章節配圖儲存失敗", "error");
+        return;
+      }
+      toast("文稿與章節配圖已儲存", "success");
     } finally {
       setSaving(false);
     }
-  }, [projectId, composition, toast]);
+  }, [projectId, composition, wvpSettings, initialThemeId, toast]);
 
   const uploadFile = async (file: File) => {
     setUploading(true);
@@ -150,13 +175,17 @@ export function ContentPhaseClient({
   };
 
   const unlockPhase = async () => {
-    const res = await fetch(`/api/projects/${projectId}/phases/content/lock`, {
+    const res = await fetch(`/api/projects/${projectId}/wvp/phases/content/lock`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "unlock" }),
     });
     const data = await res.json();
-    setLocks(data.phase_locks);
+    if (!res.ok) {
+      toast(data.error ?? "解除鎖定失敗", "error");
+      return;
+    }
+    setLocks(data.wvp_phase_locks);
     router.refresh();
     toast("已解除鎖定", "info");
   };
@@ -175,17 +204,10 @@ export function ContentPhaseClient({
           <div>
             <h2 className="cf-section-title">生成教學內容</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              輸入提示詞，由 AI 撰寫教材原文；完成後會自動填入下方「匯入教學文件」文字框。
+              請先在下方輸入提示詞，由AI生成教材內容，生成完畢後會自動填入「教學內容」。
             </p>
-            <textarea
-              value={articlePrompt}
-              onChange={(e) => setArticlePrompt(e.target.value)}
-              rows={4}
-              placeholder={`例如：幫我生成大約2000字以內的「AI Agent與Harness Engineering」的課程教材：\n教材名稱：AI Agent 與 Harness Engineering 入門\n大綱：一、什麼是 AI Agent？ 二、什麼是 Harness Engineering？ 三、如何做 Harness Engineering？`}
-              className="mt-3 w-full rounded border border-[var(--border)] bg-black/30 p-3 text-sm"
-            />
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              {providers.length > 0 ? (
+            選擇AI提供者：
+            {providers.length > 0 ? (
                 <select
                   value={llmProvider}
                   onChange={(e) => setLlmProvider(e.target.value as LlmProviderId)}
@@ -198,6 +220,17 @@ export function ContentPhaseClient({
                   ))}
                 </select>
               ) : null}
+            <h2 className="cf-section-title">提示詞：</h2>
+            <div className="mt-3 space-y-3">
+            <textarea
+              value={articlePrompt}
+              onChange={(e) => setArticlePrompt(e.target.value)}
+              rows={4}
+              placeholder={`例如：幫我生成大約2000字以內的「AI Agent與Harness Engineering」的課程教材：\n教材名稱：AI Agent 與 Harness Engineering 入門\n大綱：一、什麼是 AI Agent？ 二、什麼是 Harness Engineering？ 三、如何做 Harness Engineering？`}
+              className="mt-3 w-full rounded border border-[var(--border)] bg-black/30 p-3 text-sm"
+            />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={generateArticle}
@@ -209,13 +242,13 @@ export function ContentPhaseClient({
             </div>
           </div>
           <div>
-          <h2 className="cf-section-title">匯入教學文件</h2>
+          <h2 className="cf-section-title">教學內容：</h2>
           <div className="mt-3 space-y-3">
             <textarea
               value={articleText}
               onChange={(e) => setArticleText(e.target.value)}
               rows={8}
-              placeholder="貼上 txt / md / html 文字，或選擇下方檔案自動剖析…"
+              placeholder="貼上 txt / md / html 文字，或上傳檔案自動剖析…"
               className="w-full rounded border border-[var(--border)] bg-black/30 p-3 text-sm"
             />
             <div className="flex flex-wrap items-center gap-3">
@@ -232,12 +265,19 @@ export function ContentPhaseClient({
                 onClick={() => fileInputRef.current?.click()}
                 className="cf-btn cf-btn-secondary"
               >
-                {uploading ? "剖析中…" : "選擇檔案"}
+                {uploading ? (
+                  <span className="inline-flex items-center gap-2">
+                    <LottieMark variant="loading" size={16} ariaLabel="剖析中" />
+                    <span>剖析中…</span>
+                  </span>
+                ) : (
+                  "選擇檔案"
+                )}
               </button>
               {selectedFileName ? (
                 <span className="text-sm text-zinc-400">已選：{selectedFileName}</span>
               ) : (
-                <span className="text-sm text-zinc-500">支援 txt、md、html、docx、pdf（選檔後自動剖析）</span>
+                <span className="text-sm text-zinc-500">支援 txt、md、html、docx、pdf（選擇檔案上傳後將自動剖析）</span>
               )}
             </div>
           </div>
@@ -248,7 +288,7 @@ export function ContentPhaseClient({
               disabled={generating || !providers.length}
               className="cf-btn cf-btn-primary"
             >
-              {generating ? "AI 產生中…" : "AI 產生大綱與口說稿"}
+              {generating ? "大綱與口播稿產生中…" : "產生大綱與口播稿"}
             </button>
           </div>
           </div>
@@ -270,6 +310,11 @@ export function ContentPhaseClient({
             onSelectStep={setSelectedStepId}
             onError={(message) => toast(message, "error")}
             fillHeight
+            projectId={projectId}
+            chapterWvpIds={chapterWvpIds}
+            assets={wvpSettings.assets ?? []}
+            onAssetsChange={(assets) => setWvpSettings((s) => ({ ...s, assets }))}
+            assetsLocked={locked}
           />
         </aside>
         <section className="flex min-h-0 min-w-0 flex-col">
@@ -297,7 +342,7 @@ export function ContentPhaseClient({
                 }
                 className="min-h-0 flex-1 resize-none rounded border border-[var(--border)] bg-black/30 p-2.5 text-sm leading-relaxed"
               />
-              <label className="block shrink-0 text-[11px] text-zinc-500">口說稿</label>
+              <label className="block shrink-0 text-[11px] text-zinc-500">口播稿</label>
               <textarea
                 disabled={locked || selectedStep.stepKind === "chapter"}
                 value={selectedStep.script}

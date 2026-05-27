@@ -1,0 +1,35 @@
+.vf-chart {
+  width: 100%;
+  color: var(--text);
+}
+.vf-title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--t-h2);
+}
+.vf-sub {
+  margin: 0 0 var(--space-4);
+  font-size: var(--t-body);
+  color: var(--text-2);
+}
+.vf-chart-box {
+  width: 100%;
+  min-height: 260px;
+}
+.vf-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 240px;
+}
+.vf-kpi-value {
+  font-size: var(--t-display-1);
+  color: var(--accent);
+  line-height: 1;
+}
+.vf-kpi-title {
+  font-size: var(--t-h2);
+  text-align: center;
+  max-width: 28ch;
+}

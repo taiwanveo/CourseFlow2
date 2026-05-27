@@ -19,16 +19,23 @@ export function AutoStartGate({ visible, onStart }: Props) {
       className="auto-gate"
       data-no-advance
       onClick={onStart}
+      onKeyDown={(e) => {
+        if (e.key === " " || e.key === "Enter") {
+          e.preventDefault();
+          e.stopPropagation();
+          onStart();
+        }
+      }}
       role="button"
       tabIndex={0}
     >
       <div className="auto-gate-card">
         <div className="auto-gate-kicker">AUTO PLAYBACK</div>
-        <div className="auto-gate-title">Press SPACE to start</div>
+        <div className="auto-gate-title">點擊或按空白鍵開始</div>
         <div className="auto-gate-sub">
-          Audio plays per step and advances automatically.
+          將依口播自動換頁並播放音訊。
           <br />
-          Press <kbd>M</kbd> any time to switch modes.
+          外層預覽可用左右側按鈕手動換頁；按 <kbd>M</kbd> 切換模式。
         </div>
       </div>
     </div>

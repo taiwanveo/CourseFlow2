@@ -28,6 +28,7 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
 COPY . .
+RUN node scripts/build-bananax-catalog.mjs
 RUN pnpm turbo build --filter=@courseflow/web...
 
 FROM base AS runner

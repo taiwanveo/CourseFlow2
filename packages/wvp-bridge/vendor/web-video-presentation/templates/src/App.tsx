@@ -8,8 +8,10 @@ import { AutoStartGate } from "./components/AutoStartGate";
 import { AutoToggle } from "./components/AutoToggle";
 import { ProgressBar } from "./components/ProgressBar";
 import { Stage } from "./components/Stage";
+import { StageNav } from "./components/StageNav";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useAutoMode } from "./hooks/useAutoMode";
+import { usePlayControlBridge } from "./hooks/usePlayControlBridge";
 import { useStepper } from "./hooks/useStepper";
 import { CHAPTERS } from "./registry/chapters";
 
@@ -53,17 +55,44 @@ export default function App() {
     stepper.next();
   }, [stepper]);
 
+  const trailMs = mode === "auto" ? 1100 : 200;
+
   useAudioPlayer({
     src: audioSrc,
     mode,
-    trailMs: 200,
+    trailMs,
     estimateFallbackMs: estimateMs(stepText),
     onAutoAdvance,
     autoStarted,
   });
 
+  const goFirst = useCallback(() => stepper.jumpToChapter(0, 0), [stepper]);
+  const goLast = useCallback(() => {
+    const last = CHAPTERS.length - 1;
+    stepper.jumpToChapter(last, CHAPTERS[last]!.narrations.length - 1);
+  }, [stepper]);
+
+  usePlayControlBridge({
+    onFirst: goFirst,
+    onPrev: stepper.prev,
+    onNext: stepper.next,
+    onLast: goLast,
+    onStartAuto: () => setAutoStarted(true),
+  });
+
+  const canPrev = stepper.globalIndex > 0;
+  const canNext = stepper.globalIndex < stepper.totalGlobal - 1;
+
   return (
     <>
+      <StageNav
+        onFirst={goFirst}
+        onPrev={stepper.prev}
+        onNext={stepper.next}
+        onLast={goLast}
+        canPrev={canPrev}
+        canNext={canNext}
+      />
       <Stage onAdvance={stepper.next}>
         <div key={ch.id} className="scene">
           <Cmp step={stepper.cursor.step} />

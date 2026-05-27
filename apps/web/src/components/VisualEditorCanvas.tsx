@@ -754,7 +754,7 @@ export function VisualEditorCanvas({
             </button>
           </div>
           <p className="text-[11px] leading-snug text-zinc-500">
-            依專案主題與各步驟螢幕內容、口說稿生成教學配圖（OpenAI / OpenRouter API Key）。
+            依專案主題與各步驟螢幕內容、口播稿生成教學配圖（OpenAI / OpenRouter API Key）。
           </p>
           <p className="text-[11px] text-zinc-600">
             拖曳移動 · 邊緣調整寬高 · 角落等比縮放 · 右鍵圖層
@@ -896,7 +896,7 @@ export function VisualEditorCanvas({
                 "（無字幕文字，請回階段 2 生成）"
               : "此步驟尚無字幕資料"}
           </p>
-          <p className="text-xs text-zinc-600">字幕樣式請至「語音字幕」階段調整。</p>
+          <p className="text-xs text-zinc-600">字幕請以外部工具後製，本專案不提供字幕編輯。</p>
         </section>
 
         <div

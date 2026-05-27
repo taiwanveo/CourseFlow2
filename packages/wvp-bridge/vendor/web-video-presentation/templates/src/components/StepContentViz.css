@@ -1,0 +1,109 @@
+.cf-content-viz {
+  margin-top: var(--space-5);
+}
+
+.cf-content-viz-label {
+  margin: 0 0 var(--space-3);
+  color: var(--muted, var(--text));
+  opacity: 0.9;
+}
+
+.cf-content-viz--bars {
+  padding: var(--space-4);
+  border: var(--rule-weight, 1px) solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--r-card, 8px);
+}
+
+.cf-content-viz-bars-track {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  height: 132px;
+}
+
+.cf-content-viz-bar-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  justify-content: flex-end;
+}
+
+.cf-content-viz-bar-fill {
+  width: 100%;
+  height: var(--h);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 85%, white), var(--accent));
+  border-radius: var(--r-sm, 4px) var(--r-sm, 4px) 0 0;
+  transform-origin: bottom;
+  animation: cf-content-bar-grow 1s var(--ease-quart, cubic-bezier(0.22, 1, 0.36, 1)) backwards;
+  animation-delay: calc(var(--i) * 100ms);
+}
+
+.cf-content-viz-bar-cap {
+  font-size: 0.65rem;
+  line-height: 1.2;
+  text-align: center;
+  color: var(--muted, var(--text));
+  max-width: 5.5rem;
+}
+
+.cf-content-viz--list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.cf-content-viz-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  opacity: 0;
+  transform: translateX(-12px);
+  animation: cf-content-list-in 0.7s var(--ease-quart, ease-out) forwards;
+  animation-delay: calc(80ms + var(--i) * 140ms);
+}
+
+.cf-content-viz-list-dot {
+  width: 10px;
+  height: 10px;
+  margin-top: 0.55em;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.cf-content-viz--keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.cf-content-viz-kw {
+  padding: var(--space-2) var(--space-4);
+  border: var(--rule-weight, 1px) solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: 999px;
+  font-size: clamp(1rem, 1.8vw, 1.35rem);
+  opacity: 0;
+  transform: scale(0.92);
+  animation: cf-content-kw-in 0.65s var(--ease-quart, ease-out) forwards;
+  animation-delay: calc(var(--i) * 120ms);
+}
+
+@keyframes cf-content-bar-grow {
+  from { transform: scaleY(0); opacity: 0.3; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes cf-content-list-in {
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes cf-content-kw-in {
+  to { opacity: 1; transform: scale(1); }
+}

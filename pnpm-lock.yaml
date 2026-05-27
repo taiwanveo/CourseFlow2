@@ -23,6 +23,9 @@ importers:
       '@courseflow/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@courseflow/craft-agent':
+        specifier: workspace:*
+        version: link:../../packages/craft-agent
       '@courseflow/db':
         specifier: workspace:*
         version: link:../../packages/db
@@ -35,12 +38,18 @@ importers:
       '@courseflow/player':
         specifier: workspace:*
         version: link:../../packages/player
+      '@courseflow/presentation':
+        specifier: workspace:*
+        version: link:../../packages/presentation
       '@courseflow/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       '@courseflow/tts':
         specifier: workspace:*
         version: link:../../packages/tts
+      '@courseflow/visual-config':
+        specifier: workspace:*
+        version: link:../../packages/visual-config
       '@courseflow/wvp-bridge':
         specifier: workspace:*
         version: link:../../packages/wvp-bridge
@@ -62,12 +71,18 @@ importers:
       edge-tts-universal:
         specifier: ^1.3.0
         version: 1.4.0
+      framer-motion:
+        specifier: ^12.40.0
+        version: 12.40.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       ioredis:
         specifier: ^5.6.1
         version: 5.10.1
       konva:
         specifier: ^9.3.20
         version: 9.3.22
+      lottie-react:
+        specifier: ^2.4.1
+        version: 2.4.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       lucide-react:
         specifier: ^0.511.0
         version: 0.511.0(react@19.2.6)
@@ -77,6 +92,9 @@ importers:
       next:
         specifier: ^15.3.3
         version: 15.5.18(@playwright/test@1.60.0)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
+      openai:
+        specifier: ^4.98.0
+        version: 4.104.0(ws@8.21.0)(zod@3.25.76)
       pdf-parse:
         specifier: ^1.1.1
         version: 1.1.4
@@ -141,6 +159,9 @@ importers:
       '@courseflow/llm':
         specifier: workspace:*
         version: link:../../packages/llm
+      '@courseflow/presentation':
+        specifier: workspace:*
+        version: link:../../packages/presentation
       '@courseflow/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -196,6 +217,16 @@ importers:
         version: 5.9.3
 
   packages/core:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
+  packages/craft-agent:
+    dependencies:
+      '@courseflow/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -280,6 +311,28 @@ importers:
         specifier: ^5.8.3
         version: 5.9.3
 
+  packages/presentation:
+    dependencies:
+      '@courseflow/core':
+        specifier: workspace:*
+        version: link:../core
+      '@courseflow/visual-config':
+        specifier: workspace:*
+        version: link:../visual-config
+      '@courseflow/wvp-bridge':
+        specifier: workspace:*
+        version: link:../wvp-bridge
+      playwright:
+        specifier: ^1.52.0
+        version: 1.60.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   packages/shared:
     dependencies:
       ioredis:
@@ -301,6 +354,19 @@ importers:
       openai:
         specifier: ^4.104.0
         version: 4.104.0(ws@8.21.0)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
+  packages/visual-config:
+    dependencies:
+      zod:
+        specifier: ^3.25.28
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.15.21
@@ -1542,6 +1608,20 @@ packages:
     resolution: {integrity: sha512-buewHzMvYL29jdeQTVILecSaZKnt/RJWjoZCF5OW60Z67/GmSLBkOFM7qh1PI3zFNtJbaZL5eQu1vLfazOwj4g==}
     engines: {node: '>=12.20.0'}
 
+  framer-motion@12.40.0:
+    resolution: {integrity: sha512-uaBd3qC1v3KQqBEjwTUd183K6PbS+j0yR9w9VmEOLWA/tnUcSn8Xa3uck7t4dgpDoUss8xQTcj8W2L07lrnLFg==}
+    peerDependencies:
+      '@emotion/is-prop-valid': '*'
+      react: ^18.0.0 || ^19.0.0
+      react-dom: ^18.0.0 || ^19.0.0
+    peerDependenciesMeta:
+      '@emotion/is-prop-valid':
+        optional: true
+      react:
+        optional: true
+      react-dom:
+        optional: true
+
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -1808,6 +1888,15 @@ packages:
   lop@0.4.2:
     resolution: {integrity: sha512-RefILVDQ4DKoRZsJ4Pj22TxE3omDO47yFpkIBoDKzkqPRISs5U1cnAdg/5583YPkWPaLIYHOKRMQSvjFsO26cw==}
 
+  lottie-react@2.4.1:
+    resolution: {integrity: sha512-LQrH7jlkigIIv++wIyrOYFLHSKQpEY4zehPicL9bQsrt1rnoKRYCYgpCUe5maqylNtacy58/sQDZTkwMcTRxZw==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  lottie-web@5.13.0:
+    resolution: {integrity: sha512-+gfBXl6sxXMPe8tKQm7qzLnUy5DUPJPKIyRHwtpCpyUEYjHYRJC/5gjUvdkuO2c3JllrPtHXH5UJJK8LRYl5yQ==}
+
   lru-cache@7.18.3:
     resolution: {integrity: sha512-jumlc0BIUrS3qJGgIkWZsyfAM7NCWiBcCDhnd+3NNM5KbBmLTgHVfWBcg6W+rLUsIpzpERPsvwUP7CckAQSOoA==}
     engines: {node: '>=12'}
@@ -1851,6 +1940,12 @@ packages:
 
   mitt@3.0.1:
     resolution: {integrity: sha512-vKivATfr97l2/QBCYAkXYDbrIWPM2IIKEl7YPhjCvKlG3kE2gm+uBo6nEXK3M5/Ffh/FLpKExzOQ3JJoJGFKBw==}
+
+  motion-dom@12.40.0:
+    resolution: {integrity: sha512-HxU3ZaBwNPVQUBQf1xxgq+7JrPNZvjLVxgbpEZL7RrWJnsxOf0/OM+yrHG9ogLQ31Do/r57Oz2gQWPK+6q62mg==}
+
+  motion-utils@12.39.0:
+    resolution: {integrity: sha512-8nadJAJjTtqRkmRF36FoJTrywK9nnFmnPwnSMyxaOCU7GDjN9RTMJIxx9De8ErM+vpPhMccr/6fo5WciyQLnMQ==}
 
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
@@ -3337,6 +3432,15 @@ snapshots:
       fetch-blob: 3.2.0
     optional: true
 
+  framer-motion@12.40.0(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      motion-dom: 12.40.0
+      motion-utils: 12.39.0
+      tslib: 2.8.1
+    optionalDependencies:
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
   fsevents@2.3.2:
     optional: true
 
@@ -3643,6 +3747,14 @@ snapshots:
       option: 0.2.4
       underscore: 1.13.8
 
+  lottie-react@2.4.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6):
+    dependencies:
+      lottie-web: 5.13.0
+      react: 19.2.6
+      react-dom: 19.2.6(react@19.2.6)
+
+  lottie-web@5.13.0: {}
+
   lru-cache@7.18.3: {}
 
   lucide-react@0.511.0(react@19.2.6):
@@ -3683,6 +3795,12 @@ snapshots:
       mime-db: 1.52.0
 
   mitt@3.0.1: {}
+
+  motion-dom@12.40.0:
+    dependencies:
+      motion-utils: 12.39.0
+
+  motion-utils@12.39.0: {}
 
   ms@2.1.3: {}
 
