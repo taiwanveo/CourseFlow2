@@ -1,9 +1,29 @@
-import { access } from "node:fs/promises";
+import { access, mkdir } from "node:fs/promises";
 import { writeDistManifest } from "./dist-storage.js";
 import { repairPresentationBeforeBuild } from "./repair-presentation.js";
 import { repairPresentationChapterImports } from "./write-sources.js";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
+
+/** Debian 系統使用者的 HOME 常為 /nonexistent，npm 無法寫入 cache／log */
+const INVALID_HOME = new Set(["", "/nonexistent"]);
+
+function presentationsDataRoot(presentationDir: string): string {
+  const env = process.env.COURSEFLOW_PRESENTATION_ROOT?.trim();
+  if (env) return env;
+  return join(presentationDir, "..", "..");
+}
+
+/** 子程序執行 npm 時的可寫入 HOME 與 cache（Render nextjs 使用者必備） */
+async function npmChildEnv(presentationDir: string): Promise<Record<string, string>> {
+  const root = presentationsDataRoot(presentationDir);
+  const rawHome = process.env.HOME?.trim() ?? "";
+  const homeDir = INVALID_HOME.has(rawHome) ? join(root, ".npm-home") : rawHome;
+  const cacheDir = process.env.NPM_CONFIG_CACHE?.trim() || join(root, ".npm-cache");
+  await mkdir(homeDir, { recursive: true });
+  await mkdir(cacheDir, { recursive: true });
+  return { HOME: homeDir, NPM_CONFIG_CACHE: cacheDir };
+}
 
 function run(cmd: string, args: string[], cwd: string, env: Record<string, string>): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -41,12 +61,13 @@ export async function buildPresentation(
   presentationDir: string,
   options: BuildPresentationOptions,
 ): Promise<BuildPresentationResult> {
+  const npmEnv = await npmChildEnv(presentationDir);
   const nodeModules = join(presentationDir, "node_modules");
   try {
     await access(nodeModules);
   } catch {
     if (!options.skipInstall) {
-      await run("npm", ["install", "--no-audit", "--no-fund"], presentationDir, {});
+      await run("npm", ["install", "--no-audit", "--no-fund"], presentationDir, npmEnv);
     }
   }
 
@@ -62,6 +83,7 @@ export async function buildPresentation(
     ["run", "build"],
     presentationDir,
     {
+      ...npmEnv,
       CF_STUDIO_PREVIEW_BASE: base,
       VITE_CF_STUDIO_PREVIEW: "true",
       VITE_CF_HIDE_NARRATION: "true",

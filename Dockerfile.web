@@ -42,7 +42,12 @@ ENV COURSEFLOW_PRESENTATION_ROOT=/tmp/cf-presentations
 WORKDIR /app
 
 RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 nextjs
+  && adduser --system --uid 1001 --home /home/nextjs --ingroup nodejs nextjs \
+  && mkdir -p /home/nextjs /tmp/cf-presentations /tmp/.npm-cache \
+  && chown -R nextjs:nodejs /home/nextjs /tmp/cf-presentations /tmp/.npm-cache
+
+ENV HOME=/home/nextjs
+ENV NPM_CONFIG_CACHE=/tmp/.npm-cache
 
 COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
