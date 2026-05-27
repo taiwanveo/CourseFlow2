@@ -38,6 +38,9 @@ projects:
               # WVP 課程打包：避免 Render ~30s 閘道逾時導致 HTTP 502
               - key: COURSEFLOW_ASYNC_WVP_BUILD
                 value: "1"
+              # Vite build 記憶體上限（512MB 容器建議 384）
+              - key: COURSEFLOW_VITE_HEAP_MB
+                value: "384"
               - key: NEXT_PUBLIC_SUPABASE_URL
                 sync: false
               - key: NEXT_PUBLIC_SUPABASE_ANON_KEY

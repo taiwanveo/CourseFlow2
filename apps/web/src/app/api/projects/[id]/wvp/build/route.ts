@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
@@ -54,6 +54,28 @@ export async function POST(
     }
 
     if (shouldAsyncWvpBuild()) {
+      const { data: existingJob } = await supabase
+        .from("job_runs")
+        .select("id, status")
+        .eq("project_id", id)
+        .eq("job_type", "wvp-build")
+        .in("status", ["pending", "running"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingJob?.id) {
+        return NextResponse.json(
+          {
+            ok: true,
+            queued: true,
+            jobRunId: existingJob.id,
+            message: "已有打包任務進行中，請稍候…",
+          },
+          { status: 202 },
+        );
+      }
+
       const { data: jobRun, error: jobError } = await supabase
         .from("job_runs")
         .insert({
@@ -78,15 +100,12 @@ export async function POST(
         userId: user.id,
         jobRunId: jobRun.id,
       };
-      const runInBackground = () =>
-        runWvpBuild(buildPayload).catch((err) => {
+      // Render Docker 長駐程序：setImmediate 比 after() 更可靠，避免任務卡在 pending
+      setImmediate(() => {
+        void runWvpBuild(buildPayload).catch((err) => {
           console.error("[wvp-build] 背景建置失敗:", err);
         });
-      try {
-        after(runInBackground);
-      } catch {
-        void runInBackground();
-      }
+      });
 
       return NextResponse.json(
         {

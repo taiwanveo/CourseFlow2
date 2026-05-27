@@ -1,3 +1,5 @@
+import { access } from "node:fs/promises";
+import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CourseComposition } from "@courseflow/core";
 import { isChapterStep } from "@courseflow/core";
@@ -13,7 +15,10 @@ import {
   loadDesignTokensForTheme,
   type VisualDirectorPlan,
 } from "@courseflow/visual-config";
-import { writePresentationIllustrationFiles } from "@courseflow/presentation";
+import {
+  wvpStepImageFileName,
+  writePresentationIllustrationFiles,
+} from "@courseflow/presentation";
 import { decryptApiKey } from "@/lib/crypto";
 import { listConfiguredLlmProviders } from "@/lib/llm-provider";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
@@ -42,11 +47,19 @@ type CraftRow = {
   checklist_result?: unknown;
 };
 
+export type WvpIllustrationSyncOptions = {
+  /** 打包路徑：略過 Visual Director LLM（配圖應在 Craft 階段完成） */
+  skipVisualDirector?: boolean;
+  /** 若 public/images 已有檔案則不重算／重下 */
+  reuseExistingFiles?: boolean;
+};
+
 export type WvpIllustrationSyncResult = {
   written: number;
   attempted: number;
   skippedNoKey: boolean;
   directorSkipped: number;
+  reusedExisting: number;
 };
 
 function chapterTemplateKind(craft: CraftRow): string | undefined {
@@ -127,6 +140,7 @@ export async function syncPresentationIllustrations(
   projectAssets?: WvpAssetRef[],
   styleFragment?: string,
   themeId = "midnight-press",
+  syncOpts?: WvpIllustrationSyncOptions,
 ): Promise<WvpIllustrationSyncResult> {
   const presentationDir = presentationDirForProject(projectId);
   const configured = await listConfiguredLlmProviders(supabase, userId);
@@ -176,6 +190,9 @@ export async function syncPresentationIllustrations(
   const files: { wvpChapterId: string; stepIndex: number; buffer: Buffer }[] = [];
   let attempted = 0;
   let directorSkipped = 0;
+  let reusedExisting = 0;
+  const reuseExistingFiles = syncOpts?.reuseExistingFiles !== false;
+  const skipVisualDirector = syncOpts?.skipVisualDirector === true;
 
   for (const craft of crafts) {
     const kind = chapterTemplateKind(craft);
@@ -195,6 +212,23 @@ export async function syncPresentationIllustrations(
 
     for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
       if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
+
+      if (reuseExistingFiles) {
+        const existingPath = join(
+          presentationDir,
+          "public",
+          "images",
+          craft.wvp_chapter_id,
+          wvpStepImageFileName(stepIndex),
+        );
+        try {
+          await access(existingPath);
+          reusedExisting++;
+          continue;
+        } catch {
+          /* 需生成或同步 */
+        }
+      }
 
       attempted++;
       const compStep = compSteps[stepIndex];
@@ -222,7 +256,7 @@ export async function syncPresentationIllustrations(
       }
 
       let directorPlan: VisualDirectorPlan | undefined;
-      if (directorLlm) {
+      if (directorLlm && !skipVisualDirector) {
         try {
           const analyzed = await analyzeStepVisualPlan({
             stepIndex,
@@ -284,5 +318,6 @@ export async function syncPresentationIllustrations(
     attempted,
     skippedNoKey: !imageApiKey && attempted > 0 && written === 0,
     directorSkipped,
+    reusedExisting,
   };
 }

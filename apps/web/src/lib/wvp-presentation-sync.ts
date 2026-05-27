@@ -357,6 +357,7 @@ export async function syncFullWvpProject(
       wvpSettings.assets,
       styleFragment,
       themeId,
+      { skipVisualDirector: true, reuseExistingFiles: true },
     );
     if (illus.skippedNoKey && illus.attempted > 0) {
       illustrationSyncWarning =

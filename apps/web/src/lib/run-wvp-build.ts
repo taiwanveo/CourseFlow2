@@ -41,6 +41,10 @@ export async function runWvpBuild(payload: {
   }
 
   await patchJob({ status: "running" });
+  const startedAt = Date.now();
+  console.log(
+    `[wvp-build] start job=${payload.jobRunId} project=${payload.projectId}`,
+  );
 
   try {
     const result = await syncFullWvpProject(supabase, payload.projectId, payload.userId, {
@@ -67,6 +71,9 @@ export async function runWvpBuild(payload: {
     };
 
     await patchJob({ status: "completed", result: jobResult });
+    console.log(
+      `[wvp-build] done job=${payload.jobRunId} in ${Math.round((Date.now() - startedAt) / 1000)}s chapters=${result.chapterCount}`,
+    );
     return jobResult;
   } catch (e) {
     const message = e instanceof Error ? e.message : "建置失敗";

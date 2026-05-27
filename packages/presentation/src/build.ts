@@ -118,12 +118,14 @@ export async function buildPresentation(
   const repair = await repairPresentationBeforeBuild(presentationDir);
   await repairPresentationChapterImports(presentationDir);
 
+  const heapMb = process.env.COURSEFLOW_VITE_HEAP_MB?.trim() || "384";
   await run(
     "npm",
     ["run", "build"],
     presentationDir,
     {
       ...npmInstallEnv(npmEnv),
+      NODE_OPTIONS: `--max-old-space-size=${heapMb}`,
       CF_STUDIO_PREVIEW_BASE: base,
       VITE_CF_STUDIO_PREVIEW: "true",
       VITE_CF_HIDE_NARRATION: "true",

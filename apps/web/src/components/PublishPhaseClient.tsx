@@ -46,6 +46,7 @@ export function PublishPhaseClient({
   const [readiness, setReadiness] = useState<ExportReadiness | null>(null);
   const [previewBuilt, setPreviewBuilt] = useState(initialPreviewBuilt);
   const [building, setBuilding] = useState(false);
+  const [buildElapsedSec, setBuildElapsedSec] = useState(0);
   const [skippingChapterId, setSkippingChapterId] = useState<string | null>(null);
   const { toast } = useToast();
   const locked = locks.publish;
@@ -77,7 +78,11 @@ export function PublishPhaseClient({
       .catch(() => undefined);
   }, [projectId]);
 
+  const POLL_INTERVAL_MS = 2000;
+  const POLL_MAX_ATTEMPTS = 600;
+
   const pollWvpBuildJob = async (jobRunId: string, attempt = 0): Promise<void> => {
+    setBuildElapsedSec(attempt * (POLL_INTERVAL_MS / 1000));
     const res = await fetch(`/api/job-runs/${jobRunId}`);
     const data = (await res.json()) as {
       error?: string;
@@ -110,13 +115,13 @@ export function PublishPhaseClient({
       throw new Error(data.job?.error_message ?? "打包失敗");
     }
 
-    if (attempt >= 180) {
+    if (attempt >= POLL_MAX_ATTEMPTS) {
       throw new Error(
-        "打包時間過長仍未完成。請稍後重新整理頁面，或至 Render 查看 Web 服務日誌是否記憶體不足。",
+        "前端輪詢已達 20 分鐘。打包可能仍在背景執行，請重新整理頁面後試開「播放預覽」；若仍失敗請至 Render 查看 Web 服務日誌（Free 512MB 常見記憶體不足）。",
       );
     }
 
-    await new Promise((r) => window.setTimeout(r, 2000));
+    await new Promise((r) => window.setTimeout(r, POLL_INTERVAL_MS));
     return pollWvpBuildJob(jobRunId, attempt + 1);
   };
 
@@ -126,6 +131,7 @@ export function PublishPhaseClient({
       return;
     }
     setBuilding(true);
+    setBuildElapsedSec(0);
     try {
       const res = await fetch(`/api/projects/${projectId}/wvp/build`, { method: "POST" });
       const text = await res.text();
@@ -301,7 +307,13 @@ export function PublishPhaseClient({
             onClick={buildWvpPreview}
             title={audioGate.message ?? undefined}
           >
-            {building ? "打包中（首次較久）…" : "打包課程"}
+            {building
+              ? buildElapsedSec >= 60
+                ? `打包中（已 ${Math.floor(buildElapsedSec / 60)} 分 ${buildElapsedSec % 60} 秒）…`
+                : buildElapsedSec > 0
+                  ? `打包中（已 ${buildElapsedSec} 秒）…`
+                  : "打包中（首次較久）…"
+              : "打包課程"}
           </button>
           {previewBuilt ? (
             <Link
