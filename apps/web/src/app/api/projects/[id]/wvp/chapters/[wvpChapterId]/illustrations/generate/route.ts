@@ -90,7 +90,7 @@ export async function POST(
       id,
       craft,
       indices,
-      { styleFragment },
+      { styleFragment, imageStyleId: styleGuard.imageStyle.id },
     );
     return NextResponse.json({
       ok: true,

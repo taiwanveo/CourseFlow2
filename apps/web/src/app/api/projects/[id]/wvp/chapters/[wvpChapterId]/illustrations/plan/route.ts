@@ -69,6 +69,7 @@ export async function POST(
       craft,
       composition,
       themeId,
+      styleGuard.imageStyle.id,
       styleFragment,
     );
     return NextResponse.json({ ok: true, ...state });

@@ -46,6 +46,8 @@ export type StepIllustrationEntry = {
   status: StepIllustrationStatus;
   /** 送進生圖 API 的完整提示詞（使用者可編輯） */
   promptForApi: string;
+  /** 產生此提示詞時所使用的風格 ID */
+  promptStyleId?: string | null;
   imagePromptEn?: string;
   coreMessage?: string;
   confirmedAt?: string | null;
@@ -313,6 +315,7 @@ export async function planChapterIllustrationPrompts(
   craft: CraftRow,
   composition: CourseComposition,
   themeId: string,
+  imageStyleId: string,
   styleFragment?: string,
 ): Promise<ChapterIllustrationsState> {
   const { textProvider, textApiKey } = await resolveImageLlm(supabase, userId);
@@ -388,6 +391,7 @@ export async function planChapterIllustrationPrompts(
         recommendedOutput,
         status: "skip",
         promptForApi: "",
+        promptStyleId: imageStyleId,
         imagePromptEn: directorPlan?.imagePromptEn,
         coreMessage: directorPlan?.coreMessage,
         confirmedAt: null,
@@ -411,7 +415,11 @@ export async function planChapterIllustrationPrompts(
       scriptSnippet: script.slice(0, 160),
       recommendedOutput,
       status: prevStep?.confirmedAt ? "prompt-ready" : "prompt-draft",
-      promptForApi: prevStep?.promptForApi?.trim() ? prevStep.promptForApi : promptForApi,
+      promptForApi:
+        prevStep?.promptForApi?.trim() && prevStep.promptStyleId === imageStyleId
+          ? prevStep.promptForApi
+          : promptForApi,
+      promptStyleId: imageStyleId,
       imagePromptEn: directorPlan?.imagePromptEn,
       coreMessage: directorPlan?.coreMessage,
       confirmedAt: prevStep?.confirmedAt ?? null,
@@ -482,7 +490,7 @@ export async function generateChapterIllustrationSteps(
   projectId: string,
   craft: CraftRow,
   stepIndices: number[],
-  opts?: { styleFragment?: string },
+  opts?: { styleFragment?: string; imageStyleId?: string },
 ): Promise<{ steps: StepIllustrationEntry[]; generated: number }> {
   const { imageProvider, imageApiKey } = await resolveImageLlm(supabase, userId);
   if (!imageApiKey || !imageProvider) {
@@ -502,6 +510,9 @@ export async function generateChapterIllustrationSteps(
     if (idx < 0) continue;
     const step = steps[idx]!;
     if (step.status === "skip" || !step.promptForApi.trim()) continue;
+    if (opts?.imageStyleId && step.promptStyleId !== opts.imageStyleId) {
+      throw new Error("已切換生圖風格，請先按「產生提示詞」更新後再生圖");
+    }
 
     steps[idx] = { ...step, status: "generating", error: null };
     await supabase
