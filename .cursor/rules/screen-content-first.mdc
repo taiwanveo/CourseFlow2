@@ -1,0 +1,30 @@
+---
+description: WVP 投影片文案映射規則（screenContent 優先）
+globs:
+  - "packages/presentation/src/codegen/templates/**/*.ts"
+  - "apps/web/src/lib/wvp-*.ts"
+alwaysApply: true
+---
+
+# Screen Content（螢幕內容）優先規則
+
+## 目標
+
+避免把 Script（口播稿）錯誤渲染成螢幕大字，導致畫面過長、破壞版面。
+
+## 規則
+
+1. 畫面主標（headline）必須優先使用 `screenContent`（螢幕內容）。
+2. `screenContent` 為空時，才可退回 `narration/script`（口播稿）截斷版。
+3. 畫面主標字數少時要自動放大：
+   - <= 8 字：最大級
+   - 9-16 字：中級
+   - > 16 字：標準級
+4. 主標位置必須落在不遮擋核心插圖與資訊區塊的安全區。
+5. `script` 僅用於音訊敘事與補充內文，不可直接當主標。
+
+## 驗收檢查
+
+- 是否能在畫面上看到短句關鍵詞，而不是口播長句。
+- 同一步的主標與口播不應高度重複。
+- 主標長度降低後，字級是否有明顯提升且版面仍平衡。

@@ -55,6 +55,7 @@ function figureBlock(
 function stepScene(
   step: number,
   narration: string,
+  screenContent: string,
   title: string,
   prefix: string,
   wvpChapterId: string,
@@ -63,8 +64,11 @@ function stepScene(
   figureAlt?: string,
 ): string {
   const layout = pickLayout(step);
+  const screenLine = truncate(screenContent, 34);
   const phrases = splitNarrationPhrases(narration, 4);
-  const headline = truncate(phrases[0] ?? narration, 13) || `步驟 ${step + 1}`;
+  const headline = screenLine || truncate(phrases[0] ?? narration, 13) || `步驟 ${step + 1}`;
+  const headlineTone =
+    headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
   const kicker = beat ? truncate(beat, 40) : `Step ${String(step + 1).padStart(2, "0")}`;
   const figure = figureBlock(prefix, wvpChapterId, step, checkpointUrl, figureAlt);
   const bodyBlock = bodyLines(phrases, phrases[0] ?? headline, `${prefix}-body`);
@@ -82,7 +86,7 @@ function stepScene(
           <div className="hero-num ${prefix}-cover-num">${String(step + 1).padStart(2, "0")}</div>
           <h1 className="${prefix}-cover-h">
             <MaskReveal show duration={900}>
-              <span className="serif-cn">${escapeTsString(headline)}</span>
+              <span className="serif-cn ${prefix}-${headlineTone}">${escapeTsString(headline)}</span>
             </MaskReveal>
           </h1>
           <div className="${prefix}-cover-aside">
@@ -108,7 +112,7 @@ function stepScene(
             <div className="${prefix}-split-num hero-num">${String(step + 1).padStart(2, "0")}</div>
             <h2 className="${prefix}-split-h">
               <MaskReveal show duration={900}>
-                <span className="serif-cn">${escapeTsString(headline)}</span>
+                <span className="serif-cn ${prefix}-${headlineTone}">${escapeTsString(headline)}</span>
               </MaskReveal>
             </h2>
             <div className="${prefix}-body">
@@ -137,7 +141,7 @@ ${bodyBlock || `              <p className="${prefix}-body asd-body-line">${esca
             <div className="hero-num">${String(step + 1).padStart(2, "0")}</div>
             <h2 className="${prefix}-split-h">
               <MaskReveal show duration={900}>
-                <span className="serif-cn">${escapeTsString(headline)}</span>
+                <span className="serif-cn ${prefix}-${headlineTone}">${escapeTsString(headline)}</span>
               </MaskReveal>
             </h2>
             <div className="${prefix}-body">
@@ -158,7 +162,7 @@ ${bodyBlock || `              <p className="${prefix}-body asd-body-line">${esca
           <div className="${prefix}-close-copy">
             <div className="pull-quote ${prefix}-quote">
               <MaskReveal show duration={1100}>
-                <span className="serif-cn">${escapeTsString(headline)}</span>
+                <span className="serif-cn ${prefix}-${headlineTone}">${escapeTsString(headline)}</span>
               </MaskReveal>
             </div>
             <div className="${prefix}-body">
@@ -190,6 +194,7 @@ export function generateMagazineSources(input: ChapterCodegenInput) {
       stepScene(
         i,
         input.narrations[i] ?? "",
+        input.screenContents?.[i] ?? "",
         input.title,
         prefix,
         input.wvpChapterId,
@@ -226,6 +231,16 @@ ${stepBlocks.join("\n")}
   line-height: 1.08;
   text-align: center;
   margin: 0;
+}
+.${prefix}-headline-short {
+  font-size: clamp(3.8rem, 6.4vw, 6.2rem);
+  letter-spacing: 0.01em;
+}
+.${prefix}-headline-mid {
+  font-size: clamp(3.2rem, 5.6vw, 5.4rem);
+}
+.${prefix}-headline-long {
+  font-size: clamp(2.35rem, 4.6vw, 4.2rem);
 }
 .${prefix}-cover-num { font-size: clamp(4rem, 8vw, 7rem); margin-bottom: var(--space-4); }
 .${prefix}-body { text-align: left; font-size: var(--t-body, 22px); line-height: 1.55; max-width: 52ch; }
