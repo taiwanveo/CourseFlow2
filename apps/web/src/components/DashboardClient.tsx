@@ -13,6 +13,7 @@ type Project = {
   id: string;
   title: string;
   updatedAtLabel: string;
+  previewBuilt?: boolean;
 };
 
 export function DashboardClient({ initialProjects }: { initialProjects: Project[] }) {
@@ -50,6 +51,7 @@ export function DashboardClient({ initialProjects }: { initialProjects: Project[
           id: data.project.id,
           title: data.project.title,
           updatedAtLabel: formatProjectDateTime(data.project.updated_at),
+          previewBuilt: false,
         },
         ...prev,
       ]);
@@ -161,6 +163,28 @@ export function DashboardClient({ initialProjects }: { initialProjects: Project[
                         </p>
                       </Link>
                     </div>
+                    {p.previewBuilt ? (
+                      <div className="flex min-w-[260px] flex-wrap items-center justify-center gap-2">
+                        <Link
+                          href={`/projects/${p.id}/wvp-play`}
+                          className="cf-btn cf-btn-primary cf-btn-sm"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          互動預覽
+                        </Link>
+                        <Link
+                          href={`/projects/${p.id}/wvp-play?auto=1`}
+                          className="cf-btn cf-btn-secondary cf-btn-sm"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          自動播放預覽
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="min-w-[260px]" />
+                    )}
                     <div className="flex shrink-0 gap-2">
                       <Button
                         size="sm"
