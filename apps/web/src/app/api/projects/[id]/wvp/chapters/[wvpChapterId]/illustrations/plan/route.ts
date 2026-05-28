@@ -13,7 +13,7 @@ export const maxDuration = 300;
 
 /** Visual Director：產出各步真實生圖提示詞（不生成圖片） */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
 ) {
   const { id, wvpChapterId } = await params;
@@ -59,6 +59,9 @@ export async function POST(
   const wvpSettings = styleGuard.settings;
   const themeId = wvpSettings.themeId ?? project.theme_id ?? "midnight-press";
   const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+  const body = (await req.json().catch(() => ({}))) as { stepIndex?: number };
+  const onlyStepIndices =
+    typeof body.stepIndex === "number" && body.stepIndex >= 0 ? [body.stepIndex] : undefined;
 
   try {
     const state = await planChapterIllustrationPrompts(
@@ -71,6 +74,7 @@ export async function POST(
       themeId,
       styleGuard.imageStyle.id,
       styleFragment,
+      onlyStepIndices,
     );
     return NextResponse.json({ ok: true, ...state });
   } catch (e) {

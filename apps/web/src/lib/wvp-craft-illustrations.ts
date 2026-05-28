@@ -317,6 +317,7 @@ export async function planChapterIllustrationPrompts(
   themeId: string,
   imageStyleId: string,
   styleFragment?: string,
+  onlyStepIndices?: number[],
 ): Promise<ChapterIllustrationsState> {
   const { textProvider, textApiKey } = await resolveImageLlm(supabase, userId);
   if (!textProvider || !textApiKey) {
@@ -352,15 +353,43 @@ export async function planChapterIllustrationPrompts(
       : {};
 
   const existing = readIllustrationsFromChecklist(craft);
+  const onlySet =
+    onlyStepIndices && onlyStepIndices.length > 0 ? new Set(onlyStepIndices) : null;
   const steps: StepIllustrationEntry[] = [];
 
   for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
     if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
+    const shouldRegenerate = !onlySet || onlySet.has(stepIndex);
 
     const narration = narrations[stepIndex] ?? "";
     const screen = screenContents[stepIndex]?.trim() ?? "";
     const script = narration;
     const prevStep = existing.find((s) => s.stepIndex === stepIndex);
+
+    if (!shouldRegenerate && prevStep) {
+      steps.push({
+        ...prevStep,
+        screenSnippet: screen.slice(0, 120) || prevStep.screenSnippet,
+        scriptSnippet: script.slice(0, 160) || prevStep.scriptSnippet,
+      });
+      continue;
+    }
+    if (!shouldRegenerate && !prevStep) {
+      steps.push({
+        stepIndex,
+        screenSnippet: screen.slice(0, 120),
+        scriptSnippet: script.slice(0, 160),
+        recommendedOutput: "ai-image",
+        status: "prompt-draft",
+        promptForApi: "",
+        promptStyleId: imageStyleId,
+        confirmedAt: null,
+        imageWritten: false,
+        storagePath: null,
+        error: null,
+      });
+      continue;
+    }
 
     let directorPlan: VisualDirectorPlan | undefined;
     let recommendedOutput = "ai-image";

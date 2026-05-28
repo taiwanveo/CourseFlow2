@@ -33,6 +33,7 @@ export function CraftIllustrationStudio({
   const [state, setState] = useState<ChapterState | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyStep, setBusyStep] = useState<number | "plan" | "batch" | null>(null);
+  const [planningStep, setPlanningStep] = useState<number | null>(null);
   const [imageBust, setImageBust] = useState(0);
   const regenQueue = useRef<number[]>([]);
   const processingQueue = useRef(false);
@@ -115,27 +116,43 @@ export function CraftIllustrationStudio({
     void processRegenQueue();
   };
 
-  const planPrompts = async () => {
+  const planPrompts = async (stepIndex?: number) => {
     if (!hasImageStyle) {
       toast("請先選擇生圖風格主題", "error");
       onOpenStylePicker?.();
       return;
     }
-    setBusyStep("plan");
+    if (typeof stepIndex === "number") {
+      setPlanningStep(stepIndex);
+    } else {
+      setBusyStep("plan");
+    }
     setLoading(true);
     try {
       const res = await fetch(
         `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations/plan`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            typeof stepIndex === "number" ? { stepIndex } : {},
+          ),
+        },
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "規劃提示詞失敗");
       setState(data as ChapterState);
-      toast("已產生各步生圖提示詞，請確認或修改後再生圖", "success");
+      toast(
+        typeof stepIndex === "number"
+          ? `已更新步驟 ${stepIndex + 1} 提示詞`
+          : "已產生各步生圖提示詞，請確認或修改後再生圖",
+        "success",
+      );
     } catch (e) {
       toast(e instanceof Error ? e.message : "規劃失敗", "error");
     } finally {
       setBusyStep(null);
+      setPlanningStep(null);
       setLoading(false);
     }
   };
@@ -257,7 +274,15 @@ export function CraftIllustrationStudio({
                     <button
                       type="button"
                       className="cf-btn cf-btn-secondary cf-btn-sm"
-                      disabled={disabled || busyStep !== null}
+                      disabled={disabled || loading || busyStep !== null || planningStep !== null}
+                      onClick={() => void planPrompts(step.stepIndex)}
+                    >
+                      {planningStep === step.stepIndex ? "產生中…" : "產生提示詞"}
+                    </button>
+                    <button
+                      type="button"
+                      className="cf-btn cf-btn-secondary cf-btn-sm"
+                      disabled={disabled || loading || busyStep !== null || planningStep !== null}
                       onClick={() =>
                         void savePrompt(step.stepIndex, step.promptForApi, true).then(() =>
                           toast(`步驟 ${step.stepIndex + 1} 提示詞已確認`, "success"),
@@ -269,7 +294,13 @@ export function CraftIllustrationStudio({
                     <button
                       type="button"
                       className="cf-btn cf-btn-primary cf-btn-sm"
-                      disabled={disabled || busyStep !== null || !step.promptForApi.trim()}
+                      disabled={
+                        disabled ||
+                        loading ||
+                        planningStep !== null ||
+                        busyStep !== null ||
+                        !step.promptForApi.trim()
+                      }
                       onClick={() => void generateOne(step.stepIndex)}
                     >
                       生圖
@@ -278,7 +309,7 @@ export function CraftIllustrationStudio({
                       <button
                         type="button"
                         className="cf-btn cf-btn-secondary cf-btn-sm"
-                        disabled={disabled}
+                        disabled={disabled || loading || planningStep !== null || busyStep !== null}
                         onClick={() => enqueueRegen(step.stepIndex)}
                       >
                         重新生圖
