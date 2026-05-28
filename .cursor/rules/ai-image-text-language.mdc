@@ -1,0 +1,23 @@
+---
+description: AI 生圖文字語系規則（繁中優先）
+globs:
+  - "packages/llm/src/generate-step-image.ts"
+  - "apps/web/src/lib/wvp-illustration-sync.ts"
+  - "apps/web/src/lib/wvp-craft-illustrations.ts"
+alwaysApply: true
+---
+
+# AI 生圖文字語系天條
+
+## 原則
+
+1. 生圖可由模型自行判斷是否需要在圖片中放文字；不是絕對禁止文字。
+2. 若圖片需要文字，預設必須使用台灣繁體中文。
+3. 英文可在語境自然需要時使用；日文可少量使用，但僅限情境確實需要。
+4. 簡體中文僅能在來源內容或專有詞「真的必須」時使用，不能濫用。
+5. 除上述語境外，避免生成俄文、法文或其他無關外語字形。
+
+## 實作要求
+
+- 在最終送往模型的 prompt 文字中，必須明確包含本規則。
+- 若已有「NO text」規則，需調整為「是否放字由模型判斷 + 放字時語系限制」，避免互相矛盾。
