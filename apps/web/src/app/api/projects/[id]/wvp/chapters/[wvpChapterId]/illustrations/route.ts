@@ -67,6 +67,7 @@ export async function GET(
 
   const state = await getChapterIllustrationsState(
     supabase,
+    user.id,
     id,
     loaded.craft!,
     composition,

@@ -50,8 +50,78 @@ export type StepIllustrationEntry = {
   coreMessage?: string;
   confirmedAt?: string | null;
   imageWritten?: boolean;
+  /** Supabase Storage 路徑（雲端持久化，避免 /tmp 遺失） */
+  storagePath?: string | null;
   error?: string | null;
 };
+
+const CRAFT_ILLUSTRATION_BUCKET = "courseflow-assets";
+
+export function craftIllustrationStoragePath(
+  userId: string,
+  projectId: string,
+  wvpChapterId: string,
+  stepIndex: number,
+): string {
+  return `${userId}/${projectId}/wvp-illustrations/${wvpChapterId}/${wvpStepImageFileName(stepIndex)}`;
+}
+
+async function listChapterIllustrationStorageNames(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string,
+  wvpChapterId: string,
+): Promise<Set<string>> {
+  const prefix = `${userId}/${projectId}/wvp-illustrations/${wvpChapterId}`;
+  const { data, error } = await supabase.storage.from(CRAFT_ILLUSTRATION_BUCKET).list(prefix);
+  if (error || !data?.length) return new Set();
+  return new Set(data.map((f) => f.name).filter(Boolean) as string[]);
+}
+
+async function downloadCraftIllustrationFromStorage(
+  supabase: SupabaseClient,
+  storagePath: string,
+): Promise<Buffer | null> {
+  const { data, error } = await supabase.storage
+    .from(CRAFT_ILLUSTRATION_BUCKET)
+    .download(storagePath);
+  if (error || !data) return null;
+  const buf = Buffer.from(await data.arrayBuffer());
+  return buf.length ? buf : null;
+}
+
+async function uploadCraftIllustrationToStorage(
+  supabase: SupabaseClient,
+  storagePath: string,
+  buffer: Buffer,
+): Promise<void> {
+  const { error } = await supabase.storage.from(CRAFT_ILLUSTRATION_BUCKET).upload(storagePath, buffer, {
+    contentType: "image/jpeg",
+    upsert: true,
+  });
+  if (error) throw new Error(`配圖上傳失敗：${error.message}`);
+}
+
+async function localChapterIllustrationExists(
+  projectId: string,
+  wvpChapterId: string,
+  stepIndex: number,
+): Promise<boolean> {
+  try {
+    await access(
+      join(
+        presentationDirForProject(projectId),
+        "public",
+        "images",
+        wvpChapterId,
+        wvpStepImageFileName(stepIndex),
+      ),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export type ChapterIllustrationsState = {
   wvpChapterId: string;
@@ -145,13 +215,19 @@ async function resolveImageLlm(
 
 export async function getChapterIllustrationsState(
   supabase: SupabaseClient,
+  userId: string,
   projectId: string,
   craft: CraftRow,
   composition: CourseComposition,
 ): Promise<ChapterIllustrationsState> {
   const stored = readIllustrationsFromChecklist(craft);
-  const presentationDir = presentationDirForProject(projectId);
   const kind = chapterTemplateKind(craft);
+  const storageNames = await listChapterIllustrationStorageNames(
+    supabase,
+    userId,
+    projectId,
+    craft.wvp_chapter_id,
+  );
   const chapter = composition.chapters.find((c) => c.title === craft.title);
   const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
   const narrations =
@@ -163,21 +239,16 @@ export async function getChapterIllustrationsState(
     if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
 
     const existing = stored.find((s) => s.stepIndex === stepIndex);
-    let imageWritten = existing?.imageWritten ?? false;
-    try {
-      await access(
-        join(
-          presentationDir,
-          "public",
-          "images",
-          craft.wvp_chapter_id,
-          wvpStepImageFileName(stepIndex),
-        ),
-      );
-      imageWritten = true;
-    } catch {
-      /* no file */
-    }
+    const fileName = wvpStepImageFileName(stepIndex);
+    const hasLocal = await localChapterIllustrationExists(
+      projectId,
+      craft.wvp_chapter_id,
+      stepIndex,
+    );
+    const hasStorage = storageNames.has(fileName);
+    let imageWritten = hasLocal || hasStorage;
+    const lostPersisted =
+      (existing?.imageWritten || existing?.status === "done") && !imageWritten;
 
     const compSteps = chapter
       ? composition.steps
@@ -189,16 +260,27 @@ export async function getChapterIllustrationsState(
     const script = compStep?.script?.trim() ?? narrations[stepIndex] ?? "";
 
     if (existing) {
+      const storagePath = hasStorage
+        ? craftIllustrationStoragePath(userId, projectId, craft.wvp_chapter_id, stepIndex)
+        : (existing.storagePath ?? null);
       steps.push({
         ...existing,
         screenSnippet: screen.slice(0, 120) || existing.screenSnippet,
         scriptSnippet: script.slice(0, 160) || existing.scriptSnippet,
         imageWritten,
+        storagePath,
         status: imageWritten
           ? "done"
-          : existing.status === "generating"
+          : lostPersisted
             ? "prompt-ready"
-            : existing.status,
+            : existing.status === "generating"
+              ? "prompt-ready"
+              : existing.status,
+        error: lostPersisted
+          ? "配圖檔案已遺失（請重新生圖）"
+          : imageWritten
+            ? null
+            : existing.error,
       });
       continue;
     }
@@ -334,6 +416,7 @@ export async function planChapterIllustrationPrompts(
       coreMessage: directorPlan?.coreMessage,
       confirmedAt: prevStep?.confirmedAt ?? null,
       imageWritten: prevStep?.imageWritten ?? false,
+      storagePath: prevStep?.storagePath ?? null,
       error: null,
     });
   }
@@ -345,12 +428,8 @@ export async function planChapterIllustrationPrompts(
     .eq("project_id", projectId)
     .eq("wvp_chapter_id", craft.wvp_chapter_id);
 
-  return {
-    wvpChapterId: craft.wvp_chapter_id,
-    templateKind: kind,
-    steps,
-    updatedAt: merged.stepIllustrationsUpdatedAt as string,
-  };
+  const updatedCraft = { ...craft, checklist_result: merged };
+  return getChapterIllustrationsState(supabase, userId, projectId, updatedCraft, composition);
 }
 
 export async function patchChapterIllustrationPrompts(
@@ -436,17 +515,33 @@ export async function generateChapterIllustrationSteps(
         { provider: imageProvider, apiKey: imageApiKey },
         step.promptForApi.trim(),
       );
-      await writePresentationIllustrationFiles(presentationDir, [
-        {
-          wvpChapterId: craft.wvp_chapter_id,
-          stepIndex,
-          buffer: Buffer.from(bytes),
-        },
-      ]);
+      const buffer = Buffer.from(bytes);
+      const storagePath = craftIllustrationStoragePath(
+        userId,
+        projectId,
+        craft.wvp_chapter_id,
+        stepIndex,
+      );
+      await uploadCraftIllustrationToStorage(supabase, storagePath, buffer);
+      try {
+        await writePresentationIllustrationFiles(presentationDir, [
+          {
+            wvpChapterId: craft.wvp_chapter_id,
+            stepIndex,
+            buffer,
+          },
+        ]);
+      } catch (e) {
+        console.warn(
+          `[craft-illus] 本機快取寫入失敗 ${craft.wvp_chapter_id} step ${stepIndex + 1}:`,
+          (e as Error).message,
+        );
+      }
       steps[idx] = {
         ...step,
         status: "done",
         imageWritten: true,
+        storagePath,
         error: null,
       };
       generated++;
@@ -469,6 +564,8 @@ export async function generateChapterIllustrationSteps(
 }
 
 export async function readChapterIllustrationImage(
+  supabase: SupabaseClient,
+  userId: string,
   projectId: string,
   wvpChapterId: string,
   stepIndex: number,
@@ -481,10 +578,29 @@ export async function readChapterIllustrationImage(
     wvpStepImageFileName(stepIndex),
   );
   try {
-    return await readFile(path);
+    const local = await readFile(path);
+    if (local.length) return local;
   } catch {
-    return null;
+    /* 改從 Storage 還原 */
   }
+
+  const storagePath = craftIllustrationStoragePath(
+    userId,
+    projectId,
+    wvpChapterId,
+    stepIndex,
+  );
+  const remote = await downloadCraftIllustrationFromStorage(supabase, storagePath);
+  if (!remote?.length) return null;
+
+  try {
+    await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
+      { wvpChapterId, stepIndex, buffer: remote },
+    ]);
+  } catch {
+    /* 快取失敗仍回傳圖片 */
+  }
+  return remote;
 }
 
 /** 與打包路徑共用：僅同步已寫入 presentation 的圖，不跑 Director */

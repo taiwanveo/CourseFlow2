@@ -1,4 +1,3 @@
-import { access } from "node:fs/promises";
 import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CourseComposition } from "@courseflow/core";
@@ -214,19 +213,17 @@ export async function syncPresentationIllustrations(
       if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
 
       if (reuseExistingFiles) {
-        const existingPath = join(
-          presentationDir,
-          "public",
-          "images",
+        const { readChapterIllustrationImage } = await import("@/lib/wvp-craft-illustrations");
+        const existingBuf = await readChapterIllustrationImage(
+          supabase,
+          userId,
+          projectId,
           craft.wvp_chapter_id,
-          wvpStepImageFileName(stepIndex),
+          stepIndex,
         );
-        try {
-          await access(existingPath);
+        if (existingBuf?.length) {
           reusedExisting++;
           continue;
-        } catch {
-          /* 需生成或同步 */
         }
       }
 

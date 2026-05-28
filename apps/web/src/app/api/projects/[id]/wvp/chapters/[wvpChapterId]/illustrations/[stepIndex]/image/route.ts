@@ -29,7 +29,13 @@ export async function GET(
     .single();
   if (!project) return new NextResponse("找不到專案", { status: 404 });
 
-  const buf = await readChapterIllustrationImage(id, wvpChapterId, stepIndex);
+  const buf = await readChapterIllustrationImage(
+    supabase,
+    user.id,
+    id,
+    wvpChapterId,
+    stepIndex,
+  );
   if (!buf?.length) return new NextResponse("尚無配圖", { status: 404 });
 
   return new NextResponse(new Uint8Array(buf), {
