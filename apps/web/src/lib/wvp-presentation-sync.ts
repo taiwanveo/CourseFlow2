@@ -237,25 +237,8 @@ export async function buildAnchorChapterPreview(
 
   await syncCheckpointAssetsToPresentation(projectId, wvpSettings.assets);
 
-  let illustrationSyncWarning: string | undefined;
-  const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
-  const illus = await syncPresentationIllustrations(
-    supabase,
-    userId,
-    projectId,
-    project.title ?? "Course",
-    composition,
-    [first] as Parameters<typeof syncPresentationIllustrations>[5],
-    wvpSettings.assets,
-    styleFragment,
-    themeId,
-  );
-  if (illus.skippedNoKey && illus.attempted > 0) {
-    illustrationSyncWarning =
-      "試跑預覽：請在設定頁填寫 OpenAI 或 OpenRouter API Key 以生成配圖。";
-  } else if (illus.attempted > 0 && illus.written === 0) {
-    illustrationSyncWarning = "試跑預覽：AI 配圖未寫入，畫面可能僅顯示標題。";
-  }
+  const illustrationSyncWarning =
+    "試跑僅打包畫面程式；配圖請在「AI 配圖工作室」確認提示詞後生圖。";
 
   const base = `/projects/${projectId}/wvp-embed/`;
   await buildProjectPresentation(projectId, base);

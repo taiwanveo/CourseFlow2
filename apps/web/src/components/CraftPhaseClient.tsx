@@ -12,6 +12,7 @@ import type { ImageStyleCatalogEntry } from "@/data/image-style-catalog";
 import { catalogEntryToSelection } from "@/lib/image-style";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
+import { CraftIllustrationStudio } from "@/components/CraftIllustrationStudio";
 
 type CraftRow = {
   id: string;
@@ -411,7 +412,7 @@ export function CraftPhaseClient({
         </div>
       ) : null}
 
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="mx-auto w-full max-w-3xl">
         <aside className="cf-card cf-card-padded space-y-4">
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-zinc-300">簡報主題</h3>
@@ -482,7 +483,7 @@ export function CraftPhaseClient({
               <CraftWorkflowStep
                 step={2}
                 title="一鍵從「文稿內容」匯入口播稿，並使用AI產生章節畫面程式"
-                hint="請先選擇生圖風格主題（影響後續建置時的 AI 教學配圖）。按下「開始執行」可替全部章節匯入口播並產生章節畫面程式。"
+                hint="請先選擇生圖風格。下方「AI 配圖工作室」可先確認生圖提示詞再逐張或批次生圖；「開始執行」僅匯入口播並產生章節畫面程式（不再自動生圖）。"
               >
                 <div className="w-full space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -504,7 +505,7 @@ export function CraftPhaseClient({
                   </div>
                   {hasImageStyle ? (
                     <p className="text-[11px] leading-snug text-zinc-600">
-                      已採用 BananaX 官網中文提示詞。若更換風格，請在「4. 預覽匯出」重新建置後，AI 配圖才會更新。
+                      配圖請在下方各章「AI 配圖工作室」確認提示詞後生圖；打包階段不再自動生圖。
                     </p>
                   ) : null}
                 </div>
@@ -655,6 +656,18 @@ export function CraftPhaseClient({
               })}
             </div>
           )}
+          {selectedWvpId && chapters.length > 0 ? (
+            <CraftIllustrationStudio
+              projectId={projectId}
+              wvpChapterId={selectedWvpId}
+              chapterTitle={
+                chapters.find((c) => c.wvp_chapter_id === selectedWvpId)?.title ?? "本章"
+              }
+              disabled={locks.craft}
+              hasImageStyle={hasImageStyle}
+              onOpenStylePicker={() => setStylePickerOpen(true)}
+            />
+          ) : null}
           </div>
         </aside>
       </div>
