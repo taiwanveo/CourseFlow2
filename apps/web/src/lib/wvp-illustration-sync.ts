@@ -201,7 +201,7 @@ export async function syncPresentationIllustrations(
 
   for (const craft of crafts) {
     const kind = chapterTemplateKind(craft);
-    if (!kind || kind === "hook" || kind === "visual-mix") continue;
+    if (kind === "hook" || kind === "visual-mix") continue;
 
     const chapter = composition.chapters.find((c) => c.title === craft.title);
     if (!chapter) continue;

@@ -14,7 +14,7 @@ export const maxDuration = 300;
 
 /** M3：建置 WVP presentation（Vite build）供 /wvp-play 預覽 */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -36,6 +36,10 @@ export async function POST(
   if (!styleGuard.ok) {
     return NextResponse.json({ error: styleGuard.error }, { status: styleGuard.status });
   }
+
+  const body = (await req.json().catch(() => ({}))) as { themeId?: string };
+  const requestedThemeId =
+    typeof body.themeId === "string" && body.themeId.trim() ? body.themeId.trim() : undefined;
 
   try {
     const composition = await loadProjectComposition(supabase, id);
@@ -99,6 +103,7 @@ export async function POST(
         projectId: id,
         userId: user.id,
         jobRunId: jobRun.id,
+        themeId: requestedThemeId,
       };
       // Render Docker 長駐程序：setImmediate 比 after() 更可靠，避免任務卡在 pending
       setImmediate(() => {
@@ -121,6 +126,7 @@ export async function POST(
     const result = await syncFullWvpProject(supabase, id, user.id, {
       build: true,
       previewBase: wvpEmbedBasePath(id),
+      themeId: requestedThemeId,
     });
     if (result.chapterCount === 0) {
       return NextResponse.json(

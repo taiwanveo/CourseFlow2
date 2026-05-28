@@ -287,9 +287,10 @@ export async function syncFullWvpProject(
     .single();
   if (!project) throw new Error("找不到專案");
 
+  const wvpSettings = parseWvpSettings(project.wvp_settings);
   const themeId =
     opts?.themeId ??
-    (project.wvp_settings as { themeId?: string })?.themeId ??
+    wvpSettings.themeId ??
     project.theme_id ??
     "midnight-press";
 
@@ -304,7 +305,6 @@ export async function syncFullWvpProject(
     .eq("project_id", projectId)
     .order("sort_order");
 
-  const wvpSettings = parseWvpSettings(project.wvp_settings);
   const entries = await rebuildRegistryForProject(
     presentationDir,
     (crafts ?? []) as CraftRow[],
@@ -367,7 +367,7 @@ export async function syncFullWvpProject(
       }
     } else {
       illustrationSyncWarning =
-        "已依設定略過配圖同步（可設 COURSEFLOW_PACK_ILLUSTRATIONS=1 重新啟用）。";
+        "已依設定略過配圖同步（可設 COURSEFLOW_PACK_ILLUSTRATIONS=0 以外值重新啟用）。";
     }
 
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;

@@ -17,6 +17,7 @@ export async function runWvpBuild(payload: {
   projectId: string;
   userId: string;
   jobRunId: string;
+  themeId?: string;
 }): Promise<WvpBuildJobResult> {
   const supabase = createServiceClient();
 
@@ -50,6 +51,7 @@ export async function runWvpBuild(payload: {
     const result = await syncFullWvpProject(supabase, payload.projectId, payload.userId, {
       build: true,
       previewBase: wvpEmbedBasePath(payload.projectId),
+      themeId: payload.themeId,
     });
 
     if (result.chapterCount === 0) {

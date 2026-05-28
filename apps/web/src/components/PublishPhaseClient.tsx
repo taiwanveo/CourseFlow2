@@ -133,7 +133,13 @@ export function PublishPhaseClient({
     setBuilding(true);
     setBuildElapsedSec(0);
     try {
-      const res = await fetch(`/api/projects/${projectId}/wvp/build`, { method: "POST" });
+      const res = await fetch(`/api/projects/${projectId}/wvp/build`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          themeId: composition.meta.themeId ?? undefined,
+        }),
+      });
       const text = await res.text();
       let data: {
         error?: string;
@@ -297,8 +303,7 @@ export function PublishPhaseClient({
           {audioGate.ready ? "（可打包）" : "（請先完成「3. 語音生成」）"}
         </p>
         <p className="text-xs text-zinc-500">
-          將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。雲端採快速打包：略過
-          AI 配圖同步以縮短時間，配圖請在「視覺動效」完成。
+          將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。打包會依目前主題重建章節，並同步配圖工作室（AI 生圖或上傳）已完成的圖片。
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
