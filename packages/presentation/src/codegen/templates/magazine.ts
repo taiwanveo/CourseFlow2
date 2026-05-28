@@ -28,7 +28,19 @@ function pickLayout(step: number): "cover" | "split" | "callout" | "figure-first
 }
 
 function bodyLines(phrases: string[], headline: string, bodyClass: string): string {
-  const rest = phrases.filter((p) => p !== headline).slice(0, 3);
+  const normalizedHeadline = headline.replace(/\s+/g, "");
+  const rest = phrases
+    .filter((p) => {
+      const t = p.trim();
+      if (!t) return false;
+      const normalized = t.replace(/\s+/g, "");
+      return (
+        normalized !== normalizedHeadline &&
+        !normalized.includes(normalizedHeadline) &&
+        !normalizedHeadline.includes(normalized)
+      );
+    })
+    .slice(0, 3);
   if (rest.length === 0) return "";
   return rest
     .map(
@@ -69,7 +81,10 @@ function stepScene(
   const headline = screenLine || truncate(phrases[0] ?? narration, 13) || `步驟 ${step + 1}`;
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
-  const kicker = beat ? truncate(beat, 40) : `Step ${String(step + 1).padStart(2, "0")}`;
+  const stepLabel = `Step ${String(step + 1).padStart(2, "0")}`;
+  const rawKicker = beat ? truncate(beat, 40) : stepLabel;
+  const kicker =
+    rawKicker.replace(/\s+/g, "") === headline.replace(/\s+/g, "") ? stepLabel : rawKicker;
   const figure = figureBlock(prefix, wvpChapterId, step, checkpointUrl, figureAlt);
   const bodyBlock = bodyLines(phrases, phrases[0] ?? headline, `${prefix}-body`);
 

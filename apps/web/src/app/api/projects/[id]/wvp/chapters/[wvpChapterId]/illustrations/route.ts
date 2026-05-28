@@ -91,7 +91,14 @@ export async function PATCH(
   if ("error" in loaded && loaded.error) return loaded.error;
 
   const body = (await req.json()) as {
-    patches?: Array<{ stepIndex: number; promptForApi?: string; confirm?: boolean }>;
+    patches?: Array<{
+      stepIndex: number;
+      promptForApi?: string;
+      confirm?: boolean;
+      needsImage?: boolean;
+      imageSource?: "ai" | "upload";
+      batchSelected?: boolean;
+    }>;
   };
   if (!body.patches?.length) {
     return NextResponse.json({ error: "缺少 patches" }, { status: 400 });

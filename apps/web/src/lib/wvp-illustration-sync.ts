@@ -46,6 +46,12 @@ type CraftRow = {
   checklist_result?: unknown;
 };
 
+type CraftIllustrationState = {
+  stepIndex: number;
+  needsImage?: boolean;
+  imageSource?: "ai" | "upload";
+};
+
 export type WvpIllustrationSyncOptions = {
   /** 打包路徑：略過 Visual Director LLM（配圖應在 Craft 階段完成） */
   skipVisualDirector?: boolean;
@@ -205,12 +211,23 @@ export async function syncPresentationIllustrations(
       cr?.narrations?.filter((n: string) => n?.trim()) ??
       narrationsForChapter(composition, chapter.id);
 
+    const illustrationStates =
+      (
+        craft.checklist_result as {
+          stepIllustrations?: CraftIllustrationState[];
+        } | null | undefined
+      )?.stepIllustrations ?? [];
+
     const compSteps = composition.steps
       .filter((s) => s.chapterId === chapter.id && !isChapterStep(s))
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
     for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
-      if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
+      const state = illustrationStates.find((s) => s.stepIndex === stepIndex);
+      const shouldIllustrate =
+        state?.needsImage ?? wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
+      const source = state?.imageSource ?? "ai";
+      if (!shouldIllustrate) continue;
 
       if (reuseExistingFiles) {
         const { readChapterIllustrationImage } = await import("@/lib/wvp-craft-illustrations");
@@ -278,7 +295,7 @@ export async function syncPresentationIllustrations(
         }
       }
 
-      if (!buffer && imageApiKey && imageProvider) {
+      if (!buffer && source === "ai" && imageApiKey && imageProvider) {
         try {
           const bytes = await generateStepImage(
             { provider: imageProvider, apiKey: imageApiKey },

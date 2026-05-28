@@ -172,7 +172,11 @@ export function CraftIllustrationStudio({
 
   const generateAllConfirmed = async () => {
     const steps = (state?.steps ?? []).filter(
-      (s) => s.status !== "skip" && s.promptForApi.trim(),
+      (s) =>
+        s.needsImage !== false &&
+        (s.imageSource ?? "ai") === "ai" &&
+        s.batchSelected !== false &&
+        s.promptForApi.trim(),
     );
     if (!steps.length) {
       toast("沒有可生圖的步驟", "error");
@@ -205,8 +209,44 @@ export function CraftIllustrationStudio({
     }
   };
 
-  const aiSteps = state?.steps.filter((s) => s.status !== "skip") ?? [];
+  const aiSteps = state?.steps.filter((s) => s.needsImage !== false) ?? [];
   const doneCount = aiSteps.filter((s) => s.status === "done" || s.imageWritten).length;
+
+  const patchStep = async (
+    stepIndex: number,
+    patch: Partial<{
+      promptForApi: string;
+      confirm: boolean;
+      needsImage: boolean;
+      imageSource: "ai" | "upload";
+      batchSelected: boolean;
+    }>,
+  ) => {
+    const res = await fetch(
+      `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patches: [{ stepIndex, ...patch }] }),
+      },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "更新失敗");
+    setState(data as ChapterState);
+  };
+
+  const uploadStepImage = async (stepIndex: number, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(
+      `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations/${stepIndex}/image`,
+      { method: "POST", body: form },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "上傳失敗");
+    setState(data as ChapterState);
+    setImageBust(Date.now());
+  };
 
   return (
     <div className="mt-4 space-y-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
@@ -269,8 +309,62 @@ export function CraftIllustrationStudio({
                     <span className="ml-2 text-red-400/90">失敗</span>
                   ) : null}
                 </span>
-                {step.status !== "skip" ? (
+                {
                   <div className="flex flex-wrap gap-1">
+                    <label className="cf-chip text-[10px] text-zinc-300">
+                      <input
+                        type="checkbox"
+                        className="mr-1"
+                        checked={step.needsImage !== false}
+                        disabled={disabled || busyStep !== null || planningStep !== null}
+                        onChange={(e) =>
+                          void patchStep(step.stepIndex, { needsImage: e.target.checked }).catch(
+                            (err) => toast(err instanceof Error ? err.message : "更新失敗", "error"),
+                          )
+                        }
+                      />
+                      需要配圖
+                    </label>
+                    <select
+                      className="cf-input h-8 text-xs"
+                      value={step.imageSource ?? "ai"}
+                      disabled={
+                        disabled ||
+                        step.needsImage === false ||
+                        busyStep !== null ||
+                        planningStep !== null
+                      }
+                      onChange={(e) =>
+                        void patchStep(step.stepIndex, {
+                          imageSource: e.target.value as "ai" | "upload",
+                        }).catch((err) =>
+                          toast(err instanceof Error ? err.message : "更新失敗", "error"),
+                        )
+                      }
+                    >
+                      <option value="ai">AI 生圖</option>
+                      <option value="upload">自行上傳</option>
+                    </select>
+                    <label className="cf-chip text-[10px] text-zinc-300">
+                      <input
+                        type="checkbox"
+                        className="mr-1"
+                        checked={step.batchSelected !== false}
+                        disabled={
+                          disabled ||
+                          step.needsImage === false ||
+                          (step.imageSource ?? "ai") !== "ai" ||
+                          busyStep !== null ||
+                          planningStep !== null
+                        }
+                        onChange={(e) =>
+                          void patchStep(step.stepIndex, { batchSelected: e.target.checked }).catch(
+                            (err) => toast(err instanceof Error ? err.message : "更新失敗", "error"),
+                          )
+                        }
+                      />
+                      納入批次
+                    </label>
                     <button
                       type="button"
                       className="cf-btn cf-btn-secondary cf-btn-sm"
@@ -296,6 +390,8 @@ export function CraftIllustrationStudio({
                       className="cf-btn cf-btn-primary cf-btn-sm"
                       disabled={
                         disabled ||
+                        step.needsImage === false ||
+                        (step.imageSource ?? "ai") !== "ai" ||
                         loading ||
                         planningStep !== null ||
                         busyStep !== null ||
@@ -315,13 +411,36 @@ export function CraftIllustrationStudio({
                         重新生圖
                       </button>
                     )}
+                    {(step.needsImage !== false && (step.imageSource ?? "ai") === "upload") && (
+                      <label className="cf-btn cf-btn-secondary cf-btn-sm">
+                        上傳圖片
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={disabled || loading || busyStep !== null || planningStep !== null}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            void uploadStepImage(step.stepIndex, file)
+                              .then(() => toast(`步驟 ${step.stepIndex + 1} 圖片已上傳`, "success"))
+                              .catch((err) =>
+                                toast(err instanceof Error ? err.message : "上傳失敗", "error"),
+                              )
+                              .finally(() => {
+                                e.currentTarget.value = "";
+                              });
+                          }}
+                        />
+                      </label>
+                    )}
                   </div>
-                ) : null}
+                }
               </div>
               {step.screenSnippet ? (
                 <p className="text-[10px] text-zinc-600">螢幕：{step.screenSnippet}</p>
               ) : null}
-              {step.status !== "skip" ? (
+              {step.status !== "skip" && (step.imageSource ?? "ai") === "ai" ? (
                 <label className="block text-[10px] text-zinc-500">
                   生圖提示詞（送進 AI 的真實內容）
                   <textarea

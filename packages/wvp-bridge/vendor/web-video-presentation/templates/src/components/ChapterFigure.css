@@ -16,3 +16,18 @@
   max-height: min(640px, 58vh);
   object-fit: cover;
 }
+
+.cf-chapter-figure-placeholder {
+  min-height: min(420px, 42vh);
+  max-height: min(640px, 58vh);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-2, #d8d8de);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08), transparent 40%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.15));
+  font-size: clamp(16px, 2.2vw, 24px);
+  line-height: 1.5;
+}

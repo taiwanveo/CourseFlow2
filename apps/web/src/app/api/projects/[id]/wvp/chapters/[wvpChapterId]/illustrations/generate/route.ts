@@ -11,7 +11,17 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 function readSteps(craft: { checklist_result?: unknown }) {
-  const cr = craft.checklist_result as { stepIllustrations?: { stepIndex: number; status: string; confirmedAt?: string | null; promptForApi?: string }[] } | null;
+  const cr = craft.checklist_result as {
+    stepIllustrations?: {
+      stepIndex: number;
+      status: string;
+      confirmedAt?: string | null;
+      promptForApi?: string;
+      needsImage?: boolean;
+      imageSource?: "ai" | "upload";
+      batchSelected?: boolean;
+    }[];
+  } | null;
   return cr?.stepIllustrations ?? [];
 }
 
@@ -68,6 +78,9 @@ export async function POST(
     indices = stored
       .filter(
         (s) =>
+          s.needsImage !== false &&
+          (s.imageSource ?? "ai") === "ai" &&
+          s.batchSelected !== false &&
           s.status !== "skip" &&
           s.promptForApi?.trim() &&
           (s.confirmedAt || s.status === "prompt-ready" || s.status === "done"),

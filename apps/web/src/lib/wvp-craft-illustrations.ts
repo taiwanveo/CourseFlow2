@@ -48,6 +48,12 @@ export type StepIllustrationEntry = {
   promptForApi: string;
   /** 產生此提示詞時所使用的風格 ID */
   promptStyleId?: string | null;
+  /** 是否需要此步驟配圖（可人工覆寫 AI 判斷） */
+  needsImage?: boolean;
+  /** 圖片來源：ai=AI 生圖；upload=人工上傳 */
+  imageSource?: "ai" | "upload";
+  /** 是否納入「批次生圖」 */
+  batchSelected?: boolean;
   imagePromptEn?: string;
   coreMessage?: string;
   confirmedAt?: string | null;
@@ -238,7 +244,7 @@ export async function getChapterIllustrationsState(
 
   const steps: StepIllustrationEntry[] = [];
   for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
-    if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
+    const heuristicNeedsImage = wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
 
     const existing = stored.find((s) => s.stepIndex === stepIndex);
     const fileName = wvpStepImageFileName(stepIndex);
@@ -265,12 +271,19 @@ export async function getChapterIllustrationsState(
       const storagePath = hasStorage
         ? craftIllustrationStoragePath(userId, projectId, craft.wvp_chapter_id, stepIndex)
         : (existing.storagePath ?? null);
+      const imageSource = existing.imageSource ?? "ai";
+      const needsImage = existing.needsImage ?? heuristicNeedsImage;
+      const batchSelected =
+        existing.batchSelected ?? (needsImage && imageSource === "ai");
       steps.push({
         ...existing,
         screenSnippet: screen.slice(0, 120) || existing.screenSnippet,
         scriptSnippet: script.slice(0, 160) || existing.scriptSnippet,
         imageWritten,
         storagePath,
+        imageSource,
+        needsImage,
+        batchSelected,
         status: imageWritten
           ? "done"
           : lostPersisted
@@ -292,8 +305,11 @@ export async function getChapterIllustrationsState(
       screenSnippet: screen.slice(0, 120),
       scriptSnippet: script.slice(0, 160),
       recommendedOutput: "ai-image",
-      status: imageWritten ? "done" : "prompt-draft",
+      status: heuristicNeedsImage ? (imageWritten ? "done" : "prompt-draft") : "skip",
       promptForApi: "",
+      imageSource: "ai",
+      needsImage: heuristicNeedsImage,
+      batchSelected: heuristicNeedsImage,
       imageWritten,
     });
   }
@@ -365,12 +381,18 @@ export async function planChapterIllustrationPrompts(
     const screen = screenContents[stepIndex]?.trim() ?? "";
     const script = narration;
     const prevStep = existing.find((s) => s.stepIndex === stepIndex);
+    const forcedNeedsImage = prevStep?.needsImage ?? true;
+    const imageSource = prevStep?.imageSource ?? "ai";
+    const batchSelected = prevStep?.batchSelected ?? (forcedNeedsImage && imageSource === "ai");
 
     if (!shouldRegenerate && prevStep) {
       steps.push({
         ...prevStep,
         screenSnippet: screen.slice(0, 120) || prevStep.screenSnippet,
         scriptSnippet: script.slice(0, 160) || prevStep.scriptSnippet,
+        needsImage: forcedNeedsImage,
+        imageSource,
+        batchSelected,
       });
       continue;
     }
@@ -383,6 +405,9 @@ export async function planChapterIllustrationPrompts(
         status: "prompt-draft",
         promptForApi: "",
         promptStyleId: imageStyleId,
+        needsImage: forcedNeedsImage,
+        imageSource,
+        batchSelected,
         confirmedAt: null,
         imageWritten: false,
         storagePath: null,
@@ -412,7 +437,7 @@ export async function planChapterIllustrationPrompts(
       );
     }
 
-    if (recommendedOutput !== "ai-image") {
+    if (recommendedOutput !== "ai-image" && !forcedNeedsImage) {
       steps.push({
         stepIndex,
         screenSnippet: screen.slice(0, 120),
@@ -421,6 +446,9 @@ export async function planChapterIllustrationPrompts(
         status: "skip",
         promptForApi: "",
         promptStyleId: imageStyleId,
+        needsImage: false,
+        imageSource,
+        batchSelected: false,
         imagePromptEn: directorPlan?.imagePromptEn,
         coreMessage: directorPlan?.coreMessage,
         confirmedAt: null,
@@ -449,6 +477,9 @@ export async function planChapterIllustrationPrompts(
           ? prevStep.promptForApi
           : promptForApi,
       promptStyleId: imageStyleId,
+      needsImage: forcedNeedsImage,
+      imageSource,
+      batchSelected,
       imagePromptEn: directorPlan?.imagePromptEn,
       coreMessage: directorPlan?.coreMessage,
       confirmedAt: prevStep?.confirmedAt ?? null,
@@ -477,6 +508,9 @@ export async function patchChapterIllustrationPrompts(
     stepIndex: number;
     promptForApi?: string;
     confirm?: boolean;
+    needsImage?: boolean;
+    imageSource?: "ai" | "upload";
+    batchSelected?: boolean;
   }>,
 ): Promise<ChapterIllustrationsState> {
   const prev =
@@ -491,6 +525,23 @@ export async function patchChapterIllustrationPrompts(
     if (p.promptForApi !== undefined) {
       steps[idx]!.promptForApi = p.promptForApi;
       if (steps[idx]!.status === "prompt-draft") steps[idx]!.status = "prompt-draft";
+    }
+    if (p.needsImage !== undefined) {
+      steps[idx]!.needsImage = p.needsImage;
+      if (!p.needsImage && !steps[idx]!.imageWritten) {
+        steps[idx]!.status = "skip";
+      } else if (p.needsImage && steps[idx]!.status === "skip") {
+        steps[idx]!.status = "prompt-draft";
+      }
+    }
+    if (p.imageSource !== undefined) {
+      steps[idx]!.imageSource = p.imageSource;
+      if (p.imageSource === "upload") {
+        steps[idx]!.batchSelected = false;
+      }
+    }
+    if (p.batchSelected !== undefined) {
+      steps[idx]!.batchSelected = p.batchSelected;
     }
     if (p.confirm) {
       steps[idx]!.confirmedAt = new Date().toISOString();
@@ -538,6 +589,8 @@ export async function generateChapterIllustrationSteps(
     const idx = steps.findIndex((s) => s.stepIndex === stepIndex);
     if (idx < 0) continue;
     const step = steps[idx]!;
+    if (!step.needsImage) continue;
+    if ((step.imageSource ?? "ai") !== "ai") continue;
     if (step.status === "skip" || !step.promptForApi.trim()) continue;
     if (opts?.imageStyleId && step.promptStyleId !== opts.imageStyleId) {
       throw new Error("已切換生圖風格，請先按「產生提示詞」更新後再生圖");
@@ -601,6 +654,63 @@ export async function generateChapterIllustrationSteps(
   }
 
   return { steps, generated };
+}
+
+export async function setChapterIllustrationUploadedImage(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string,
+  craft: CraftRow,
+  stepIndex: number,
+  buffer: Buffer,
+): Promise<ChapterIllustrationsState> {
+  const prev =
+    craft.checklist_result && typeof craft.checklist_result === "object"
+      ? (craft.checklist_result as Record<string, unknown>)
+      : {};
+  const steps = readIllustrationsFromChecklist(craft).map((s) => ({ ...s }));
+  const idx = steps.findIndex((s) => s.stepIndex === stepIndex);
+  if (idx < 0) throw new Error("找不到步驟");
+
+  const storagePath = craftIllustrationStoragePath(
+    userId,
+    projectId,
+    craft.wvp_chapter_id,
+    stepIndex,
+  );
+  await uploadCraftIllustrationToStorage(supabase, storagePath, buffer);
+  try {
+    await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
+      { wvpChapterId: craft.wvp_chapter_id, stepIndex, buffer },
+    ]);
+  } catch {
+    /* 快取失敗可忽略 */
+  }
+
+  steps[idx] = {
+    ...steps[idx]!,
+    needsImage: true,
+    imageSource: "upload",
+    batchSelected: false,
+    status: "done",
+    imageWritten: true,
+    storagePath,
+    error: null,
+  };
+
+  const merged = mergeChecklistIllustrations(prev, steps);
+  await supabase
+    .from("chapter_craft")
+    .update({ checklist_result: merged })
+    .eq("project_id", projectId)
+    .eq("wvp_chapter_id", craft.wvp_chapter_id);
+
+  return {
+    wvpChapterId: craft.wvp_chapter_id,
+    templateKind: chapterTemplateKind(craft),
+    steps,
+    updatedAt: merged.stepIllustrationsUpdatedAt as string,
+  };
 }
 
 export async function readChapterIllustrationImage(

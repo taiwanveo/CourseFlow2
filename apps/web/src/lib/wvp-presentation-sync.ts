@@ -177,9 +177,9 @@ export async function buildProjectPresentation(
   return buildPresentation(dir, { previewBase });
 }
 
-/** 完整打包預設略過 AI 配圖（在 Craft 完成）；設 COURSEFLOW_PACK_ILLUSTRATIONS=1 可強制同步 */
+/** 完整打包預設同步配圖（先取現有圖，再補齊）；設 COURSEFLOW_PACK_ILLUSTRATIONS=0 可略過 */
 function shouldSyncIllustrationsOnFullPack(): boolean {
-  return process.env.COURSEFLOW_PACK_ILLUSTRATIONS === "1";
+  return process.env.COURSEFLOW_PACK_ILLUSTRATIONS !== "0";
 }
 
 function requiresDistInStorage(): boolean {
@@ -367,7 +367,7 @@ export async function syncFullWvpProject(
       }
     } else {
       illustrationSyncWarning =
-        "快速打包已略過 AI 配圖同步（請在「視覺動效」完成配圖；需強制同步請設 COURSEFLOW_PACK_ILLUSTRATIONS=1）。";
+        "已依設定略過配圖同步（可設 COURSEFLOW_PACK_ILLUSTRATIONS=1 重新啟用）。";
     }
 
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;
