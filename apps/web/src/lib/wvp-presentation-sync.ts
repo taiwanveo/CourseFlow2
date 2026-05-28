@@ -15,6 +15,7 @@ import { syncPresentationAudioFromComposition } from "@/lib/wvp-audio-sync";
 import { syncPresentationIllustrations } from "@/lib/wvp-illustration-sync";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
+import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
 import { chapterKindForCraft, screenContentsForChapter } from "@/lib/wvp-chapter-meta";
 import { loadProjectComposition } from "@/lib/project-composition";
@@ -174,6 +175,19 @@ export async function buildProjectPresentation(
 ): Promise<{ distDir: string; chaptersVisualUpgraded?: string[] }> {
   const dir = presentationDirForProject(projectId);
   return buildPresentation(dir, { previewBase });
+}
+
+/** 完整打包預設略過 AI 配圖（在 Craft 完成）；設 COURSEFLOW_PACK_ILLUSTRATIONS=1 可強制同步 */
+function shouldSyncIllustrationsOnFullPack(): boolean {
+  return process.env.COURSEFLOW_PACK_ILLUSTRATIONS === "1";
+}
+
+function requiresDistInStorage(): boolean {
+  return (
+    !!process.env.COURSEFLOW_PRESENTATION_ROOT?.trim() ||
+    process.env.RENDER === "true" ||
+    shouldAsyncWvpBuild()
+  );
 }
 
 /** 第 1 章試跑預覽：僅註冊第 1 章、略過語音門檻、打包 dist */
@@ -346,26 +360,31 @@ export async function syncFullWvpProject(
       audioSyncWarning = `僅寫入 ${audioSync.written}/${audioSync.expectedSteps} 段語音；部分步驟將無聲或依字數估算自動換頁。`;
     }
 
-    const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
-    const illus = await syncPresentationIllustrations(
-      supabase,
-      userId,
-      projectId,
-      project.title ?? "Course",
-      composition,
-      (crafts ?? []) as Parameters<typeof syncPresentationIllustrations>[5],
-      wvpSettings.assets,
-      styleFragment,
-      themeId,
-      { skipVisualDirector: true, reuseExistingFiles: true },
-    );
-    if (illus.skippedNoKey && illus.attempted > 0) {
+    if (shouldSyncIllustrationsOnFullPack()) {
+      const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+      const illus = await syncPresentationIllustrations(
+        supabase,
+        userId,
+        projectId,
+        project.title ?? "Course",
+        composition,
+        (crafts ?? []) as Parameters<typeof syncPresentationIllustrations>[5],
+        wvpSettings.assets,
+        styleFragment,
+        themeId,
+        { skipVisualDirector: true, reuseExistingFiles: true },
+      );
+      if (illus.skippedNoKey && illus.attempted > 0) {
+        illustrationSyncWarning =
+          "清單章節需 AI 配圖：請在設定頁填寫 OpenAI 或 OpenRouter API Key 後重新建置。";
+      } else if (illus.attempted > 0 && illus.written === 0) {
+        illustrationSyncWarning = "AI 配圖未成功寫入（可檢查 API 額度或稍後重試建置）。";
+      } else if (illus.written > 0 && illus.written < illus.attempted) {
+        illustrationSyncWarning = `已生成 ${illus.written}/${illus.attempted} 張配圖，其餘卡片僅顯示標題。`;
+      }
+    } else {
       illustrationSyncWarning =
-        "清單章節需 AI 配圖：請在設定頁填寫 OpenAI 或 OpenRouter API Key 後重新建置。";
-    } else if (illus.attempted > 0 && illus.written === 0) {
-      illustrationSyncWarning = "AI 配圖未成功寫入（可檢查 API 額度或稍後重試建置）。";
-    } else if (illus.written > 0 && illus.written < illus.attempted) {
-      illustrationSyncWarning = `已生成 ${illus.written}/${illus.attempted} 張配圖，其餘卡片僅顯示標題。`;
+        "快速打包已略過 AI 配圖同步（請在「視覺動效」完成配圖；需強制同步請設 COURSEFLOW_PACK_ILLUSTRATIONS=1）。";
     }
 
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;
@@ -379,7 +398,13 @@ export async function syncFullWvpProject(
     } catch (e) {
       const msg = (e as Error).message;
       storageUploadWarning = msg;
-      console.warn("[wvp] dist 上傳 Storage 失敗（本機預覽仍可用）:", msg);
+      console.warn("[wvp] dist 上傳 Storage 失敗:", msg);
+    }
+    if (requiresDistInStorage() && !storageUploaded) {
+      throw new Error(
+        storageUploadWarning ??
+          "雲端預覽需將建置結果上傳至 Storage，上傳失敗請稍後重試或檢查 Storage 設定。",
+      );
     }
     await supabase
       .from("projects")

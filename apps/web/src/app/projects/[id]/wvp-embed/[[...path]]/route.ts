@@ -3,6 +3,7 @@ import { join, normalize } from "node:path";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { ensureWvpDistLocal } from "@/lib/wvp-dist-storage";
 import { presentationDistDir } from "@/lib/wvp-workdir";
 
 export const runtime = "nodejs";
@@ -47,6 +48,8 @@ export async function GET(
     .eq("user_id", user.id)
     .single();
   if (!project) return new NextResponse("找不到專案", { status: 404 });
+
+  await ensureWvpDistLocal(supabase, user.id, id);
 
   const distRoot = presentationDistDir(id);
   let filePath = safeResolve(distRoot, segments ?? []);

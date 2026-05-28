@@ -4,7 +4,7 @@ import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { evaluateProjectExportReadiness } from "@/lib/wvp-export-readiness";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { parseWvpSettings } from "@/lib/wvp-settings";
-import { hasBuiltPresentation } from "@/lib/wvp-workdir";
+import { ensureWvpDistLocal } from "@/lib/wvp-dist-storage";
 
 export async function GET(
   _req: Request,
@@ -34,7 +34,7 @@ export async function GET(
 
   const rows = crafts ?? [];
   const anchorOk = !!settings.anchorChapterApproved;
-  const built = await hasBuiltPresentation(id);
+  const built = await ensureWvpDistLocal(supabase, user.id, id);
   const composition = await loadProjectComposition(supabase, id);
   const audioGate = composition
     ? evaluateWvpAudioBuildGate(composition)

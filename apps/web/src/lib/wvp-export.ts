@@ -1,6 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { hasBuiltPresentation } from "@/lib/wvp-workdir";
-import { hasWvpDistInStorage } from "@/lib/wvp-dist-storage";
+import { ensureWvpDistLocal, hasWvpDistInStorage } from "@/lib/wvp-dist-storage";
 
 export function isV2Project(project: {
   edition?: string | null;
@@ -17,6 +16,6 @@ export async function canExportWvpMp4(
   project: { edition?: string | null; presentation_revision?: string | null },
 ): Promise<boolean> {
   if (!isV2Project(project)) return false;
-  if (await hasBuiltPresentation(projectId)) return true;
+  if (await ensureWvpDistLocal(supabase, userId, projectId)) return true;
   return hasWvpDistInStorage(supabase, userId, projectId);
 }

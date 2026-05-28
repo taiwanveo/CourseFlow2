@@ -297,7 +297,8 @@ export function PublishPhaseClient({
           {audioGate.ready ? "（可打包）" : "（請先完成「3. 語音生成」）"}
         </p>
         <p className="text-xs text-zinc-500">
-          將文稿內容、視覺動效與口播語音檔編譯成可播放的網頁課程，編譯之前須先完成全部語音生成。
+          將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。雲端採快速打包：略過
+          AI 配圖同步以縮短時間，配圖請在「視覺動效」完成。
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button

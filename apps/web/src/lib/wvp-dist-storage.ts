@@ -5,9 +5,9 @@ import {
   uploadDistDirectory,
   wvpDistStoragePrefix,
 } from "@courseflow/presentation";
-import { mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { presentationDistDir } from "@/lib/wvp-workdir";
+import { hasBuiltPresentation, presentationDistDir } from "@/lib/wvp-workdir";
 
 export async function uploadWvpDistToStorage(
   supabase: SupabaseClient,
@@ -82,4 +82,23 @@ export async function hasWvpDistInStorage(
     .from("courseflow-assets")
     .download(`${prefix}/index.html`);
   return !error && !!data;
+}
+
+/** Render /tmp 等易失目錄：本機無 dist 時從 Storage 還原後再預覽 */
+export async function ensureWvpDistLocal(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string,
+): Promise<boolean> {
+  if (await hasBuiltPresentation(projectId)) return true;
+  if (!(await hasWvpDistInStorage(supabase, userId, projectId))) return false;
+  const dest = presentationDistDir(projectId);
+  await mkdir(dest, { recursive: true });
+  await downloadWvpDistFromStorage(supabase, userId, projectId, dest);
+  try {
+    await access(join(dest, "index.html"));
+    return true;
+  } catch {
+    return false;
+  }
 }

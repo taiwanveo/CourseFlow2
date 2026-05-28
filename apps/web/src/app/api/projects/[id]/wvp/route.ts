@@ -5,7 +5,7 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { buildChapterCraftPlan } from "@/lib/wvp-chapters";
 import { parseWvpSettings, type WvpSettings } from "@/lib/wvp-settings";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { hasBuiltPresentation } from "@/lib/wvp-workdir";
+import { ensureWvpDistLocal } from "@/lib/wvp-dist-storage";
 
 export async function GET(
   _req: NextRequest,
@@ -35,7 +35,7 @@ export async function GET(
   const composition = await loadProjectComposition(supabase, id);
   const plan = composition ? buildChapterCraftPlan(composition) : [];
 
-  const previewBuilt = await hasBuiltPresentation(id);
+  const previewBuilt = await ensureWvpDistLocal(supabase, user.id, id);
 
   const chapterOptions =
     (crafts ?? []).length > 0

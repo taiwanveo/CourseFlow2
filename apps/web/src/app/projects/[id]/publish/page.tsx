@@ -5,7 +5,7 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { PublishPhaseClient } from "@/components/PublishPhaseClient";
 import { AppShell } from "@/components/app/AppShell";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { hasBuiltPresentation } from "@/lib/wvp-workdir";
+import { ensureWvpDistLocal } from "@/lib/wvp-dist-storage";
 
 export default async function PublishPage({
   params,
@@ -31,7 +31,7 @@ export default async function PublishPage({
   if (!canAccessWvpPhase(locks, "publish")) redirect(`/projects/${id}/audio`);
 
   const composition = await loadProjectComposition(supabase, id);
-  const previewBuilt = await hasBuiltPresentation(id);
+  const previewBuilt = await ensureWvpDistLocal(supabase, user.id, id);
 
   const { data: chapters } = await supabase
     .from("chapter_craft")
