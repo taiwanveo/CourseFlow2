@@ -13,6 +13,10 @@ import { catalogEntryToSelection } from "@/lib/image-style";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
 import { CraftIllustrationStudio } from "@/components/CraftIllustrationStudio";
+import {
+  resolveThemeGalleryMeta,
+  themeGalleryFallbackImage,
+} from "@/data/theme-gallery";
 
 type CraftRow = {
   id: string;
@@ -26,6 +30,12 @@ type CraftRow = {
     aiPlan?: unknown;
     chapterSource?: { source?: "llm" | "template" };
   };
+};
+
+type ThemeOption = {
+  id: string;
+  nameZh: string;
+  descriptionZh?: string;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -97,7 +107,7 @@ export function CraftPhaseClient({
   );
   const [busy, setBusy] = useState<string | null>(null);
   const [wvpHydrated, setWvpHydrated] = useState(false);
-  const [themes, setThemes] = useState<{ id: string; nameZh: string }[]>([]);
+  const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [savingTheme, setSavingTheme] = useState(false);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [savingImageStyle, setSavingImageStyle] = useState(false);
@@ -118,6 +128,14 @@ export function CraftPhaseClient({
     !!firstChapterWvpId &&
     providers.length > 0 &&
     !locks.craft;
+  const selectedTheme = themes.find((t) => t.id === selectedThemeId);
+  const selectedThemePreview = selectedTheme
+    ? resolveThemeGalleryMeta(
+        selectedTheme.id,
+        selectedTheme.nameZh,
+        selectedTheme.descriptionZh,
+      )
+    : null;
 
   useEffect(() => {
     fetch("/api/themes")
@@ -414,46 +432,72 @@ export function CraftPhaseClient({
 
       <div className="mx-auto w-full max-w-3xl">
         <aside className="cf-card cf-card-padded space-y-4">
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-zinc-300">簡報主題</h3>
-            <label className="block text-[11px] text-zinc-500">
-              決定整體視覺風格。
-              <select
-                className="cf-select mt-1 w-full text-sm"
-                disabled={locks.craft}
-                value={selectedThemeId}
-                onChange={(e) =>
-                  setSettings((s) => ({ ...s, themeId: e.target.value || null }))
-                }
-              >
-                <option value="">選擇主題</option>
-                {themes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nameZh}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {!hasSelectedTheme ? (
-              <p className="text-[11px] text-amber-500/90">請先選擇簡報主題，才能儲存</p>
-            ) : null}
-            {!locks.craft ? (
-              <button
-                type="button"
-                className="cf-btn cf-btn-secondary cf-btn-sm w-full"
-                disabled={savingTheme || !hasSelectedTheme}
-                onClick={async () => {
-                  try {
-                    await saveWvpSettings();
-                    toast("主題已儲存", "success");
-                  } catch (e) {
-                    toast(e instanceof Error ? e.message : "儲存主題失敗", "error");
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-zinc-300">簡報主題</h3>
+              <label className="block text-[11px] text-zinc-500">
+                決定整體視覺風格。
+                <select
+                  className="cf-select mt-1 w-full text-sm md:w-1/2"
+                  disabled={locks.craft}
+                  value={selectedThemeId}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, themeId: e.target.value || null }))
                   }
-                }}
-              >
-                {savingTheme ? "儲存中…" : "儲存主題"}
-              </button>
-            ) : null}
+                >
+                  <option value="">選擇主題</option>
+                  {themes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.nameZh}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {!hasSelectedTheme ? (
+                <p className="text-[11px] text-amber-500/90">請先選擇簡報主題，才能儲存</p>
+              ) : null}
+              {!locks.craft ? (
+                <button
+                  type="button"
+                  className="cf-btn cf-btn-secondary cf-btn-sm w-full md:w-1/2"
+                  disabled={savingTheme || !hasSelectedTheme}
+                  onClick={async () => {
+                    try {
+                      await saveWvpSettings();
+                      toast("主題已儲存", "success");
+                    } catch (e) {
+                      toast(e instanceof Error ? e.message : "儲存主題失敗", "error");
+                    }
+                  }}
+                >
+                  {savingTheme ? "儲存中…" : "儲存主題"}
+                </button>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium text-zinc-300">主題預覽</h3>
+              <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedThemePreview?.imageUrl ?? themeGalleryFallbackImage}
+                  alt={selectedTheme?.nameZh ?? "主題預覽"}
+                  className="aspect-video w-full object-cover"
+                  loading="lazy"
+                />
+                <div className="space-y-1 px-3 py-2">
+                  <p className="text-sm font-medium text-zinc-100">
+                    {selectedTheme?.nameZh ?? "請先選擇主題"}
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    {selectedThemePreview?.subtitleZh ?? "選定主題後會顯示對應預覽與說明。"}
+                  </p>
+                  <p className="text-[11px] text-zinc-500">
+                    {selectedThemePreview?.bestForZh ?? ""}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4 border-t border-zinc-800 pt-4">
