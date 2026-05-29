@@ -22,8 +22,9 @@ export function generateVisualMixSources(
       if (!cfg) {
         return `
   if (step === ${step}) {
+    const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
-      <div className="${componentName}-fallback scene-pad">
+      <div className={\`${componentName}-fallback scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <p className="serif-cn">${escapeTsString(input.title)}</p>
       </div>
     );
@@ -35,8 +36,11 @@ export function generateVisualMixSources(
       );
       return `
   if (step === ${step}) {
+    const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
-      <VisualBlock step={step} headline="${headline}" config={STEP_VISUALS[${step}]!} />
+      <div className={\`cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        <VisualBlock step={step} headline="${headline}" config={STEP_VISUALS[${step}]!} />
+      </div>
     );
   }`;
     })
@@ -50,6 +54,7 @@ import "./${componentName}.css";
 const STEP_VISUALS: Record<number, VisualConfigProp> = {
 ${configLiteral}
 };
+const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
 
 /** CourseFlow · 宣告式視覺（VisualConfig + VisualBlock） */
 export default function ${componentName}({ step }: ChapterStepProps) {

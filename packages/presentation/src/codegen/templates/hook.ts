@@ -40,9 +40,15 @@ import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
 const SLIDES = ${slidesJson} as const;
+const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
+
+function stepMotion(step: number) {
+  return STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
+}
 
 /** CourseFlow · Hook 多圖開場 */
 export default function ${componentName}({ step }: ChapterStepProps) {
+  const motion = stepMotion(step);
   return (
     <HookImageStrip
       step={step}
@@ -52,6 +58,8 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       takeoverTitle={${JSON.stringify(takeover)}}
       closeLine={${JSON.stringify(closeLine)}}
       includeClose={${includeClose}}
+      enterAnimationId={motion.enterAnimationId}
+      transitionId={motion.transitionId}
     />
   );
 }

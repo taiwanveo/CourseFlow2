@@ -17,7 +17,12 @@ import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
-import { chapterKindForCraft, screenContentsForChapter } from "@/lib/wvp-chapter-meta";
+import {
+  chapterKindForCraft,
+  resolveCompositionChapterForCraft,
+  screenContentsForChapter,
+  toScreenHeadline,
+} from "@/lib/wvp-chapter-meta";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
@@ -55,6 +60,53 @@ function folderFromPresentationPath(path: string | null, sortOrder: number, wvpC
   return `${sortOrder.toString().padStart(2, "0")}-${wvpChapterId}`;
 }
 
+function normalizeForSimilarity(text: string): string {
+  return text.replace(/\s+/g, "").trim();
+}
+
+function bigramSet(text: string): Set<string> {
+  const norm = normalizeForSimilarity(text);
+  if (!norm) return new Set();
+  if (norm.length === 1) return new Set([norm]);
+  const out = new Set<string>();
+  for (let i = 0; i < norm.length - 1; i += 1) out.add(norm.slice(i, i + 2));
+  return out;
+}
+
+function jaccardSimilarity(a: string, b: string): number {
+  const aa = bigramSet(a);
+  const bb = bigramSet(b);
+  if (aa.size === 0 || bb.size === 0) return 0;
+  let intersection = 0;
+  for (const token of aa) {
+    if (bb.has(token)) intersection += 1;
+  }
+  const union = aa.size + bb.size - intersection;
+  return union > 0 ? intersection / union : 0;
+}
+
+function logWvpBuildQuality(composition: CourseComposition, resolvedThemeId: string): void {
+  const steps = composition.steps.filter((s) => s.stepKind !== "chapter");
+  if (steps.length === 0) {
+    console.log(`[wvp-quality] theme=${resolvedThemeId} steps=0`);
+    return;
+  }
+
+  const shortHeadlineCount = steps.filter(
+    (s) => toScreenHeadline(s.screenContent ?? "", "").length <= 16,
+  ).length;
+  const longHeadlineCount = steps.filter(
+    (s) => toScreenHeadline(s.screenContent ?? "", "").length > 16,
+  ).length;
+  const highSimilarityCount = steps.filter(
+    (s) => jaccardSimilarity(s.screenContent ?? "", s.script ?? "") >= 0.6,
+  ).length;
+
+  console.log(
+    `[wvp-quality] theme=${resolvedThemeId} steps=${steps.length} shortHeadline=${shortHeadlineCount} longHeadline=${longHeadlineCount} highSimilarity=${highSimilarityCount}`,
+  );
+}
+
 export async function ensurePresentationScaffolded(
   projectId: string,
   themeId: string,
@@ -70,7 +122,7 @@ export async function materializeChapterFromCraft(
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
 ): Promise<RegistryChapterEntry> {
-  const chapter = composition.chapters.find((c) => c.title === craft.title);
+  const chapter = resolveCompositionChapterForCraft(composition, craft);
   const narrations =
     craft.checklist_result?.narrations ??
     (chapter ? narrationsForChapter(composition, chapter.id) : []);
@@ -105,6 +157,18 @@ export async function materializeChapterFromCraft(
     });
   } else {
     const stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
+    const stepMotions = chapter
+      ? composition.steps
+          .filter((s) => s.chapterId === chapter.id && s.stepKind !== "chapter")
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map((s) => {
+            const visual = composition.visuals.find((v) => v.stepId === s.id);
+            return {
+              enterAnimationId: visual?.enterAnimationId ?? "fade-up",
+              transitionId: visual?.transitionId ?? "crossfade",
+            };
+          })
+      : [];
     const written = await writeChapterToPresentation(presentationDir, {
       folderName,
       wvpChapterId: craft.wvp_chapter_id,
@@ -119,6 +183,7 @@ export async function materializeChapterFromCraft(
         : undefined,
       assets: assets.length ? assets : undefined,
       stepVisualConfigs,
+      stepMotions,
     });
     if (
       written.narrations.length > 0 &&
@@ -153,7 +218,7 @@ export async function rebuildRegistryForProject(
   for (const craft of sorted) {
     const hasNarrations =
       (craft.checklist_result?.narrations?.length ?? 0) > 0 ||
-      composition.chapters.some((c) => c.title === craft.title);
+      !!resolveCompositionChapterForCraft(composition, craft);
     if (!hasNarrations) continue;
     entries.push(
       await materializeChapterFromCraft(
@@ -177,9 +242,9 @@ export async function buildProjectPresentation(
   return buildPresentation(dir, { previewBase });
 }
 
-/** 完整打包預設同步配圖（先取現有圖，再補齊）；設 COURSEFLOW_PACK_ILLUSTRATIONS=0 可略過 */
+/** 打包預設不碰「視覺動效 / AI 配圖工作室」圖片；僅在 COURSEFLOW_PACK_ILLUSTRATIONS=1 時才同步 */
 function shouldSyncIllustrationsOnFullPack(): boolean {
-  return process.env.COURSEFLOW_PACK_ILLUSTRATIONS !== "0";
+  return process.env.COURSEFLOW_PACK_ILLUSTRATIONS === "1";
 }
 
 function requiresDistInStorage(): boolean {
@@ -210,8 +275,6 @@ export async function buildAnchorChapterPreview(
   if (!project) throw new Error("找不到專案");
 
   const wvpSettings = parseWvpSettings(project.wvp_settings);
-  const themeId =
-    opts?.themeId ?? wvpSettings.themeId ?? project.theme_id ?? "midnight-press";
 
   const { data: crafts } = await supabase
     .from("chapter_craft")
@@ -223,6 +286,12 @@ export async function buildAnchorChapterPreview(
 
   const composition = await loadProjectComposition(supabase, projectId);
   if (!composition) throw new Error("無法載入專案內容");
+  const themeId =
+    opts?.themeId ??
+    composition.meta.themeId ??
+    wvpSettings.themeId ??
+    project.theme_id ??
+    "midnight-press";
 
   const presentationDir = await ensurePresentationScaffolded(projectId, themeId);
   const entries = await rebuildRegistryForProject(
@@ -242,6 +311,7 @@ export async function buildAnchorChapterPreview(
 
   const base = `/projects/${projectId}/wvp-embed/`;
   await buildProjectPresentation(projectId, base);
+  logWvpBuildQuality(composition, themeId);
 
   const nextSettings = {
     ...wvpSettings,
@@ -288,16 +358,16 @@ export async function syncFullWvpProject(
   if (!project) throw new Error("找不到專案");
 
   const wvpSettings = parseWvpSettings(project.wvp_settings);
-  const themeId =
-    opts?.themeId ??
-    wvpSettings.themeId ??
-    project.theme_id ??
-    "midnight-press";
-
-  const presentationDir = await ensurePresentationScaffolded(projectId, themeId);
 
   const composition = await loadProjectComposition(supabase, projectId);
   if (!composition) throw new Error("無法載入專案內容");
+  const themeId =
+    opts?.themeId ??
+    composition.meta.themeId ??
+    wvpSettings.themeId ??
+    project.theme_id ??
+    "midnight-press";
+  const presentationDir = await ensurePresentationScaffolded(projectId, themeId);
 
   const { data: crafts } = await supabase
     .from("chapter_craft")
@@ -355,7 +425,12 @@ export async function syncFullWvpProject(
         wvpSettings.assets,
         styleFragment,
         themeId,
-        { skipVisualDirector: true, reuseExistingFiles: true },
+        {
+          // 正式打包啟用 Visual Director，讓配圖依文字語意做內容感知重算。
+          skipVisualDirector: false,
+          // 不沿用舊圖，避免先前較弱提示詞生成的圖持續被快取。
+          reuseExistingFiles: false,
+        },
       );
       if (illus.skippedNoKey && illus.attempted > 0) {
         illustrationSyncWarning =
@@ -367,11 +442,12 @@ export async function syncFullWvpProject(
       }
     } else {
       illustrationSyncWarning =
-        "已依設定略過配圖同步（可設 COURSEFLOW_PACK_ILLUSTRATIONS=0 以外值重新啟用）。";
+        "打包未使用「視覺動效」上傳或 AI 生圖；配圖請在該階段完成後直接預覽，勿依賴打包重算。";
     }
 
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;
     const result = await buildProjectPresentation(projectId, base);
+    logWvpBuildQuality(composition, themeId);
     distDir = result.distDir;
     built = true;
     chaptersVisualUpgraded = result.chaptersVisualUpgraded;

@@ -2,6 +2,7 @@ import { splitNarrationPhrases } from "../../narration-phrases.js";
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
 import { assetForStep, assetsForChapter } from "../hook-slots.js";
+import { screenHeadlineForSlot } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 function escapeTsString(s: string): string {
@@ -18,7 +19,7 @@ function cssPrefix(wvpChapterId: string): string {
 function truncate(s: string, max: number): string {
   const t = s.trim();
   if (t.length <= max) return t;
-  return `${t.slice(0, max - 1)}…`;
+  return t.slice(0, max).trim();
 }
 
 function pickLayout(step: number): "cover" | "split" | "callout" | "figure-first" {
@@ -61,7 +62,7 @@ function figureBlock(
   if (checkpointUrl?.trim()) {
     return `<ChapterFigure url="${escapeTsString(checkpointUrl)}" alt="${alt}" className="${prefix}-figure" />`;
   }
-  return `<ChapterFigure url={\`\${import.meta.env.BASE_URL}images/${wvpChapterId}/${String(step + 1).padStart(2, "0")}.jpg\`} alt="${alt}" className="${prefix}-figure" />`;
+  return "";
 }
 
 function stepScene(
@@ -76,9 +77,10 @@ function stepScene(
   figureAlt?: string,
 ): string {
   const layout = pickLayout(step);
-  const screenLine = truncate(screenContent, 34);
   const phrases = splitNarrationPhrases(narration, 4);
-  const headline = screenLine || truncate(phrases[0] ?? narration, 13) || `步驟 ${step + 1}`;
+  const headline =
+    screenHeadlineForSlot(screenContent, "", 56) ||
+    screenHeadlineForSlot(phrases[0] ?? narration, `步驟 ${step + 1}`, 40);
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
   const stepLabel = `Step ${String(step + 1).padStart(2, "0")}`;
@@ -92,7 +94,7 @@ function stepScene(
     return `
   if (step === ${step}) {
     return (
-      <div className="${prefix}-scene scene-pad asd-no-banner">
+      <div className={\`${prefix}-scene scene-pad asd-no-banner cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <header className="masthead">
           <span className="brand">${escapeTsString(title)}</span>
           <span className="issue">${escapeTsString(kicker)}</span>
@@ -117,7 +119,7 @@ function stepScene(
     return `
   if (step === ${step}) {
     return (
-      <div className="${prefix}-scene scene-pad asd-no-banner">
+      <div className={\`${prefix}-scene scene-pad asd-no-banner cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <header className="masthead">
           <span className="brand">${escapeTsString(title)}</span>
           <span className="issue">${escapeTsString(kicker)}</span>
@@ -145,7 +147,7 @@ ${bodyBlock || `              <p className="${prefix}-body asd-body-line">${esca
     return `
   if (step === ${step}) {
     return (
-      <div className="${prefix}-scene scene-pad asd-no-banner ${prefix}-figure-first">
+      <div className={\`${prefix}-scene scene-pad asd-no-banner ${prefix}-figure-first cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <header className="masthead">
           <span className="brand">${escapeTsString(title)}</span>
           <span className="issue">${escapeTsString(kicker)}</span>
@@ -172,7 +174,7 @@ ${bodyBlock || `              <p className="${prefix}-body asd-body-line">${esca
   return `
   if (step === ${step}) {
     return (
-      <div className="${prefix}-scene scene-pad asd-no-banner ${prefix}-close ${prefix}-close-with-figure">
+      <div className={\`${prefix}-scene scene-pad asd-no-banner ${prefix}-close ${prefix}-close-with-figure cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <div className="${prefix}-close-inner">
           <div className="${prefix}-close-copy">
             <div className="pull-quote ${prefix}-quote">
@@ -227,6 +229,8 @@ ${figureImport}import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
 export default function ${componentName}({ step }: ChapterStepProps) {
+  const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
+  const motion = STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
 ${stepBlocks.join("\n")}
   return null;
 }

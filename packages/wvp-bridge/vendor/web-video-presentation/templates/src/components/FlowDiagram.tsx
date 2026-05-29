@@ -9,12 +9,16 @@ export function FlowDiagram({
   intro,
   nodes,
   stepImageUrl,
+  enterAnimationId = "fade-up",
+  transitionId = "crossfade",
 }: {
   step: number;
   chapterTitle: string;
   intro: string;
   nodes: FlowNode[];
   stepImageUrl?: string;
+  enterAnimationId?: string;
+  transitionId?: string;
 }) {
   const active = Math.max(0, step - 1);
   const current = nodes[active];
@@ -35,7 +39,10 @@ export function FlowDiagram({
 
   if (step === 0) {
     return (
-      <div className="cf-flow-scene scene-pad cf-flow-split">
+      <div
+        className={`cf-flow-scene scene-pad cf-flow-split cf-enter-${enterAnimationId}`}
+        data-cf-transition={transitionId}
+      >
         <div className="cf-flow-main">
           <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
           <MaskReveal show duration={1000}>
@@ -55,7 +62,10 @@ export function FlowDiagram({
   }
 
   return (
-    <div className="cf-flow-scene scene-pad cf-flow-split">
+    <div
+      className={`cf-flow-scene scene-pad cf-flow-split cf-enter-${enterAnimationId}`}
+      data-cf-transition={transitionId}
+    >
       <div className="cf-flow-main">
         <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
         <svg

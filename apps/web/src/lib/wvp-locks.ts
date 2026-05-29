@@ -11,7 +11,8 @@ export function resolveWvpPhaseLocks(project: {
   phase_locks?: unknown;
 }): WvpPhaseLocks {
   const raw = project.wvp_phase_locks;
-  if (raw && typeof raw === "object" && "content" in (raw as object)) {
+  // 只要存在 wvp_phase_locks 物件就優先採用，避免被 legacy phase_locks 汙染顯示狀態
+  if (raw && typeof raw === "object") {
     return normalizeWvpPhaseLocks({
       ...DEFAULT_WVP_PHASE_LOCKS,
       ...(raw as WvpPhaseLocks),

@@ -21,17 +21,23 @@ import "./${componentName}.css";
 const NODES = ${JSON.stringify(nodes, null, 2)} as const;
 const WVP_ID = ${JSON.stringify(input.wvpChapterId)};
 const CHECKPOINT_ASSETS = ${assetsLiteral} as { url: string; step?: number }[];
+const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
 
 function stepImage(step: number) {
   const exact = CHECKPOINT_ASSETS.find((a) => a.step === step);
   const fallback = step === 0 ? CHECKPOINT_ASSETS.find((a) => a.step === 0) : CHECKPOINT_ASSETS[0];
   const hit = exact ?? fallback;
   if (hit?.url?.trim()) return hit.url.trim();
-  return \`\${import.meta.env.BASE_URL}images/\${WVP_ID}/\${String(step + 1).padStart(2, "0")}.jpg\`;
+  return "";
+}
+
+function stepMotion(step: number) {
+  return STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
 }
 
 /** CourseFlow · 流程動畫（每步點亮一節點 + 側欄配圖） */
 export default function ${componentName}({ step }: ChapterStepProps) {
+  const motion = stepMotion(step);
   return (
     <FlowDiagram
       step={step}
@@ -39,6 +45,8 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       intro={${JSON.stringify(intro)}}
       nodes={[...NODES]}
       stepImageUrl={stepImage(step)}
+      enterAnimationId={motion.enterAnimationId}
+      transitionId={motion.transitionId}
     />
   );
 }

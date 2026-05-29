@@ -31,15 +31,17 @@
 }
 .lr-intro-h {
   margin: 0;
-  font-size: var(--t-display-2);
+  font-size: clamp(2rem, 4.2vw, 3.25rem);
   text-align: center;
-  line-height: 1.1;
+  line-height: 1.2;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: min(1100px, 92vw);
+  margin-inline: auto;
 }
 .lr-intro-sub {
-  font-size: var(--t-h3);
-  color: var(--text-2);
-  text-align: center;
-  margin-bottom: var(--space-4);
+  display: none;
 }
 
 .lr-grid {
@@ -135,11 +137,7 @@
 }
 
 .lr-featured-body {
-  margin: 0;
-  font-size: var(--t-h3);
-  color: var(--text-2);
-  line-height: 1.45;
-  max-width: 52ch;
+  display: none;
 }
 
 .lr-grid-ghost .lr-slot {

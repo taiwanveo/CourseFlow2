@@ -64,6 +64,7 @@ export default async function WvpPlayPage({
   const query = new URLSearchParams();
   query.set("start", "1");
   query.set("cf_project", id);
+  query.set("external_controls", "1");
   if (q.auto === "1") query.set("auto", "1");
   if (q.audio === "1") query.set("audio", "1");
   const src = `${base}?${query.toString()}`;

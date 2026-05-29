@@ -191,12 +191,18 @@ export function buildStepImagePrompt(params: {
   /** BananaX 中文風格規範或英文風格片段 */
   styleFragment?: string;
   director?: StepImageDirectorHints;
+  /** 章節內一致性錨點（角色/配色/構圖語彙） */
+  chapterConsistencyHint?: string;
+  /** 本步在章節中的敘事角色（開場/展開/收束） */
+  stepContinuityRole?: string;
 }): string {
   const topic = params.courseTopic.trim() || "Educational course";
   const screen = params.screenContent.trim();
   const script = params.script.trim().slice(0, 1200);
   const styleFragment = params.styleFragment?.trim();
   const director = params.director;
+  const chapterConsistencyHint = params.chapterConsistencyHint?.trim();
+  const stepContinuityRole = params.stepContinuityRole?.trim();
 
   if (director?.imagePromptEn?.trim()) {
     const avoid =
@@ -219,6 +225,10 @@ export function buildStepImagePrompt(params: {
       "Avoid unrelated foreign scripts (e.g., Cyrillic/French spellings) unless explicitly requested.",
       "NO watermark, NO logo, NO UI frames.",
       "Single 16:9 educational illustration, one clear focal subject, enough negative space.",
+      chapterConsistencyHint
+        ? `Chapter continuity constraints: ${chapterConsistencyHint.slice(0, 1200)}`
+        : "",
+      stepContinuityRole ? `Continuity role for this step: ${stepContinuityRole}` : "",
       avoid ? `Avoid: ${avoid}` : "",
       styleFragment
         ? `Style reference (palette/mood only): ${styleFragment.slice(0, 4000)}`
@@ -243,6 +253,10 @@ export function buildStepImagePrompt(params: {
       "且不可有浮水印、商標、品牌 logo、介面框、圖表軸標。",
       "畫面原則：單一主視覺焦點、構圖清楚、留白足夠、視覺層次明確、可與投影片文字共存。",
       "若內容更適合流程/關係表達，請在單張圖中用物件關係與視覺路徑表現，不要塞文字。",
+      chapterConsistencyHint
+        ? `章節連續性約束（請保持同章視覺語彙與角色一致）：${chapterConsistencyHint.slice(0, 1200)}`
+        : "",
+      stepContinuityRole ? `本步敘事角色：${stepContinuityRole}` : "",
       "避免：過度科技感、過度抽象、過度雜亂、俗套商務素材風。",
       "【以下為 BananaX 視覺風格規範 — 僅套用配色、字體氣質、材質、構圖與氛圍，勿在圖中渲染可讀文字】",
       styleBlock,
@@ -268,6 +282,10 @@ export function buildStepImagePrompt(params: {
     "Avoid unrelated foreign scripts (e.g., Cyrillic/French spellings) unless explicitly requested.",
     "NO watermark, NO logo, NO branded marks, NO dashboard/UI frames.",
     "Composition: one clear focal subject, clean hierarchy, enough negative space, readable with overlaid slide typography.",
+    chapterConsistencyHint
+      ? `Chapter continuity constraints (keep same visual language and recurring subjects within chapter): ${chapterConsistencyHint.slice(0, 1200)}`
+      : "",
+    stepContinuityRole ? `Continuity role for this step: ${stepContinuityRole}` : "",
     "Avoid: over-sci-fi look, overly abstract noise, clutter, generic stock-business vibe.",
     styleFragment
       ? `Style reference (apply palette/material/mood only, never render readable text): ${styleFragment}`

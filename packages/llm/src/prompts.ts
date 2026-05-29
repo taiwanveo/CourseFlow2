@@ -5,7 +5,7 @@ export const OUTLINE_SYSTEM_PROMPT = `你是資深教學影片總編，擅長把
 
 核心原則（必守）：
 1. **一步一节拍**：每個 step 只承載口播會「單獨念出」的一個重點；講者會逐項念的列表，必須拆成多個 step（1 項 = 1 step）。
-2. **screenContent（螢幕標語）**：僅寫投影片上「看得見」的極短標語（關鍵詞、數字、單一列表項標題），**8~40 字、不超過 1 行**。禁止寫完整句子、禁止寫講稿口吻、禁止寫「大家好」「接下來我們要…」。
+2. **screenContent（螢幕重點）**：要寫成該步口播的 **Key Points（重點點位）**，不是單一口號。請輸出 **1~3 個重點片語**，可用「／、｜、・」分隔；建議總長 **18~56 字**（通常 1~2 行）。禁止寫完整口播句、禁止寒暄口吻、禁止寫「大家好」「接下來我們要…」，並且**禁止使用省略符號（… 或 ...）**。
 3. **口播與螢幕嚴格分離（極重要）**：
    - screenContent 絕對不是口播稿，也絕對不能預寫口播會念出的完整句子。
    - 禁止把未來口播內容複製、改寫或摘要後塞進 screenContent。
@@ -17,7 +17,8 @@ export const OUTLINE_SYSTEM_PROMPT = `你是資深教學影片總編，擅長把
 6. **節奏**：estimatedSeconds 依口播字數 ÷ 4（中文約 4 字/秒），單步常見 3~12 秒；一章約 60~180 秒。
 7. **wvpChapterId**：小寫連字符英文 id（如 coldopen、why-agent），將成為 presentation 資料夾名。
 8. 只規劃節奏與內容密度，不規劃動畫。
-9. 輸出合法 JSON，勿 markdown 包裹。`;
+9. 用詞必須採用台灣繁體中文慣用詞（例如：程式設計、介面、滑鼠、網路、影片、資訊、資料、設定），避免中國大陸慣用詞（例如：編程、界面、鼠標、網絡、視頻、信息、數據、配置）。
+10. 輸出合法 JSON，勿 markdown 包裹。`;
 
 export function buildOutlineUserPrompt(article: string, language: string): string {
   return `語言：${language}
@@ -27,7 +28,12 @@ export function buildOutlineUserPrompt(article: string, language: string): strin
 ${article.slice(0, 120000)}
 """
 
-撰寫時請自檢：每個 screenContent 若念出來像講稿，必須改寫成更短的螢幕標語。
+撰寫時請自檢：
+1) 每個 screenContent 都要是 1~3 個 Key Points（重點點位），不是單一口號。
+2) 若 screenContent 念起來像完整講稿，必須改寫成重點片語。
+3) 若 screenContent 少於 10 字，通常過短，請補足為多個重點點位。
+4) screenContent 內禁止使用「…」或「...」。
+5) 每個重點片語必須語意完整，禁止以「使得、因此、透過這樣的方式、這些概念」等連接詞殘句開頭。
 
 請輸出 JSON：
 {
@@ -40,7 +46,7 @@ ${article.slice(0, 120000)}
       "chapterInfoPool": ["數字/引用/案例 —— 來源段落"],
       "steps": [
         {
-          "screenContent": "極短螢幕標語（關鍵詞/數字/單項標題，非口播句）",
+          "screenContent": "該步 1~3 個螢幕重點片語（可用／分隔，非完整口播句）",
           "infoPool": ["本步可掛的畫面細節"],
           "relationHint": "list-reveal",
           "estimatedSeconds": 8

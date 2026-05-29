@@ -29,6 +29,8 @@ export function HookImageStrip({
   takeoverTitle,
   closeLine,
   includeClose,
+  enterAnimationId = "fade-up",
+  transitionId = "crossfade",
 }: {
   step: number;
   chapterTitle: string;
@@ -37,6 +39,8 @@ export function HookImageStrip({
   takeoverTitle: string;
   closeLine?: string;
   includeClose: boolean;
+  enterAnimationId?: string;
+  transitionId?: string;
 }) {
   const n = slides.length;
   const takeoverStep = 1 + n;
@@ -44,7 +48,10 @@ export function HookImageStrip({
 
   if (step === 0) {
     return (
-      <div className="hk-scene scene-pad">
+      <div
+        className={`hk-scene scene-pad cf-enter-${enterAnimationId}`}
+        data-cf-transition={transitionId}
+      >
         <div className="hk-kicker">
           <span className="hk-kicker-line" />
           <span className="hk-kicker-text">{introKicker || chapterTitle}</span>
@@ -66,7 +73,10 @@ export function HookImageStrip({
   if (step >= 1 && step <= n) {
     const s = slides[step - 1]!;
     return (
-      <div className="hk-scene scene-pad">
+      <div
+        className={`hk-scene scene-pad cf-enter-${enterAnimationId}`}
+        data-cf-transition={transitionId}
+      >
         <div className="hk-solo-frame">
           <MaskReveal show duration={1100}>
             <div className="hk-solo-img-wrap">
@@ -87,7 +97,10 @@ export function HookImageStrip({
 
   if (step === takeoverStep) {
     return (
-      <div className="hk-scene scene-pad hk-takeover">
+      <div
+        className={`hk-scene scene-pad hk-takeover cf-enter-${enterAnimationId}`}
+        data-cf-transition={transitionId}
+      >
         <div className="hk-mini-row">
           {slides.map((s, idx) =>
             s.url ? (
@@ -115,7 +128,10 @@ export function HookImageStrip({
 
   if (includeClose && step === closeStep && closeLine) {
     return (
-      <div className="hk-scene scene-pad hk-close">
+      <div
+        className={`hk-scene scene-pad hk-close cf-enter-${enterAnimationId}`}
+        data-cf-transition={transitionId}
+      >
         <div className="hk-quote-wrap">
           <h2 className="hk-quote serif-cn">{closeLine}</h2>
           <span className="hk-brush" aria-hidden />

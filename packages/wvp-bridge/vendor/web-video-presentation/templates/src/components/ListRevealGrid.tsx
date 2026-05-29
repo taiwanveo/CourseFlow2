@@ -16,6 +16,8 @@ export function ListRevealGrid({
   introSub,
   items,
   kicker,
+  enterAnimationId = "fade-up",
+  transitionId = "crossfade",
 }: {
   step: number;
   chapterTitle: string;
@@ -23,11 +25,16 @@ export function ListRevealGrid({
   introSub: string;
   items: ListRevealItem[];
   kicker?: string;
+  enterAnimationId?: string;
+  transitionId?: string;
 }) {
   if (step === 0) {
     const cols = Math.min(Math.max(items.length, 1), 4);
     return (
-      <div className="lr-scene scene-pad lr-intro">
+      <div
+        className={`lr-scene scene-pad lr-intro cf-enter-${enterAnimationId}`}
+        data-cf-transition={transitionId}
+      >
         <header className="lr-masthead">
           <span className="lr-rule" />
           <span className="lr-kicker">{kicker ?? chapterTitle}</span>
@@ -55,7 +62,10 @@ export function ListRevealGrid({
   if (!active) return null;
 
   return (
-    <div className="lr-scene scene-pad lr-featured">
+    <div
+      className={`lr-scene scene-pad lr-featured cf-enter-${enterAnimationId}`}
+      data-cf-transition={transitionId}
+    >
       <header className="lr-masthead">
         <span className="lr-rule" />
         <span className="lr-kicker">{kicker ?? chapterTitle}</span>

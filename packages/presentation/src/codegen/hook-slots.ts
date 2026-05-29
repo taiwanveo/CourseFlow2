@@ -1,3 +1,5 @@
+import { screenHeadlineForSlot } from "./slots.js";
+
 export interface HookSlide {
   url: string | null;
   alt: string;
@@ -44,10 +46,7 @@ export function buildHookSlides(
 
   for (let i = 0; i < count; i++) {
     const asset = withUrl[i];
-    const cap =
-      screenContents[i + 1]?.trim() ||
-      narrations[i + 1]?.trim().slice(0, 72) ||
-      `重點 ${i + 1}`;
+    const cap = screenHeadlineForSlot(screenContents[i + 1], `重點 ${i + 1}`, 48);
     slides.push({
       url: asset?.url?.trim() ?? null,
       alt: asset?.alt?.trim() || cap.slice(0, 24),

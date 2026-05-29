@@ -13,6 +13,7 @@ export interface ChapterCodegenInput {
   forceTemplate?: WvpChapterKind;
   assets?: { url: string; alt?: string; step?: number; wvpChapterId?: string }[];
   stepVisualConfigs?: import("./step-visuals.js").StepVisualEntry[];
+  stepMotions?: { enterAnimationId: string; transitionId: string }[];
 }
 
 export function chapterComponentName(wvpChapterId: string): string {

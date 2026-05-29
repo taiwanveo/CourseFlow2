@@ -19,15 +19,14 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
     .map((it, i) => {
       const wvpStep = i + 1;
       const checkpoint = assetForStep(chapterAssets, wvpStep);
-      const imageUrlAttr = checkpoint?.url?.trim()
-        ? `"${escapeTsString(checkpoint.url.trim())}"`
-        : `\`\${import.meta.env.BASE_URL}images/${input.wvpChapterId}/${String(wvpStep + 1).padStart(2, "0")}.jpg\``;
+      const imageUrlLine = checkpoint?.url?.trim()
+        ? `    imageUrl: "${escapeTsString(checkpoint.url.trim())}",\n`
+        : "";
       return `  {
     num: ${JSON.stringify(it.num)},
     title: ${JSON.stringify(it.title)},
     body: ${JSON.stringify(it.body)},
-    imageUrl: ${imageUrlAttr},
-  }`;
+${imageUrlLine}  }`;
     })
     .join(",\n");
 
@@ -38,9 +37,16 @@ import "./${componentName}.css";
 const ITEMS = [
 ${itemsLiteral}
 ] as const;
+const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
+
+function stepMotion(step: number) {
+  const m = STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
+  return m;
+}
 
 /** CourseFlow · 清單揭示（1 項 = 1 step） */
 export default function ${componentName}({ step }: ChapterStepProps) {
+  const motion = stepMotion(step);
   return (
     <ListRevealGrid
       step={step}
@@ -48,6 +54,8 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       introTitle={${JSON.stringify(intro)}}
       introSub={${JSON.stringify(introSub)}}
       items={[...ITEMS]}
+      enterAnimationId={motion.enterAnimationId}
+      transitionId={motion.transitionId}
     />
   );
 }

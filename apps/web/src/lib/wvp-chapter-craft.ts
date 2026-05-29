@@ -18,6 +18,7 @@ import type { WvpChapterKind } from "@courseflow/core";
 import { parseWvpSettings, type WvpAnchorProfile } from "@/lib/wvp-settings";
 import {
   chapterKindForCraft,
+  resolveCompositionChapterForCraft,
   screenContentsForChapter,
 } from "@/lib/wvp-chapter-meta";
 import type { LlmProviderId } from "@courseflow/llm";
@@ -34,7 +35,10 @@ import { wvpEmbedBasePath } from "@/lib/wvp-workdir";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
-import { generateStepVisualConfigsForChapter } from "@/lib/wvp-step-visual-config";
+import {
+  generateStepVisualConfigsForChapter,
+  type StepVisualDecision,
+} from "@/lib/wvp-step-visual-config";
 
 export type CraftRow = {
   id: string;
@@ -53,7 +57,7 @@ export async function syncChapterNarrations(
   craft: CraftRow,
   composition: CourseComposition,
 ): Promise<{ narrations: string[]; error?: string }> {
-  const chapter = composition.chapters.find((c) => c.title === craft.title);
+  const chapter = resolveCompositionChapterForCraft(composition, craft);
   if (!chapter) return { narrations: [], error: "找不到對應章節" };
 
   const narrations = narrationsForChapter(composition, chapter.id);
@@ -115,7 +119,7 @@ export async function generateChapterCraft(
   error?: string;
 }> {
   const wvpChapterId = craft.wvp_chapter_id;
-  const contentChapter = opts.composition.chapters.find((c) => c.title === craft.title);
+  const contentChapter = resolveCompositionChapterForCraft(opts.composition, craft);
   const screenContents = contentChapter
     ? screenContentsForChapter(opts.composition, contentChapter.id)
     : [];
@@ -163,7 +167,8 @@ export async function generateChapterCraft(
     } = { source: "template" };
     let stepVisualConfigs: Awaited<
       ReturnType<typeof generateStepVisualConfigsForChapter>
-    > = [];
+    >["configs"] = [];
+    let stepVisualDecisions: StepVisualDecision[] = [];
 
     const chapterAssets = chapterAssetsForCodegen(opts.assets, wvpChapterId);
 
@@ -227,22 +232,17 @@ export async function generateChapterCraft(
                 plan,
               )
             : undefined);
-        const skipVisualMix =
-          chapterKind === "list-reveal" ||
-          chapterKind === "flow" ||
-          chapterKind === "hook" ||
-          opts.forceTemplate === "hook";
-        stepVisualConfigs = skipVisualMix
-          ? []
-          : await generateStepVisualConfigsForChapter({
-              provider: opts.provider,
-              apiKey,
-              narrations: opts.narrations,
-              screenContents,
-              themeId: opts.themeId,
-              courseTopic: craft.title,
-              articleExcerpt: articleChapterExcerpt,
-            });
+        const visualDecisionResult = await generateStepVisualConfigsForChapter({
+          provider: opts.provider,
+          apiKey,
+          narrations: opts.narrations,
+          screenContents,
+          themeId: opts.themeId,
+          courseTopic: craft.title,
+          articleExcerpt: articleChapterExcerpt,
+        });
+        stepVisualConfigs = visualDecisionResult.configs;
+        stepVisualDecisions = visualDecisionResult.decisions;
         const gen = generateChapterSources({
           folderName,
           wvpChapterId,
@@ -299,6 +299,7 @@ export async function generateChapterCraft(
           narrations: opts.narrations,
           aiPlan: plan,
           stepVisualConfigs,
+            stepVisualDecisions,
           chapterSource,
           craftChecklist,
           generatedAt: new Date().toISOString(),
@@ -355,7 +356,7 @@ export async function applyChapterTemplate(
   template: WvpChapterKind,
   assets?: WvpAssetRef[],
 ): Promise<{ ok: boolean; error?: string; templateKind?: string; narrations?: string[] }> {
-  const chapter = composition.chapters.find((c) => c.title === craft.title);
+  const chapter = resolveCompositionChapterForCraft(composition, craft);
   if (!chapter) return { ok: false, error: "找不到對應章節" };
 
   const narrations = narrationsForChapter(composition, chapter.id);

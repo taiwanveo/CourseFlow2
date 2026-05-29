@@ -13,9 +13,13 @@
 /* 僅標題／引子大標可置中 */
 [class$="-cover-h"],
 .lr-intro-h,
+.lr-featured-title,
 .vf-headline h1,
 .vf-headline h2 {
   text-align: center;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* 放大全站字級對比 */
@@ -56,12 +60,9 @@ h3::after,
   object-fit: cover;
 }
 
-/* 清單格：內文左對齊、字級放大 */
+/* 清單格：副標已停用，避免與主標重複 */
 .lr-intro-sub {
-  text-align: left;
-  font-size: var(--t-lead);
-  line-height: 1.55;
-  max-width: 72ch;
+  display: none !important;
 }
 
 .lr-slot-title {

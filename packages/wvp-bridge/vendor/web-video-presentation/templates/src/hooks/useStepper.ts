@@ -19,6 +19,12 @@ function shouldStartFresh(): boolean {
   return q.get("start") === "1" || q.get("reset") === "1";
 }
 
+function usesExternalControls(): boolean {
+  if (typeof window === "undefined") return false;
+  const q = new URLSearchParams(window.location.search);
+  return q.get("external_controls") === "1";
+}
+
 export type Cursor = { chapter: number; step: number };
 
 export interface StepperState {
@@ -151,6 +157,7 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   );
 
   useEffect(() => {
+    if (usesExternalControls()) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
       const autoGateOpen =

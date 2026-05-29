@@ -23,7 +23,10 @@ import { decryptApiKey } from "@/lib/crypto";
 import { listConfiguredLlmProviders } from "@/lib/llm-provider";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
-import { screenContentsForChapter } from "@/lib/wvp-chapter-meta";
+import {
+  resolveCompositionChapterForCraft,
+  screenContentsForChapter,
+} from "@/lib/wvp-chapter-meta";
 import {
   wvpStepNeedsIllustration,
   type WvpIllustrationSyncOptions,
@@ -155,6 +158,42 @@ function chapterTemplateKind(craft: CraftRow): string | undefined {
   return cr?.chapterSource?.templateKind ?? cr?.appliedTemplate;
 }
 
+function buildChapterConsistencyHint(
+  chapterTitle: string,
+  narrations: string[],
+  screenContents: string[],
+): string {
+  const keyScreens = screenContents
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(" / ");
+  const keyNarrations = narrations
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((n) => n.slice(0, 42))
+    .join(" / ");
+  return [
+    `Chapter title: ${chapterTitle}`,
+    "Keep recurring subject identity consistent across steps (appearance, outfit/material, silhouette).",
+    "Keep color palette and lighting mood consistent within chapter; only adjust emphasis by step intent.",
+    "Reuse one stable camera grammar (e.g., medium shot + clear focal subject + clean negative space).",
+    "Do not switch to unrelated scene genre unless script explicitly requires it.",
+    keyScreens ? `Key on-screen concepts: ${keyScreens}` : "",
+    keyNarrations ? `Key narration beats: ${keyNarrations}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function stepContinuityRole(stepIndex: number, totalSteps: number): string {
+  if (totalSteps <= 1) return "single-step";
+  if (stepIndex === 0) return "chapter-opener";
+  if (stepIndex >= totalSteps - 1) return "chapter-closing";
+  return "chapter-development";
+}
+
 function directorHintsFromPlan(plan: VisualDirectorPlan): StepImageDirectorHints {
   return {
     coreMessage: plan.coreMessage,
@@ -236,7 +275,7 @@ export async function getChapterIllustrationsState(
     projectId,
     craft.wvp_chapter_id,
   );
-  const chapter = composition.chapters.find((c) => c.title === craft.title);
+  const chapter = resolveCompositionChapterForCraft(composition, craft);
   const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
   const narrations =
     cr?.narrations?.filter((n) => n?.trim()) ??
@@ -343,7 +382,7 @@ export async function planChapterIllustrationPrompts(
   await ensurePresentationScaffolded(projectId, themeId);
 
   const kind = chapterTemplateKind(craft);
-  const chapter = composition.chapters.find((c) => c.title === craft.title);
+  const chapter = resolveCompositionChapterForCraft(composition, craft);
   if (!chapter) throw new Error("找不到對應章節內容");
 
   const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
@@ -351,6 +390,11 @@ export async function planChapterIllustrationPrompts(
     cr?.narrations?.filter((n) => n?.trim()) ??
     narrationsForChapter(composition, chapter.id);
   const screenContents = screenContentsForChapter(composition, chapter.id);
+  const chapterConsistencyHint = buildChapterConsistencyHint(
+    craft.title,
+    narrations,
+    screenContents,
+  );
 
   const theme = await loadDesignTokensForTheme(themeId);
   const directorLlm = async (system: string, user: string) => {
@@ -374,14 +418,15 @@ export async function planChapterIllustrationPrompts(
   const steps: StepIllustrationEntry[] = [];
 
   for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
-    if (!wvpStepNeedsIllustration(kind, stepIndex, narrations.length)) continue;
+    const heuristicNeedsImage = wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
+    const prevStep = existing.find((s) => s.stepIndex === stepIndex);
+    const forcedNeedsImage = prevStep?.needsImage ?? true;
+    if (!heuristicNeedsImage && !forcedNeedsImage) continue;
     const shouldRegenerate = !onlySet || onlySet.has(stepIndex);
 
     const narration = narrations[stepIndex] ?? "";
     const screen = screenContents[stepIndex]?.trim() ?? "";
     const script = narration;
-    const prevStep = existing.find((s) => s.stepIndex === stepIndex);
-    const forcedNeedsImage = prevStep?.needsImage ?? true;
     const imageSource = prevStep?.imageSource ?? "ai";
     const batchSelected = prevStep?.batchSelected ?? (forcedNeedsImage && imageSource === "ai");
 
@@ -464,6 +509,8 @@ export async function planChapterIllustrationPrompts(
       script,
       styleFragment,
       director: directorPlan ? directorHintsFromPlan(directorPlan) : undefined,
+      chapterConsistencyHint,
+      stepContinuityRole: stepContinuityRole(stepIndex, narrations.length),
     });
 
     steps.push({
@@ -520,8 +567,26 @@ export async function patchChapterIllustrationPrompts(
   const steps = readIllustrationsFromChecklist(craft).map((s) => ({ ...s }));
 
   for (const p of patches) {
-    const idx = steps.findIndex((s) => s.stepIndex === p.stepIndex);
-    if (idx < 0) continue;
+    let idx = steps.findIndex((s) => s.stepIndex === p.stepIndex);
+    if (idx < 0) {
+      steps.push({
+        stepIndex: p.stepIndex,
+        screenSnippet: "",
+        scriptSnippet: "",
+        recommendedOutput: "ai-image",
+        status: "prompt-draft",
+        promptForApi: "",
+        promptStyleId: null,
+        needsImage: true,
+        imageSource: "ai",
+        batchSelected: true,
+        confirmedAt: null,
+        imageWritten: false,
+        storagePath: null,
+        error: null,
+      });
+      idx = steps.length - 1;
+    }
     if (p.promptForApi !== undefined) {
       steps[idx]!.promptForApi = p.promptForApi;
       if (steps[idx]!.status === "prompt-draft") steps[idx]!.status = "prompt-draft";
@@ -530,8 +595,12 @@ export async function patchChapterIllustrationPrompts(
       steps[idx]!.needsImage = p.needsImage;
       if (!p.needsImage && !steps[idx]!.imageWritten) {
         steps[idx]!.status = "skip";
+        steps[idx]!.batchSelected = false;
       } else if (p.needsImage && steps[idx]!.status === "skip") {
         steps[idx]!.status = "prompt-draft";
+        if ((steps[idx]!.imageSource ?? "ai") === "ai") {
+          steps[idx]!.batchSelected = true;
+        }
       }
     }
     if (p.imageSource !== undefined) {
@@ -720,6 +789,25 @@ export async function readChapterIllustrationImage(
   wvpChapterId: string,
   stepIndex: number,
 ): Promise<Buffer | null> {
+  // 先以 Storage 持久化版本為準，避免本機快取被其他流程覆寫後造成「回到工作室就變新圖」。
+  const storagePath = craftIllustrationStoragePath(
+    userId,
+    projectId,
+    wvpChapterId,
+    stepIndex,
+  );
+  const remote = await downloadCraftIllustrationFromStorage(supabase, storagePath);
+  if (remote?.length) {
+    try {
+      await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
+        { wvpChapterId, stepIndex, buffer: remote },
+      ]);
+    } catch {
+      /* 快取失敗仍回傳圖片 */
+    }
+    return remote;
+  }
+
   const path = join(
     presentationDirForProject(projectId),
     "public",
@@ -731,26 +819,9 @@ export async function readChapterIllustrationImage(
     const local = await readFile(path);
     if (local.length) return local;
   } catch {
-    /* 改從 Storage 還原 */
+    /* 無圖可用 */
   }
-
-  const storagePath = craftIllustrationStoragePath(
-    userId,
-    projectId,
-    wvpChapterId,
-    stepIndex,
-  );
-  const remote = await downloadCraftIllustrationFromStorage(supabase, storagePath);
-  if (!remote?.length) return null;
-
-  try {
-    await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
-      { wvpChapterId, stepIndex, buffer: remote },
-    ]);
-  } catch {
-    /* 快取失敗仍回傳圖片 */
-  }
-  return remote;
+  return null;
 }
 
 /** 與打包路徑共用：僅同步已寫入 presentation 的圖，不跑 Director */

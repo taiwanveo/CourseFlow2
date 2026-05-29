@@ -32,10 +32,7 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   const useVisualMix =
     !hasUploadedAssets &&
     input.stepVisualConfigs &&
-    input.stepVisualConfigs.length > 0 &&
-    kind !== "list-reveal" &&
-    kind !== "flow" &&
-    kind !== "hook";
+    input.stepVisualConfigs.length > 0;
   if (useVisualMix) {
     return {
       ...generateVisualMixSources(input, input.stepVisualConfigs!),

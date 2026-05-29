@@ -104,11 +104,34 @@ export async function PATCH(
     return NextResponse.json({ error: "缺少 patches" }, { status: 400 });
   }
 
-  const state = await patchChapterIllustrationPrompts(
+  await patchChapterIllustrationPrompts(
     supabase,
     id,
     loaded.craft!,
     body.patches,
   );
-  return NextResponse.json({ ok: true, ...state });
+
+  const { data: updatedCraft } = await supabase
+    .from("chapter_craft")
+    .select("*")
+    .eq("project_id", id)
+    .eq("wvp_chapter_id", wvpChapterId)
+    .single();
+  if (!updatedCraft) {
+    return NextResponse.json({ error: "章節不存在" }, { status: 404 });
+  }
+
+  const composition = await loadProjectComposition(supabase, id);
+  if (!composition) {
+    return NextResponse.json({ error: "無法載入專案內容" }, { status: 400 });
+  }
+
+  const fullState = await getChapterIllustrationsState(
+    supabase,
+    user.id,
+    id,
+    updatedCraft,
+    composition,
+  );
+  return NextResponse.json({ ok: true, ...fullState });
 }

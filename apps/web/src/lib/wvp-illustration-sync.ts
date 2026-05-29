@@ -23,7 +23,9 @@ import { listConfiguredLlmProviders } from "@/lib/llm-provider";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
+import { resolveCompositionChapterForCraft } from "@/lib/wvp-chapter-meta";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
+import type { StepVisualDecision } from "@/lib/wvp-step-visual-config";
 
 function checkpointAssetForStep(
   assets: WvpAssetRef[] | undefined,
@@ -51,6 +53,49 @@ type CraftIllustrationState = {
   needsImage?: boolean;
   imageSource?: "ai" | "upload";
 };
+
+function decisionByStep(
+  decisions: StepVisualDecision[] | undefined,
+  stepIndex: number,
+): StepVisualDecision | undefined {
+  return decisions?.find((d) => d.step === stepIndex);
+}
+
+function buildChapterConsistencyHint(
+  chapterTitle: string,
+  narrations: string[],
+  screenContents: string[],
+): string {
+  const keyScreens = screenContents
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(" / ");
+  const keyNarrations = narrations
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .slice(0, 3)
+    .map((n) => n.slice(0, 42))
+    .join(" / ");
+  return [
+    `Chapter title: ${chapterTitle}`,
+    "Keep recurring subject identity consistent across steps (appearance, outfit/material, silhouette).",
+    "Keep color palette and lighting mood consistent within chapter; only adjust emphasis by step intent.",
+    "Reuse one stable camera grammar (e.g., medium shot + clear focal subject + clean negative space).",
+    "Do not switch to unrelated scene genre unless script explicitly requires it.",
+    keyScreens ? `Key on-screen concepts: ${keyScreens}` : "",
+    keyNarrations ? `Key narration beats: ${keyNarrations}` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function stepContinuityRole(stepIndex: number, totalSteps: number): string {
+  if (totalSteps <= 1) return "single-step";
+  if (stepIndex === 0) return "chapter-opener";
+  if (stepIndex >= totalSteps - 1) return "chapter-closing";
+  return "chapter-development";
+}
 
 export type WvpIllustrationSyncOptions = {
   /** 打包路徑：略過 Visual Director LLM（配圖應在 Craft 階段完成） */
@@ -201,9 +246,8 @@ export async function syncPresentationIllustrations(
 
   for (const craft of crafts) {
     const kind = chapterTemplateKind(craft);
-    if (kind === "hook" || kind === "visual-mix") continue;
 
-    const chapter = composition.chapters.find((c) => c.title === craft.title);
+    const chapter = resolveCompositionChapterForCraft(composition, craft);
     if (!chapter) continue;
 
     const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
@@ -215,19 +259,40 @@ export async function syncPresentationIllustrations(
       (
         craft.checklist_result as {
           stepIllustrations?: CraftIllustrationState[];
+          stepVisualDecisions?: StepVisualDecision[];
         } | null | undefined
       )?.stepIllustrations ?? [];
+    const stepVisualDecisions =
+      (
+        craft.checklist_result as {
+          stepVisualDecisions?: StepVisualDecision[];
+        } | null | undefined
+      )?.stepVisualDecisions ?? [];
 
     const compSteps = composition.steps
       .filter((s) => s.chapterId === chapter.id && !isChapterStep(s))
       .sort((a, b) => a.sortOrder - b.sortOrder);
+    const screenContents = compSteps
+      .map((s) => s.screenContent?.trim() ?? "")
+      .slice(0, narrations.length);
+    const chapterConsistencyHint = buildChapterConsistencyHint(
+      craft.title,
+      narrations,
+      screenContents,
+    );
 
     for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
       const state = illustrationStates.find((s) => s.stepIndex === stepIndex);
+      const decision = decisionByStep(stepVisualDecisions, stepIndex);
+      const decisionAllowsAi = decision
+        ? decision.recommendedOutput === "ai-image"
+        : undefined;
       const shouldIllustrate =
-        state?.needsImage ?? wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
+        state?.needsImage ??
+        decision?.shouldIllustrate ??
+        wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
       const source = state?.imageSource ?? "ai";
-      if (!shouldIllustrate) continue;
+      if (!shouldIllustrate || decisionAllowsAi === false) continue;
 
       if (reuseExistingFiles) {
         const { readChapterIllustrationImage } = await import("@/lib/wvp-craft-illustrations");
@@ -305,6 +370,8 @@ export async function syncPresentationIllustrations(
               script,
               styleFragment,
               director: directorPlan ? directorHintsFromPlan(directorPlan) : undefined,
+              chapterConsistencyHint,
+              stepContinuityRole: stepContinuityRole(stepIndex, narrations.length),
             }),
           );
           buffer = Buffer.from(bytes);

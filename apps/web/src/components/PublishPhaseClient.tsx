@@ -303,7 +303,7 @@ export function PublishPhaseClient({
           {audioGate.ready ? "（可打包）" : "（請先完成「3. 語音生成」）"}
         </p>
         <p className="text-xs text-zinc-500">
-          將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。打包會依目前主題重建章節，並同步配圖工作室（AI 生圖或上傳）已完成的圖片。
+          將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。打包只重建版面與語音，不會重算或覆寫「視覺動效」階段的上傳／AI 配圖。
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button

@@ -7,6 +7,7 @@ import {
 } from "@courseflow/presentation";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
+import { resolveCompositionChapterForCraft } from "@/lib/wvp-chapter-meta";
 
 type CraftRow = {
   wvp_chapter_id: string;
@@ -100,7 +101,7 @@ export async function syncPresentationAudioFromComposition(
   let expectedSteps = 0;
 
   for (const craft of crafts) {
-    const chapter = composition.chapters.find((c) => c.title === craft.title);
+    const chapter = resolveCompositionChapterForCraft(composition, craft);
     if (!chapter) continue;
 
     const compSteps = composition.steps
