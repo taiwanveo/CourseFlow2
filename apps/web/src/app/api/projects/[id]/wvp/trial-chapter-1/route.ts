@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertWvpPhaseEditable } from "@courseflow/core";
 import type { LlmProviderId } from "@courseflow/llm";
-import { resolveLlmProvider } from "@/lib/llm-provider";
+import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 import { runAnchorChapterTrial } from "@/lib/wvp-chapter-craft";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { parseWvpSettings } from "@/lib/wvp-settings";
@@ -60,6 +60,7 @@ export async function POST(
     const result = await runAnchorChapterTrial(supabase, id, user.id, {
       provider: resolved.provider,
       encryptedKey: resolved.encryptedKey,
+      textModel: resolveEffectiveTextModel(resolved.provider, resolved.textModel, resolved.defaultModel),
       themeId,
     });
     if (!result.ok) {

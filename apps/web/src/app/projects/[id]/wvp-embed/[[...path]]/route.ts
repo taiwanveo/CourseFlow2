@@ -18,6 +18,8 @@ const MIME: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".bmp": "image/bmp",
   ".woff2": "font/woff2",
   ".mp3": "audio/mpeg",
   ".ico": "image/x-icon",

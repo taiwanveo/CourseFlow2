@@ -1,5 +1,5 @@
 import type { CourseComposition } from "@courseflow/core";
-import { getOrderedSteps, isChapterStep } from "@courseflow/core";
+import { isChapterStep } from "@courseflow/core";
 import { titleToWvpChapterId } from "@/lib/wvp-slug";
 
 export interface ChapterCraftRow {
@@ -19,9 +19,21 @@ export function contentChaptersFromComposition(composition: CourseComposition) {
 }
 
 export function stepCountForChapter(composition: CourseComposition, chapterId: string) {
-  return composition.steps.filter(
-    (s) => s.chapterId === chapterId && !isChapterStep(s),
-  ).length;
+  return orderedWvpStepsForChapter(composition, chapterId).length;
+}
+
+/** WVP 逐步序列：章節分隔頁（若有）置於第 0 步，其後為內容步驟 */
+export function orderedWvpStepsForChapter(
+  composition: CourseComposition,
+  chapterId: string,
+) {
+  const inChapter = composition.steps
+    .filter((s) => s.chapterId === chapterId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const divider = inChapter.find((s) => isChapterStep(s));
+  const content = inChapter.filter((s) => !isChapterStep(s));
+  if (divider) return [divider, ...content];
+  return content;
 }
 
 export function buildChapterCraftPlan(composition: CourseComposition) {
@@ -36,9 +48,7 @@ export function buildChapterCraftPlan(composition: CourseComposition) {
 }
 
 export function narrationsForChapter(composition: CourseComposition, chapterId: string) {
-  const ordered = getOrderedSteps(composition);
-  return composition.steps
-    .filter((s) => s.chapterId === chapterId && !isChapterStep(s))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((s) => s.script.trim() || s.screenContent.trim());
+  return orderedWvpStepsForChapter(composition, chapterId).map(
+    (s) => s.script.trim() || s.screenContent.trim(),
+  );
 }

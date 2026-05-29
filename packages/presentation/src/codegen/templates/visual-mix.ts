@@ -70,6 +70,25 @@ ${stepBranches}
   height: 100%;
   color: var(--text);
 }
+.vf-block {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-5);
+}
+.vf-block:has(.vf-chart, .vf-table-wrap, .vf-anim) {
+  justify-content: flex-start;
+  padding-top: var(--space-8);
+}
+.vf-headline {
+  flex-shrink: 0;
+  text-align: center;
+  width: 100%;
+}
+.vf-block:has(.vf-chart, .vf-table-wrap, .vf-anim) .vf-headline {
+  text-align: left;
+}
 `;
 
   return {

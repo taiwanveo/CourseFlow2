@@ -15,15 +15,16 @@ import {
   type VisualDirectorPlan,
 } from "@courseflow/visual-config";
 import {
+  normalizeStepImageExt,
   wvpStepImageFileName,
   writePresentationIllustrationFiles,
 } from "@courseflow/presentation";
 import { decryptApiKey } from "@/lib/crypto";
-import { listConfiguredLlmProviders } from "@/lib/llm-provider";
+import { listConfiguredLlmProviders, resolveEffectiveTextModel, resolveEffectiveImageModel } from "@/lib/llm-provider";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
-import { narrationsForChapter } from "@/lib/wvp-chapters";
-import { resolveCompositionChapterForCraft } from "@/lib/wvp-chapter-meta";
+import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
+import { resolveCompositionChapterForCraft, screenContentsForChapter } from "@/lib/wvp-chapter-meta";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
 import type { StepVisualDecision } from "@/lib/wvp-step-visual-config";
 
@@ -52,6 +53,10 @@ type CraftIllustrationState = {
   stepIndex: number;
   needsImage?: boolean;
   imageSource?: "ai" | "upload";
+  imageWritten?: boolean;
+  status?: string;
+  storagePath?: string | null;
+  imageExt?: string;
 };
 
 function decisionByStep(
@@ -144,7 +149,7 @@ export function wvpStepNeedsIllustration(
   const kind = templateKind ?? "magazine";
   if (kind === "hook") return false;
   if (kind === "visual-mix") return false;
-  if (kind === "list-reveal") return stepIndex >= 1;
+  if (kind === "list-reveal") return stepIndex >= 0;
   if (kind === "flow") return stepIndex >= 0;
   if (kind === "magazine") return stepIndex >= 1;
   return stepIndex >= 1;
@@ -202,25 +207,41 @@ export async function syncPresentationIllustrations(
   const textProvider: LlmProviderId | undefined = textProviders[0];
 
   let imageApiKey: string | undefined;
+  let resolvedImageModel: string | undefined;
   if (imageProvider) {
-    const { data: keyRow } = await supabase
+    const { data: imageKeyRow } = await supabase
       .from("user_api_keys")
-      .select("encrypted_key")
+      .select("encrypted_key, default_model, image_model")
       .eq("user_id", userId)
       .eq("provider", imageProvider)
       .maybeSingle();
-    if (keyRow?.encrypted_key) imageApiKey = decryptApiKey(keyRow.encrypted_key);
+    if (imageKeyRow?.encrypted_key) {
+      imageApiKey = decryptApiKey(imageKeyRow.encrypted_key);
+      resolvedImageModel = resolveEffectiveImageModel(
+        imageProvider,
+        (imageKeyRow as { image_model?: string | null }).image_model,
+        (imageKeyRow as { default_model?: string | null }).default_model,
+      );
+    }
   }
 
   let textApiKey: string | undefined;
+  let resolvedTextModel: string | undefined;
   if (textProvider) {
-    const { data: keyRow } = await supabase
+    const { data: textKeyRow } = await supabase
       .from("user_api_keys")
-      .select("encrypted_key")
+      .select("encrypted_key, default_model, text_model")
       .eq("user_id", userId)
       .eq("provider", textProvider)
       .maybeSingle();
-    if (keyRow?.encrypted_key) textApiKey = decryptApiKey(keyRow.encrypted_key);
+    if (textKeyRow?.encrypted_key) {
+      textApiKey = decryptApiKey(textKeyRow.encrypted_key);
+      resolvedTextModel = resolveEffectiveTextModel(
+        textProvider,
+        (textKeyRow as { text_model?: string | null }).text_model,
+        (textKeyRow as { default_model?: string | null }).default_model,
+      );
+    }
   }
 
   const theme = await loadDesignTokensForTheme(themeId);
@@ -229,15 +250,19 @@ export async function syncPresentationIllustrations(
       ? async (system: string, user: string) => {
           const obj = await generateChapterPlan({
             provider: textProvider,
-            apiKey: textApiKey,
-            system,
+            apiKey: textApiKey,            model: resolvedTextModel,            system,
             user,
           });
           return JSON.stringify(obj);
         }
       : undefined;
 
-  const files: { wvpChapterId: string; stepIndex: number; buffer: Buffer }[] = [];
+  const files: {
+    wvpChapterId: string;
+    stepIndex: number;
+    buffer: Buffer;
+    ext?: import("@courseflow/presentation").WvpStepImageExt;
+  }[] = [];
   let attempted = 0;
   let directorSkipped = 0;
   let reusedExisting = 0;
@@ -250,10 +275,7 @@ export async function syncPresentationIllustrations(
     const chapter = resolveCompositionChapterForCraft(composition, craft);
     if (!chapter) continue;
 
-    const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
-    const narrations =
-      cr?.narrations?.filter((n: string) => n?.trim()) ??
-      narrationsForChapter(composition, chapter.id);
+    const narrations = narrationsForChapter(composition, chapter.id);
 
     const illustrationStates =
       (
@@ -269,12 +291,8 @@ export async function syncPresentationIllustrations(
         } | null | undefined
       )?.stepVisualDecisions ?? [];
 
-    const compSteps = composition.steps
-      .filter((s) => s.chapterId === chapter.id && !isChapterStep(s))
-      .sort((a, b) => a.sortOrder - b.sortOrder);
-    const screenContents = compSteps
-      .map((s) => s.screenContent?.trim() ?? "")
-      .slice(0, narrations.length);
+    const wvpSteps = orderedWvpStepsForChapter(composition, chapter.id);
+    const screenContents = screenContentsForChapter(composition, chapter.id);
     const chapterConsistencyHint = buildChapterConsistencyHint(
       craft.title,
       narrations,
@@ -282,37 +300,67 @@ export async function syncPresentationIllustrations(
     );
 
     for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
+      const wvpStep = wvpSteps[stepIndex];
+      const compStep = wvpSteps[stepIndex];
+      const isDivider = Boolean(wvpStep && isChapterStep(wvpStep));
+
       const state = illustrationStates.find((s) => s.stepIndex === stepIndex);
       const decision = decisionByStep(stepVisualDecisions, stepIndex);
       const decisionAllowsAi = decision
         ? decision.recommendedOutput === "ai-image"
         : undefined;
+      // 使用者在「視覺動效」明確取消勾選「需要配圖」時，無論先前是否已生圖，一律略過
+      if (state?.needsImage === false) continue;
+
+      const hasStudioImage =
+        state?.imageWritten === true ||
+        state?.status === "done" ||
+        state?.imageSource === "upload";
       const shouldIllustrate =
-        state?.needsImage ??
-        decision?.shouldIllustrate ??
-        wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
+        hasStudioImage ||
+        (state?.needsImage ??
+          decision?.shouldIllustrate ??
+          (isDivider ? false : wvpStepNeedsIllustration(kind, stepIndex, narrations.length)));
       const source = state?.imageSource ?? "ai";
-      if (!shouldIllustrate || decisionAllowsAi === false) continue;
+      // 使用者已手動選擇「動畫」作為視覺來源，不需要生成 AI 圖片
+      if (state?.imageSource === "animation") continue;
+      if (!shouldIllustrate) continue;
+      if (decisionAllowsAi === false && !hasStudioImage) continue;
 
       if (reuseExistingFiles) {
         const { readChapterIllustrationImage } = await import("@/lib/wvp-craft-illustrations");
-        const existingBuf = await readChapterIllustrationImage(
+        let existingBuf = await readChapterIllustrationImage(
           supabase,
           userId,
           projectId,
           craft.wvp_chapter_id,
           stepIndex,
+          {
+            storagePath: state?.storagePath,
+            imageExt: state?.imageExt ? normalizeStepImageExt(state.imageExt) : undefined,
+          },
         );
+        if (!existingBuf?.length && compStep) {
+          existingBuf = await imageFromCompositionStep(supabase, composition, compStep.id);
+        }
         if (existingBuf?.length) {
+          const { detectStepImageExtFromBuffer } = await import("@courseflow/presentation");
+          files.push({
+            wvpChapterId: craft.wvp_chapter_id,
+            stepIndex,
+            buffer: existingBuf,
+            ext: detectStepImageExtFromBuffer(existingBuf),
+          });
           reusedExisting++;
           continue;
         }
       }
 
+      if (decision?.recommendedOutput === "animation") continue;
+
       attempted++;
-      const compStep = compSteps[stepIndex];
       const narration = narrations[stepIndex] ?? "";
-      const screen = compStep?.screenContent?.trim() ?? "";
+      const screen = screenContents[stepIndex]?.trim() ?? compStep?.screenContent?.trim() ?? "";
       const script = compStep?.script?.trim() ?? narration;
       let buffer: Buffer | null = null;
 
@@ -363,7 +411,7 @@ export async function syncPresentationIllustrations(
       if (!buffer && source === "ai" && imageApiKey && imageProvider) {
         try {
           const bytes = await generateStepImage(
-            { provider: imageProvider, apiKey: imageApiKey },
+            { provider: imageProvider, apiKey: imageApiKey, model: resolvedImageModel },
             buildStepImagePrompt({
               courseTopic: projectTitle,
               screenContent: screen || narration.slice(0, 240),
@@ -384,10 +432,12 @@ export async function syncPresentationIllustrations(
       }
 
       if (buffer?.length) {
+        const { detectStepImageExtFromBuffer } = await import("@courseflow/presentation");
         files.push({
           wvpChapterId: craft.wvp_chapter_id,
           stepIndex,
           buffer,
+          ext: detectStepImageExtFromBuffer(buffer),
         });
       }
     }

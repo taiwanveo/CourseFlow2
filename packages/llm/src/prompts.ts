@@ -5,13 +5,11 @@ export const OUTLINE_SYSTEM_PROMPT = `你是資深教學影片總編，擅長把
 
 核心原則（必守）：
 1. **一步一节拍**：每個 step 只承載口播會「單獨念出」的一個重點；講者會逐項念的列表，必須拆成多個 step（1 項 = 1 step）。
-2. **screenContent（螢幕重點）**：要寫成該步口播的 **Key Points（重點點位）**，不是單一口號。請輸出 **1~3 個重點片語**，可用「／、｜、・」分隔；建議總長 **18~56 字**（通常 1~2 行）。禁止寫完整口播句、禁止寒暄口吻、禁止寫「大家好」「接下來我們要…」，並且**禁止使用省略符號（… 或 ...）**。
+2. **screenContent（螢幕重點）**：摘要該步口播，產出「可放上簡報 bullet point（項目符號重點）」的內容。請輸出 **2~4 條**完整重點，用「／」分隔；每條優先採「主題：說明」或「標籤：內容」（如 核心重點、目標、價值）。建議總長 **40~120 字**。禁止從原句切片段、禁止寒暄、禁止省略符號（… 或 ...）。
 3. **口播與螢幕嚴格分離（極重要）**：
-   - screenContent 絕對不是口播稿，也絕對不能預寫口播會念出的完整句子。
-   - 禁止把未來口播內容複製、改寫或摘要後塞進 screenContent。
-   - 若某句只適合「念出來」而不適合「印在投影片上」，只能放進後續 script，不能放進 screenContent。
-   - 反例（禁止）：screenContent 寫「首先我們來看三個重點，第一是…」—— 這是口播，不是螢幕標語。
-   - 正例（允許）：screenContent 寫「三個重點」或「重點一：需求定義」。
+   - screenContent 是投影片 bullet，不是口播逐字稿，也不是口播句子的碎片。
+   - 禁止把口播原句按逗號切開當重點（反例：「是為了支持 AI Agent 的開發、這對於確保性能至關重要」）。
+   - 正例：「Harness Engineering：支援 AI Agent 開發的系統架構方法／核心重點：整合不同技術與元件／目標：建立有效、穩定的 AI Agent 系統／價值：提升 AI Agent 的整體性能與可靠性」。
 4. **infoPool**：每章在 chapter 層收錄從原文抽的數字、引用、案例、標籤，供章節 Craft 掛畫面細節（雙源原則）。長句、解釋、例子放 infoPool，不要塞進 screenContent。
 5. **relationHint**（可選）：步級提示如 list-reveal、contrast、hook、progression —— 只描述內容關係，**禁止**寫動畫類型或 CSS 手段。
 6. **節奏**：estimatedSeconds 依口播字數 ÷ 4（中文約 4 字/秒），單步常見 3~12 秒；一章約 60~180 秒。
@@ -29,11 +27,11 @@ ${article.slice(0, 120000)}
 """
 
 撰寫時請自檢：
-1) 每個 screenContent 都要是 1~3 個 Key Points（重點點位），不是單一口號。
-2) 若 screenContent 念起來像完整講稿，必須改寫成重點片語。
-3) 若 screenContent 少於 10 字，通常過短，請補足為多個重點點位。
+1) 每個 screenContent 都要像簡報 bullet：2~4 條完整重點，用「／」分隔。
+2) 先理解整段意思再重寫，禁止從口播句切片段。
+3) 每條重點可獨立閱讀，優先用「標籤：內容」結構。
 4) screenContent 內禁止使用「…」或「...」。
-5) 每個重點片語必須語意完整，禁止以「使得、因此、透過這樣的方式、這些概念」等連接詞殘句開頭。
+5) 禁止以「是為了、這對於、它強調、使得、因此、透過這樣的方式」等開頭的殘句。
 
 請輸出 JSON：
 {
@@ -46,7 +44,7 @@ ${article.slice(0, 120000)}
       "chapterInfoPool": ["數字/引用/案例 —— 來源段落"],
       "steps": [
         {
-          "screenContent": "該步 1~3 個螢幕重點片語（可用／分隔，非完整口播句）",
+          "screenContent": "該步 2~4 條簡報 bullet 重點（用／分隔，如 主題：說明／核心重點：…）",
           "infoPool": ["本步可掛的畫面細節"],
           "relationHint": "list-reveal",
           "estimatedSeconds": 8
@@ -113,6 +111,43 @@ ${JSON.stringify(
     null,
     2,
   )}`;
+}
+
+/** 口播稿 → 螢幕內容（簡報 bullet 摘要） */
+export const SCREEN_CONTENT_SYSTEM_PROMPT = `你是教學簡報編輯。任務：摘要口播稿，產出「可放上簡報 bullet point（項目符號重點）」的螢幕內容。
+
+規則：
+1) 先理解整段口播在講什麼，再重寫成 2~4 條簡報重點；禁止從原句按逗號切片段。
+2) 每條重點必須語意完整、可獨立閱讀；優先用「主題：說明」或「標籤：內容」（如 核心重點、目標、價值、方法）。
+3) 第一條可放主題定義（例：Harness Engineering：支援 AI Agent 開發的系統架構方法）。
+4) 多條重點用「／」分隔；禁止省略符號（… 或 ...）。
+5) 禁止殘句；禁止以「是為了、這對於、它強調、使得、因此、透過這樣的方式」等開頭。
+6) 必須使用台灣繁體中文慣用詞（程式設計、介面、滑鼠、網路、元件、效能），避免中國大陸用詞。
+7) 螢幕內容是投影片 bullet，不是口播逐字稿。
+
+正例（口播 → 螢幕）：
+口播：「Harness Engineering 是一種專注於系統架構設計的工程方法，特別是為了支持 AI Agent 的開發。它強調如何將不同的技術和組件整合成一個有效的系統，這對於確保 AI Agent 的性能至關重要。」
+螢幕：「Harness Engineering：支援 AI Agent 開發的系統架構方法／核心重點：整合不同技術與元件／目標：建立有效、穩定的 AI Agent 系統／價值：提升 AI Agent 的整體性能與可靠性」
+
+反例（禁止）：
+「是為了支持 AI Agent 的開發、這對於確保 AI Agent 的性能至關重要」
+
+只輸出 JSON。`;
+
+export function buildScreenContentUserPrompt(
+  language: string,
+  steps: Array<{ stepId: string; script: string; currentScreenContent: string }>,
+): string {
+  return `語言：${language}
+請輸出：
+{
+  "items": [
+    { "stepId": "s1", "screenContent": "主題：說明／核心重點：…／目標：…" }
+  ]
+}
+
+步驟資料：
+${JSON.stringify(steps, null, 2)}`;
 }
 
 export function parseOutlineJson(text: string): GeneratedOutline {

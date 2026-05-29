@@ -3,6 +3,7 @@ import { chapterComponentName } from "../chapter-types.js";
 import { assetsForChapter } from "../hook-slots.js";
 import { parseFlowSlots } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
+import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -13,22 +14,27 @@ export function generateFlowSources(input: ChapterCodegenInput) {
   const { intro, nodes } = parseFlowSlots(input.narrations, input.screenContents ?? []);
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const assetsLiteral = JSON.stringify(chapterAssets);
+  const stepImageBlock = buildCodegenStepImageBlock(
+    input.wvpChapterId,
+    input.stepImageExtensions ?? {},
+  );
 
   const tsx = `import { FlowDiagram } from "../../components/FlowDiagram";
 import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
 const NODES = ${JSON.stringify(nodes, null, 2)} as const;
-const WVP_ID = ${JSON.stringify(input.wvpChapterId)};
 const CHECKPOINT_ASSETS = ${assetsLiteral} as { url: string; step?: number }[];
 const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
+
+${stepImageBlock}
 
 function stepImage(step: number) {
   const exact = CHECKPOINT_ASSETS.find((a) => a.step === step);
   const fallback = step === 0 ? CHECKPOINT_ASSETS.find((a) => a.step === 0) : CHECKPOINT_ASSETS[0];
   const hit = exact ?? fallback;
   if (hit?.url?.trim()) return hit.url.trim();
-  return "";
+  return stepImageUrl(step);
 }
 
 function stepMotion(step: number) {

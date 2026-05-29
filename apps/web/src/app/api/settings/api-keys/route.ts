@@ -12,14 +12,25 @@ export async function GET() {
 
   const { data } = await supabase
     .from("user_api_keys")
-    .select("provider, updated_at")
+    .select("provider, updated_at, default_model, text_model, image_model")
     .eq("user_id", user.id);
   return NextResponse.json({
-    providers: (data ?? []).map((r: { provider: string; updated_at: string }) => ({
-      provider: r.provider,
-      configured: true,
-      updatedAt: r.updated_at,
-    })),
+    providers: (data ?? []).map(
+      (r: {
+        provider: string;
+        updated_at: string;
+        default_model: string | null;
+        text_model: string | null;
+        image_model: string | null;
+      }) => ({
+        provider: r.provider,
+        configured: true,
+        updatedAt: r.updated_at,
+        defaultModel: r.default_model ?? null,
+        textModel: r.text_model ?? null,
+        imageModel: r.image_model ?? null,
+      }),
+    ),
   });
 }
 

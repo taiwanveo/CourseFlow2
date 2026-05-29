@@ -323,7 +323,7 @@ export function ContentPhaseClient({
             <div className="cf-card cf-card-padded flex min-h-0 flex-1 flex-col gap-2.5 text-sm">
               {selectedStep.stepKind === "chapter" ? (
                 <p className="shrink-0 rounded border border-amber-600/40 bg-amber-950/30 px-2.5 py-2 text-xs text-amber-200/90">
-                  此為「章節分隔頁」，標題與左側章節名稱同步；會出現在播放與匯出影片中，作為章節之間的過場畫面。
+                  此為「章節分隔頁」，會作為該章 WVP 的第 1 步（含口播與打包）；標題與左側章節名稱同步。
                 </p>
               ) : null}
               <label className="block shrink-0 text-[11px] text-zinc-500">螢幕內容</label>

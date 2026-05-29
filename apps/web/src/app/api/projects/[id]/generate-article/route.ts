@@ -6,7 +6,7 @@ import type { PhaseLocks } from "@courseflow/core";
 import { decryptApiKey } from "@/lib/crypto";
 import { generateTeachingArticle } from "@courseflow/llm";
 import type { LlmProviderId } from "@courseflow/llm";
-import { resolveLlmProvider } from "@/lib/llm-provider";
+import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 
 export async function POST(
   req: NextRequest,
@@ -58,7 +58,7 @@ export async function POST(
       {
         provider,
         apiKey: decryptApiKey(encryptedKey),
-        model: body.model,
+        model: resolveEffectiveTextModel(resolved.provider, resolved.textModel, resolved.defaultModel),
       },
       prompt,
       language,

@@ -6,6 +6,11 @@
 - **與 v1 關係**：本 repo 為綠地 v2；**不**與 v1 共用 Supabase / Redis / Render（見 [docs/INFRA-ISOLATION.md](docs/INFRA-ISOLATION.md)）
 - **願景**：[docs/VISION-v2.md](docs/VISION-v2.md)
 
+## 接手本專案？
+
+請從 **[docs/HANDOVER.md](docs/HANDOVER.md)** 開始，並搭配 [CONTEXT.md](CONTEXT.md) 與 [docs/README.md](docs/README.md) 文件索引。  
+配圖／試跑問題請直接看 [docs/WVP-ILLUSTRATIONS.md](docs/WVP-ILLUSTRATIONS.md)。
+
 ## 架構（M0 已就緒 → M2+ 實作中）
 
 ```
@@ -62,20 +67,30 @@ pnpm --filter @courseflow/web dev
 pnpm sync-wvp
 ```
 
-## v2 產品階段（目標）
+## v2 產品階段（Studio UI）
 
-| 階段 | 說明 |
-|------|------|
-| 內容 | `script.md` + `outline.md`（WVP 節拍） |
-| Checkpoint | 主題、素材、開發模式 |
-| Craft | AI 章節 `Chapter.tsx` + `narrations.ts` |
-| 音訊 | TTS 對 narrations |
-| 發布 | 互動預覽 + MP4 |
+| 階段 | 路由 | 說明 |
+|------|------|------|
+| 文稿內容 | `/projects/:id/content` | 大綱、口播、螢幕內容 |
+| 視覺動效 | `/projects/:id/craft` | 章節 Craft、配圖工作室、試執行第 1 章 |
+| 語音生成 | `/projects/:id/audio` | TTS → `public/audio/` |
+| 預覽匯出 | `/projects/:id/publish` | 打包 WVP、MP4 |
+
+另含 Checkpoint（主題、素材、生圖風格）。各階段可鎖定（`wvp_phase_locks`）。
 
 ## 部署
 
 - **沿用既有 courseflow-web 網址（v1→v2 切換）**：[docs/DEPLOY-CUTOVER-courseflow-web.md](docs/DEPLOY-CUTOVER-courseflow-web.md)（可選 `pnpm render:cutover`）
 - **新建 Render 服務**：[docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) — Blueprint：`courseflow-v2-web` / `courseflow-v2-worker`
+
+## 文件
+
+| 類型 | 連結 |
+|------|------|
+| 接手指南 | [docs/HANDOVER.md](docs/HANDOVER.md) |
+| 架構 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| 配圖管線 | [docs/WVP-ILLUSTRATIONS.md](docs/WVP-ILLUSTRATIONS.md) |
+| 完整索引 | [docs/README.md](docs/README.md) |
 
 ## 授權
 

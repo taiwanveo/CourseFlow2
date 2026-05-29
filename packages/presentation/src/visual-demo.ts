@@ -49,12 +49,19 @@ export function chapterBindsNarrationText(tsx: string, narrations: string[]): bo
     return narrations.some((n) => narrationSnippetInTsx(tsx, n));
   }
 
-  // Magazine / MaskReveal：畫面用口播拆句後的 headline，未必含原文前 12 字
-  return narrations.every((n) => narrationSnippetInTsx(tsx, n));
+  // Magazine：螢幕主標優先 screenContent，允許與口播不同；只要每步有分支即可
+  if (/MaskReveal/.test(tsx)) {
+    const stepBranches = tsx.match(/if \(step === \d+\)/g)?.length ?? 0;
+    return stepBranches >= narrations.length;
+  }
+
+  return narrations.some((n) => narrationSnippetInTsx(tsx, n));
 }
 
 export function chapterUsesInvalidMaskReveal(tsx: string): boolean {
   if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return false;
+  // 純手寫 CSS/SVG 動畫不含 MaskReveal → 視為合法，不算「用錯"
+  if (!/MaskReveal/.test(tsx)) return false;
   return /MaskReveal\s+title=/.test(tsx) || !/MaskReveal\s+show/.test(tsx);
 }
 

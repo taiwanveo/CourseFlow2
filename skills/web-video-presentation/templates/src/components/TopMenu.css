@@ -1,0 +1,107 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * TopMenu — fixed top 5vh hover trigger; reveals a row of 6 controls
+ * 200ms after the pointer enters and hides 600ms after it leaves.
+ *
+ * Pure-CSS hover reveal (no JS delay) — keeps the trigger snappy and
+ * avoids stale-timer races during mode switches.
+ *
+ * z-index 13 sits above SubtitleBar (12) and the AutoToggle (11).
+ * ───────────────────────────────────────────────────────────────────── */
+.tm-hover {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 5vh;
+  min-height: 36px;
+  z-index: 13;
+  pointer-events: auto;
+}
+
+.tm-bar {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -16px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 0 0 12px 12px;
+  opacity: 0;
+  pointer-events: none;
+  /* Default = hide transition (600ms) */
+  transition: opacity 600ms ease, transform 600ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.tm-hover:hover .tm-bar,
+.tm-bar:focus-within {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  /* Reveal transition (200ms) — explicitly faster than hide */
+  transition: opacity 200ms ease, transform 200ms cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.tm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: #f4f4f5;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+  white-space: nowrap;
+}
+.tm-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.tm-btn:active:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+}
+.tm-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tm-btn-icon {
+  font-family: var(--font-display-en, ui-serif, serif);
+  font-style: italic;
+  font-size: 14px;
+  letter-spacing: 0;
+  opacity: 0.85;
+}
+.tm-btn-pdf {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.tm-btn-speed {
+  /* Fixed width so cycling 1× / 1.25× / 1.5× / 2× doesn't reflow the bar.
+   * Centering keeps the label visually steady through the cycle. */
+  min-width: 78px;
+  justify-content: center;
+}
+.tm-btn-active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #4ade80;
+}
+
+.tm-sep {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.18);
+  margin: 0 2px;
+}
+
+/* TopMenu is chrome — print and recording both strip it.
+   (The component also returns null in those modes; this is belt-and-braces.) */
+@media print {
+  .tm-hover { display: none; }
+}

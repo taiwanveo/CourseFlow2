@@ -1,6 +1,7 @@
 import { splitNarrationPhrases } from "../../narration-phrases.js";
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
+import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { assetForStep, assetsForChapter } from "../hook-slots.js";
 import { screenHeadlineForSlot } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
@@ -62,7 +63,38 @@ function figureBlock(
   if (checkpointUrl?.trim()) {
     return `<ChapterFigure url="${escapeTsString(checkpointUrl)}" alt="${alt}" className="${prefix}-figure" />`;
   }
-  return "";
+  return `<ChapterFigure url={stepImageUrl(${step})} alt="${alt}" className="${prefix}-figure" optional />`;
+}
+
+function chapterDividerScene(
+  narration: string,
+  screenContent: string,
+  title: string,
+  prefix: string,
+  wvpChapterId: string,
+  checkpointUrl?: string,
+  figureAlt?: string,
+): string {
+  const headline = screenContent.trim()
+    ? screenHeadlineForSlot(screenContent, title, 96)
+    : screenHeadlineForSlot(narration, title, 96);
+  const figureUrl = checkpointUrl?.trim()
+    ? `"${escapeTsString(checkpointUrl.trim())}"`
+    : `{stepImageUrl(0)}`;
+  const alt = escapeTsString(figureAlt ?? headline);
+  return `
+  if (step === 0) {
+    return (
+      <div className={\`${prefix}-scene ${prefix}-chapter-divider scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        <h1 className={\`${prefix}-divider-title serif-cn\`}>
+          <MaskReveal show duration={900}>
+            <span>${escapeTsString(headline)}</span>
+          </MaskReveal>
+        </h1>
+        <ChapterFigure url={${figureUrl}} alt="${alt}" className="${prefix}-divider-figure" optional />
+      </div>
+    );
+  }`;
 }
 
 function stepScene(
@@ -78,9 +110,9 @@ function stepScene(
 ): string {
   const layout = pickLayout(step);
   const phrases = splitNarrationPhrases(narration, 4);
-  const headline =
-    screenHeadlineForSlot(screenContent, "", 56) ||
-    screenHeadlineForSlot(phrases[0] ?? narration, `步驟 ${step + 1}`, 40);
+  const headline = screenContent.trim()
+    ? screenHeadlineForSlot(screenContent, `步驟 ${step + 1}`, 96)
+    : screenHeadlineForSlot(phrases[0] ?? narration, `步驟 ${step + 1}`, 40);
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
   const stepLabel = `Step ${String(step + 1).padStart(2, "0")}`;
@@ -207,6 +239,20 @@ export function generateMagazineSources(input: ChapterCodegenInput) {
 
   const stepBlocks: string[] = [];
   for (let i = 0; i < steps; i++) {
+    if (i === 0) {
+      stepBlocks.push(
+        chapterDividerScene(
+          input.narrations[i] ?? "",
+          input.screenContents?.[i] ?? "",
+          input.title,
+          prefix,
+          input.wvpChapterId,
+          assetForStep(chapterAssets, i)?.url,
+          assetForStep(chapterAssets, i)?.alt,
+        ),
+      );
+      continue;
+    }
     stepBlocks.push(
       stepScene(
         i,
@@ -224,9 +270,16 @@ export function generateMagazineSources(input: ChapterCodegenInput) {
 
   const figureImport = `import { ChapterFigure } from "../../components/ChapterFigure";\n`;
 
+  const stepImageBlock = buildCodegenStepImageBlock(
+    input.wvpChapterId,
+    input.stepImageExtensions ?? {},
+  );
+
   const tsx = `import { MaskReveal } from "../../components/MaskReveal";
 ${figureImport}import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
+
+${stepImageBlock}
 
 export default function ${componentName}({ step }: ChapterStepProps) {
   const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
@@ -237,6 +290,43 @@ ${stepBlocks.join("\n")}
 `;
 
   const css = `.${prefix}-scene { height: 100%; display: flex; flex-direction: column; text-align: left; }
+.${prefix}-chapter-divider {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-6);
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+.${prefix}-chapter-divider:has(.${prefix}-divider-figure img) {
+  justify-content: flex-start;
+}
+.${prefix}-divider-title {
+  font-size: clamp(2.75rem, 6vw, 5.5rem);
+  line-height: 1.08;
+  margin: 0;
+  max-width: 20ch;
+  width: 100%;
+}
+.${prefix}-chapter-divider:has(.${prefix}-divider-figure img) .${prefix}-divider-title {
+  font-size: clamp(2rem, 3.8vw, 3.25rem);
+  max-width: none;
+}
+.${prefix}-divider-figure {
+  flex: 1;
+  width: min(100%, 960px);
+  min-height: min(280px, 36vh);
+  align-self: stretch;
+}
+.${prefix}-divider-figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--r-card, 12px);
+}
 .${prefix}-cover-body {
   flex: 1;
   display: grid;
@@ -244,6 +334,34 @@ ${stepBlocks.join("\n")}
   gap: var(--space-7);
   align-items: center;
   padding-top: var(--space-5);
+}
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) {
+  justify-content: center;
+}
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-cover-body,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-split,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-figure-first-grid,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-close-inner {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+}
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-split-text,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-figure-first-copy,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-close-copy {
+  align-items: center;
+  text-align: center;
+}
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-split-h,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-cover-h,
+.${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-quote {
+  text-align: center;
+}
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
+  align-items: start;
 }
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
   font-size: clamp(2.75rem, 5vw, 5rem);

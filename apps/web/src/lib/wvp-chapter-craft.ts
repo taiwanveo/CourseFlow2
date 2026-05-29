@@ -13,6 +13,7 @@ import {
   normalizeChapterTsx,
   runChapterCraftChecklist,
   validateChapterTsx,
+  checkStepsHaveVisuals,
 } from "@courseflow/presentation";
 import type { WvpChapterKind } from "@courseflow/core";
 import { parseWvpSettings, type WvpAnchorProfile } from "@/lib/wvp-settings";
@@ -36,9 +37,40 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
 import {
+  resolveStepImageExtMapFromLocalDir,
+  resolveStepImageExtMapLocal,
+} from "@/lib/wvp-step-image-resolve";
+import {
   generateStepVisualConfigsForChapter,
   type StepVisualDecision,
 } from "@/lib/wvp-step-visual-config";
+import { parseCssCustomProperties, themesDir } from "@courseflow/wvp-bridge";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import ts from "typescript";
+
+/** 讀取主題 token，失敗時回傳空物件 */
+async function loadThemeTokens(themeId: string): Promise<Record<string, string>> {
+  try {
+    const css = await readFile(join(themesDir(), themeId, "tokens.css"), "utf8");
+    return parseCssCustomProperties(css);
+  } catch {
+    return {};
+  }
+}
+
+/** 注入給 validateChapterTsx 的 TypeScript syntax checker */
+function tsxSyntaxChecker(code: string): boolean {
+  const result = ts.transpileModule(code, {
+    compilerOptions: {
+      jsx: ts.JsxEmit.React,
+      target: ts.ScriptTarget.ES2020,
+      module: ts.ModuleKind.ESNext,
+    },
+    reportDiagnostics: true,
+  });
+  return (result.diagnostics?.length ?? 0) === 0;
+}
 
 export type CraftRow = {
   id: string;
@@ -105,6 +137,7 @@ export async function generateChapterCraft(
   opts: {
     provider: LlmProviderId;
     encryptedKey: string;
+    textModel?: string | null;
     composition: CourseComposition;
     article: string;
     themeId: string;
@@ -141,6 +174,7 @@ export async function generateChapterCraft(
     .eq("id", craft.id);
 
   const apiKey = decryptApiKey(opts.encryptedKey);
+  const themeTokens = await loadThemeTokens(opts.themeId);
 
   try {
     const userPrompt = buildChapterCraftUserPrompt({
@@ -155,8 +189,9 @@ export async function generateChapterCraft(
     const plan = await generateChapterPlan({
       provider: opts.provider,
       apiKey,
+      model: opts.textModel ?? undefined,
       system: CHAPTER_CRAFT_SYSTEM_PROMPT,
-      user: `${userPrompt}\n\n請輸出 JSON：{ "chapterKind": "list-reveal"|"flow"|"hook"|"magazine", "visualIdeas": string[], "stepBeats": { "step": number, "dominantAction": string }[], "stepVisuals": { "step": number, "concept": string, "vizType": string, "onScreen": string }[] }`,
+      user: `${userPrompt}\n\n請輸出 JSON：{ "chapterKind": "list-reveal"|"flow"|"hook"|"magazine"|"custom", "visualIdeas": string[], "stepBeats": { "step": number, "dominantAction": string }[], "stepVisuals": { "step": number, "concept": string, "vizType": string, "onScreen": string }[] }`,
     });
 
     let chapterSource: {
@@ -178,6 +213,7 @@ export async function generateChapterCraft(
         const sourcePayload = await generateChapterPlan({
           provider: opts.provider,
           apiKey,
+          model: opts.textModel ?? undefined,
           system: CHAPTER_SOURCE_SYSTEM_PROMPT,
           user: buildChapterSourceUserPrompt({
             wvpChapterId,
@@ -187,6 +223,8 @@ export async function generateChapterCraft(
             narrations: opts.narrations,
             articleChapterExcerpt,
             aiPlan: plan,
+            screenContents,
+            themeTokens,
           }),
         });
         const rawTsx = String(sourcePayload.chapterTsx ?? "").trim();
@@ -201,6 +239,7 @@ export async function generateChapterCraft(
             componentName,
             chapterCss,
             opts.narrations,
+            tsxSyntaxChecker,
           )
         ) {
           chapterSource = { chapterTsx, chapterCss, source: "llm" };
@@ -243,6 +282,12 @@ export async function generateChapterCraft(
         });
         stepVisualConfigs = visualDecisionResult.configs;
         stepVisualDecisions = visualDecisionResult.decisions;
+        const stepImageExtensions = {
+          ...(await resolveStepImageExtMapLocal(projectId, craft)),
+          ...(await resolveStepImageExtMapFromLocalDir(projectId, wvpChapterId)),
+        };
+        const preferImageTemplate =
+          Object.keys(stepImageExtensions).length > 0 || craftHasCompletedIllustrations(craft);
         const gen = generateChapterSources({
           folderName,
           wvpChapterId,
@@ -255,7 +300,8 @@ export async function generateChapterCraft(
           chapterKind,
           forceTemplate: opts.forceTemplate,
           assets: chapterAssets.length ? chapterAssets : undefined,
-          stepVisualConfigs,
+          stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,
+          stepImageExtensions,
         });
         chapterSource = {
           chapterTsx: gen.tsx,
@@ -287,6 +333,12 @@ export async function generateChapterCraft(
         (plan.chapterKind as string),
     });
 
+    // Phase 5 靜態視覺自檢（僅 LLM 生成的 source 才有意義）
+    const visualSelfCheck =
+      chapterSource.source === "llm"
+        ? checkStepsHaveVisuals(tsxForCheck, opts.narrations.length)
+        : undefined;
+
     const { checklistSkipped: _skip, checklistSkippedAt: _skipAt, ...prevCraft } =
       prev as { checklistSkipped?: boolean; checklistSkippedAt?: string };
 
@@ -302,6 +354,7 @@ export async function generateChapterCraft(
             stepVisualDecisions,
           chapterSource,
           craftChecklist,
+          ...(visualSelfCheck ? { visualSelfCheck } : {}),
           generatedAt: new Date().toISOString(),
         },
         step_count: opts.narrations.length,
@@ -424,6 +477,19 @@ export async function applyChapterTemplate(
   return { ok: true, templateKind: gen.templateKind, narrations: outNarrations };
 }
 
+function craftHasCompletedIllustrations(craft: CraftRow): boolean {
+  const raw = (craft.checklist_result as { stepIllustrations?: unknown } | undefined)
+    ?.stepIllustrations;
+  if (!Array.isArray(raw)) return false;
+  return raw.some(
+    (s) =>
+      s &&
+      typeof s === "object" &&
+      ((s as { imageWritten?: boolean; status?: string }).imageWritten === true ||
+        (s as { status?: string }).status === "done"),
+  );
+}
+
 /** 依 Checkpoint 素材自動選模板：有圖用 Hook，否則清單揭示 */
 export function pickAnchorTrialTemplate(
   assets: WvpAssetRef[] | undefined,
@@ -442,6 +508,7 @@ export async function runAnchorChapterTrial(
   opts: {
     provider: LlmProviderId;
     encryptedKey: string;
+    textModel?: string | null;
     themeId: string;
   },
 ): Promise<{
@@ -489,6 +556,24 @@ export async function runAnchorChapterTrial(
   const wvpSettings = parseWvpSettings(project?.wvp_settings);
   const template = pickAnchorTrialTemplate(wvpSettings.assets, first.wvp_chapter_id);
 
+  if (wvpSettings.anchorChapterApproved || wvpSettings.anchorChapterTrialCompleted) {
+    const resetSettings = {
+      ...wvpSettings,
+      anchorChapterApproved: false,
+      anchorProfile: undefined,
+    };
+    await supabase
+      .from("projects")
+      .update({ wvp_settings: resetSettings })
+      .eq("id", projectId);
+    if (first.craft_status === "approved") {
+      await supabase
+        .from("chapter_craft")
+        .update({ craft_status: "draft" })
+        .eq("id", first.id);
+    }
+  }
+
   const sync = await syncChapterNarrations(supabase, projectId, first, composition);
   if (sync.error) {
     return {
@@ -522,6 +607,7 @@ export async function runAnchorChapterTrial(
   const gen = await generateChapterCraft(supabase, projectId, first, {
     provider: opts.provider,
     encryptedKey: opts.encryptedKey,
+    textModel: opts.textModel,
     composition,
     article,
     themeId: opts.themeId,
@@ -573,6 +659,7 @@ export async function batchCraftAllChapters(
   opts: {
     provider: LlmProviderId;
     encryptedKey: string;
+    textModel?: string | null;
     onlyMissing?: boolean;
     skipGenerate?: boolean;
     skipMaterialize?: boolean;
@@ -641,6 +728,7 @@ export async function batchCraftAllChapters(
     const gen = await generateChapterCraft(supabase, projectId, row, {
       provider: opts.provider,
       encryptedKey: opts.encryptedKey,
+      textModel: opts.textModel,
       composition,
       article,
       themeId,
@@ -678,6 +766,7 @@ export async function batchCraftAllChaptersAndBuild(
   opts: {
     provider: LlmProviderId;
     encryptedKey: string;
+    textModel?: string | null;
     onlyMissing?: boolean;
   },
 ): Promise<{

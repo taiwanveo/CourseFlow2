@@ -1,0 +1,32 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Node / Vite build outputs
+node_modules/
+dist/
+dist-ssr/
+.vite/
+.cache/
+*.tsbuildinfo
+
+# Local IndexTTS2 install (binary + voice samples — not part of skill)
+setup/
+
+# Generated presentation artefacts (regenerated from sources)
+**/public/audio/
+**/audio-segments.json
+**/self-check-report.html
+**/self-check-report.json
+**/self-check-screenshots/

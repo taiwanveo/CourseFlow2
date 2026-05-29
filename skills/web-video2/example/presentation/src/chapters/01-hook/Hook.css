@@ -1,0 +1,289 @@
+/* ─────────────────────────────────────────────────────────────────
+ * 01-hook · 文章能變影片？
+ * newsroom 主題：serif + 報頭紅 + 印刷紙質感
+ * CSS class prefix: hk-
+ * ───────────────────────────────────────────────────────────────── */
+
+/* ── layout helpers ── */
+.hk-scene { color: var(--text); }
+.hk-center { justify-content: center; align-items: center; }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * STEP 1 — hero question
+ * ═══════════════════════════════════════════════════════════════════ */
+.hk-hero-question {
+  margin: 0;
+  font-family: var(--font-display-cn);
+  font-size: 96px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-align: center;
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) both;
+}
+.hk-hero-accent {
+  color: var(--accent);
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) calc(300ms / var(--speed)) both;
+}
+.hk-question-mark {
+  position: absolute;
+  right: 160px;
+  top: 120px;
+  font-family: var(--font-display-en);
+  font-style: italic;
+  font-size: 320px;
+  color: var(--accent-soft);
+  line-height: 1;
+  animation: hk-stamp-in var(--anim-slow) var(--ease-quart) calc(400ms / var(--speed)) both;
+  pointer-events: none;
+}
+
+@keyframes hk-fade-up {
+  from { opacity: 0; transform: translateY(40px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hk-stamp-in {
+  0%   { opacity: 0; transform: scale(3) rotate(-12deg); }
+  60%  { opacity: 1; transform: scale(0.95) rotate(-6deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * STEP 2 — compare PPT vs video-web
+ * ═══════════════════════════════════════════════════════════════════ */
+.hk-compare {
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 60px;
+}
+.hk-compare-card {
+  position: relative;
+  width: 520px;
+  padding: 48px 40px;
+  border: var(--rule-w) var(--rule-style) var(--rule);
+  border-radius: var(--r-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--surface-2);
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) both;
+}
+.hk-compare-no {
+  opacity: 0.5;
+  animation-delay: calc(100ms / var(--speed));
+}
+.hk-compare-yes {
+  border-color: var(--accent);
+  animation-delay: calc(400ms / var(--speed));
+}
+.hk-compare-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+.hk-compare-label {
+  font-family: var(--font-display-cn);
+  font-size: 36px;
+  font-weight: 700;
+}
+.hk-compare-verdict {
+  font-family: var(--font-body);
+  font-size: 20px;
+  color: var(--text-mute);
+}
+.hk-strike {
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  top: 50%;
+  height: 3px;
+  background: var(--accent);
+  transform-origin: left center;
+  transform: scaleX(0) translateY(-50%);
+  animation: hk-strike-draw calc(600ms / var(--speed)) var(--ease-expo) calc(700ms / var(--speed)) forwards;
+}
+@keyframes hk-strike-draw {
+  to { transform: scaleX(1) translateY(-50%); }
+}
+.hk-vs {
+  font-family: var(--font-display-en);
+  font-style: italic;
+  font-size: 28px;
+  color: var(--text-mute);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * STEP 3 — reveal "it's a web page"
+ * ═══════════════════════════════════════════════════════════════════ */
+.hk-reveal-wrap {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.hk-reveal-kicker {
+  animation: hk-fade-up var(--anim-quick) var(--ease-quart) both;
+}
+.hk-reveal-hero {
+  margin: 0;
+  font-family: var(--font-display-cn);
+  font-size: 88px;
+  font-weight: 700;
+  line-height: 1.2;
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) calc(200ms / var(--speed)) both;
+}
+.hk-reveal-underline {
+  position: relative;
+  color: var(--accent);
+}
+.hk-reveal-underline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 6px;
+  background: var(--accent);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: hk-underline-draw calc(500ms / var(--speed)) var(--ease-expo) calc(600ms / var(--speed)) forwards;
+}
+@keyframes hk-underline-draw {
+  to { transform: scaleX(1); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * STEP 4 — concept card
+ * ═══════════════════════════════════════════════════════════════════ */
+.hk-concept-card {
+  width: 680px;
+  padding: 56px 48px;
+  border: var(--rule-w) var(--rule-style) var(--rule);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) both;
+}
+.hk-concept-badge {
+  color: var(--accent);
+}
+.hk-concept-name {
+  margin: 0;
+  font-family: var(--font-display-en);
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.hk-concept-rule {
+  margin: 8px 0;
+}
+.hk-concept-desc {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 24px;
+  color: var(--text-2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * STEP 5 — pipeline (integrated process diagram)
+ * ═══════════════════════════════════════════════════════════════════ */
+.hk-pipeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) both;
+}
+.hk-pipe-label {
+  font-family: var(--font-display-cn);
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 24px 32px;
+  border: var(--rule-w) var(--rule-style) var(--rule);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.hk-pipe-seg {
+  width: 56px;
+  height: 2px;
+  background: var(--accent);
+  position: relative;
+  flex-shrink: 0;
+  animation: hk-arrow-grow calc(400ms / var(--speed)) var(--ease-quart) calc(600ms / var(--speed)) both;
+  transform-origin: left;
+}
+.hk-pipe-seg::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--accent);
+  border-right: 2px solid var(--accent);
+  transform: rotate(45deg);
+}
+.hk-pipe-caption {
+  margin-top: 40px;
+  color: var(--text-2);
+  animation: hk-fade-up var(--anim-slow) var(--ease-quart) calc(800ms / var(--speed)) both;
+}
+@keyframes hk-arrow-grow {
+  from { transform: scaleX(0); opacity: 0; }
+  to   { transform: scaleX(1); opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * STEP 6 — code demo
+ * ═══════════════════════════════════════════════════════════════════ */
+.hk-code-demo {
+  justify-content: center;
+  gap: 32px;
+}
+.hk-code-kicker {
+  margin-bottom: 8px;
+}
+.hk-code-block {
+  background: var(--surface-3);
+  border: var(--rule-w) var(--rule-style) var(--rule);
+  border-radius: var(--r-card);
+  padding: 48px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 900px;
+}
+.hk-code-line {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  line-height: 1.5;
+  opacity: 0;
+  animation: hk-code-appear var(--anim-base) var(--ease-quart) both;
+}
+.hk-code-line-1 { animation-delay: calc(200ms / var(--speed)); }
+.hk-code-line-2 { animation-delay: calc(600ms / var(--speed)); }
+.hk-code-line-3 { animation-delay: calc(1000ms / var(--speed)); }
+
+@keyframes hk-code-appear {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.hk-code-keyword { color: var(--accent); font-weight: 700; }
+.hk-code-var     { color: var(--text); }
+.hk-code-op      { color: var(--text-mute); }
+.hk-code-fn      { color: var(--text-2); font-weight: 700; }
+.hk-code-tag     { color: var(--accent); }
+.hk-code-attr    { color: var(--text-mute); }
+
+.hk-code-caption {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--text-mute);
+  animation: hk-fade-up var(--anim-base) var(--ease-quart) calc(1200ms / var(--speed)) both;
+}

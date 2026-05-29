@@ -20,6 +20,7 @@ const PRESENTATION_PACKAGE_JSON = {
     "@vitejs/plugin-react": "^4.4.1",
     typescript: "^5.8.3",
     vite: "^6.3.5",
+    "html2pdf.js": "^0.10.2",
   },
   devDependencies: {
     "@types/react": "^19.1.2",
@@ -93,7 +94,7 @@ export async function scaffoldPresentation(
   await copyFile(join(t, "src/App.tsx"), join(targetDir, "src/App.tsx"));
 
   await copyFile(tokensSrc, join(targetDir, "src/styles/tokens.css"));
-  for (const css of ["base.css", "asian-slide-design.css", "animations.css", "fonts.css"]) {
+  for (const css of ["base.css", "asian-slide-design.css", "animations.css", "fonts.css", "print.css"]) {
     await copyFile(join(t, "src/styles", css), join(targetDir, "src/styles", css));
   }
 
@@ -103,6 +104,11 @@ export async function scaffoldPresentation(
     "useAudioPlayer.ts",
     "useAutoMode.ts",
     "usePlayControlBridge.ts",
+    "usePauseControl.ts",
+    "usePdfExport.ts",
+    "usePlaybackRate.ts",
+    "useSubtitleSettings.ts",
+    "useViewportFit.ts",
   ]) {
     await copyFile(join(t, "src/hooks", hook), join(targetDir, "src/hooks", hook));
   }
@@ -130,6 +136,16 @@ export async function scaffoldPresentation(
     "StageNav.css",
     "ChapterFigure.tsx",
     "ChapterFigure.css",
+    "PageNumber.tsx",
+    "PageNumber.css",
+    "SubtitleBar.tsx",
+    "SubtitleBar.css",
+    "TopMenu.tsx",
+    "TopMenu.css",
+    "StepContentViz.tsx",
+    "StepContentViz.css",
+    "StepVizBars.tsx",
+    "StepVizBars.css",
   ] as const;
   for (const name of componentFiles) {
     await copyFile(join(t, "src/components", name), join(targetDir, "src/components", name));

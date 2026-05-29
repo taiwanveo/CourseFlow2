@@ -1,5 +1,5 @@
 import type { CourseComposition } from "@courseflow/core";
-import { getOrderedSteps, isChapterStep } from "@courseflow/core";
+import { getOrderedSteps } from "@courseflow/core";
 
 export type WvpAudioBuildGate = {
   ready: boolean;
@@ -8,11 +8,11 @@ export type WvpAudioBuildGate = {
   message: string | null;
 };
 
-/** WVP 打包前須完成文稿各步的 TTS（不含章節分隔步） */
+/** WVP 打包前須完成文稿各步的 TTS（含章節分隔頁） */
 export function evaluateWvpAudioBuildGate(
   composition: CourseComposition,
 ): WvpAudioBuildGate {
-  const steps = getOrderedSteps(composition).filter((s) => !isChapterStep(s));
+  const steps = getOrderedSteps(composition);
   if (steps.length === 0) {
     return {
       ready: false,

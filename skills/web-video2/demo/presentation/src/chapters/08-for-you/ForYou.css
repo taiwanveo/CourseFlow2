@@ -1,0 +1,531 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * Chapter 08 · For You — 對你的意義（結尾章節）
+ *
+ * Newsroom theme: ink-black serif on cream paper, banner-red accent.
+ * As the closing chapter, motion gets slower and more ceremonial. Per
+ * step the LEAD animation deliberately differs:
+ *   step 0: red strike-through draw across a manual placeholder
+ *   step 1: pull-quote dash extension + accent underline grow
+ *   step 2: stagger card rise + icon stroke draw (rails / plate / building)
+ *   step 3: triplet word scale-in then coda fade
+ * ───────────────────────────────────────────────────────────────────── */
+
+.fy-scene {
+  color: var(--text);
+}
+.fy-center {
+  justify-content: center;
+  align-items: center;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * STEP 0 — 反轉句：不是給公務員念的工具書
+ *   Lead animation: SVG "X" strikethrough drawn across a manual card,
+ *   while MaskReveal wipes in the headline. "不是" gets accent + strike.
+ * ───────────────────────────────────────────────────────────────────── */
+.fy-flip-head {
+  margin-bottom: 56px;
+  opacity: 0;
+  animation: fy-fade-in calc(500ms / var(--speed)) var(--ease-quart) both;
+}
+.fy-flip-kicker {
+  color: var(--text-mute);
+}
+
+.fy-flip-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  align-items: center;
+  gap: 96px;
+  padding-bottom: 100px;
+}
+
+.fy-flip-manual {
+  position: relative;
+  width: 320px;
+  height: 220px;
+  padding: 28px 32px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(18px) rotate(-2deg);
+  animation: fy-manual-in calc(700ms / var(--speed)) var(--ease-quart)
+    calc(300ms / var(--speed)) both;
+}
+@keyframes fy-manual-in {
+  to { opacity: 1; transform: translateY(0) rotate(-2deg); }
+}
+.fy-flip-manual-tag {
+  color: var(--text-mute);
+}
+.fy-flip-manual-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+.fy-flip-manual-line {
+  display: block;
+  height: 8px;
+  background: var(--text-faint);
+  opacity: 0.35;
+}
+.fy-flip-manual-line-1 { width: 90%; }
+.fy-flip-manual-line-2 { width: 78%; }
+.fy-flip-manual-line-3 { width: 84%; }
+.fy-flip-manual-line-4 { width: 60%; }
+
+.fy-flip-strike {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fy-flip-strike-1,
+.fy-flip-strike-2 {
+  stroke-dasharray: 360;
+  stroke-dashoffset: 360;
+}
+.fy-flip-strike-1 {
+  animation: fy-strike-draw calc(550ms / var(--speed)) var(--ease-expo)
+    calc(1500ms / var(--speed)) both;
+}
+.fy-flip-strike-2 {
+  animation: fy-strike-draw calc(550ms / var(--speed)) var(--ease-expo)
+    calc(2100ms / var(--speed)) both;
+}
+@keyframes fy-strike-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+.fy-flip-h {
+  font-size: 108px;
+  line-height: 1.16;
+  letter-spacing: var(--track-tight);
+  margin: 0;
+  color: var(--text);
+}
+.fy-strike-text {
+  color: var(--accent);
+  position: relative;
+  padding: 0 6px;
+}
+.fy-strike-text::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 8px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: fy-text-strike calc(450ms / var(--speed)) var(--ease-expo)
+    calc(2700ms / var(--speed)) both;
+}
+@keyframes fy-text-strike {
+  to { transform: scaleX(1); }
+}
+.fy-flip-mute {
+  color: var(--text-mute);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * STEP 1 — 大字 hero：你的稅金
+ *   Lead animation: dash drawn out from center → "你的稅金" scale-in
+ *   from 0.92 + accent underline grows left→right.
+ * ───────────────────────────────────────────────────────────────────── */
+.fy-q-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding-bottom: 80px;
+  text-align: center;
+}
+.fy-q-kicker {
+  color: var(--text-mute);
+  opacity: 0;
+  animation: fy-fade-in calc(500ms / var(--speed)) var(--ease-quart) both;
+}
+
+.fy-q-dash {
+  width: 320px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fy-q-dash-line {
+  display: block;
+  width: 100%;
+  height: 4px;
+  background: var(--text);
+  transform: scaleX(0);
+  transform-origin: center;
+  animation: fy-dash-grow calc(700ms / var(--speed)) var(--ease-expo)
+    calc(400ms / var(--speed)) both;
+}
+@keyframes fy-dash-grow {
+  to { transform: scaleX(1); }
+}
+
+.fy-q-h {
+  font-size: 156px;
+  line-height: 1.12;
+  letter-spacing: var(--track-tight);
+  margin: 0;
+}
+.fy-q-h-line {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(18px) scale(0.94);
+  animation: fy-q-rise calc(800ms / var(--speed)) var(--ease-expo) both;
+}
+.fy-q-h-line:nth-of-type(1) { animation-delay: calc(900ms / var(--speed)); }
+.fy-q-h-accent {
+  color: var(--accent);
+  animation-delay: calc(1300ms / var(--speed));
+}
+.fy-q-h-mute {
+  color: var(--text-2);
+}
+.fy-q-h-line.fy-q-h-mute:nth-of-type(3) {
+  animation-delay: calc(1400ms / var(--speed));
+}
+.fy-q-h-line.fy-q-h-mute:nth-of-type(4) {
+  animation-delay: calc(1700ms / var(--speed));
+}
+@keyframes fy-q-rise {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.fy-q-underline {
+  width: 480px;
+  height: 5px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: fy-q-underline calc(900ms / var(--speed)) var(--ease-expo)
+    calc(2000ms / var(--speed)) both;
+  margin-top: 12px;
+}
+@keyframes fy-q-underline {
+  to { transform: scaleX(1); }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * STEP 2 — 三場景陣列 + 上方「114 條規矩盯著」
+ *   Lead animation: watch eye + stat fade-in → 三卡片 stagger rise
+ *   each card's icon strokes draw in (rails / plate / building windows).
+ * ───────────────────────────────────────────────────────────────────── */
+.fy-grid-head {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 56px;
+  opacity: 0;
+  animation: fy-fade-in calc(600ms / var(--speed)) var(--ease-quart) both;
+}
+.fy-grid-watch {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 18px 32px;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.fy-watch-svg {
+  width: 96px;
+  height: 48px;
+  overflow: visible;
+}
+.fy-watch-eye {
+  stroke-dasharray: 130;
+  stroke-dashoffset: 130;
+  animation: fy-watch-eye-draw calc(700ms / var(--speed)) var(--ease-expo)
+    calc(400ms / var(--speed)) both;
+}
+@keyframes fy-watch-eye-draw {
+  to { stroke-dashoffset: 0; }
+}
+.fy-watch-pupil {
+  transform-origin: 32px 16px;
+  transform: scale(0);
+  animation: fy-watch-pupil calc(400ms / var(--speed)) var(--ease-overshoot)
+    calc(900ms / var(--speed)) both;
+}
+@keyframes fy-watch-pupil {
+  to { transform: scale(1); }
+}
+.fy-watch-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fy-grid-tag {
+  color: var(--text-mute);
+}
+.fy-grid-stat {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  font-size: 32px;
+  letter-spacing: var(--track-tight);
+  color: var(--text);
+}
+.fy-grid-num {
+  font-size: 56px;
+  color: var(--accent);
+  line-height: 1;
+}
+.fy-grid-stat-unit {
+  font-size: 28px;
+  color: var(--text-2);
+}
+
+.fy-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+  padding-bottom: 80px;
+  align-items: stretch;
+}
+.fy-card {
+  padding: 40px 36px 44px;
+  border: 1px solid var(--rule);
+  background: var(--surface-2);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  opacity: 0;
+  transform: translateY(28px);
+  animation: fy-card-rise calc(800ms / var(--speed)) var(--ease-expo) both;
+}
+.fy-card-1 { animation-delay: calc(1200ms / var(--speed)); }
+.fy-card-2 { animation-delay: calc(1700ms / var(--speed)); }
+.fy-card-3 { animation-delay: calc(2200ms / var(--speed)); }
+@keyframes fy-card-rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+.fy-card-no {
+  color: var(--text-mute);
+}
+.fy-card-icon {
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  margin: 8px 0;
+}
+.fy-icon-svg {
+  width: 240px;
+  height: 140px;
+  overflow: visible;
+}
+.fy-card-h {
+  font-size: 64px;
+  line-height: 1.1;
+  letter-spacing: var(--track-tight);
+  margin: 0;
+}
+.fy-card-sub {
+  font-family: var(--font-body);
+  font-size: 22px;
+  color: var(--text-mute);
+  letter-spacing: var(--track-snug);
+  margin: 0;
+}
+
+/* card 1: rails — two parallel lines + stagger ties */
+.fy-icon-rail-line {
+  stroke-dasharray: 210;
+  stroke-dashoffset: 210;
+}
+.fy-icon-rail-line-1 {
+  animation: fy-rail-line calc(600ms / var(--speed)) var(--ease-expo)
+    calc(1600ms / var(--speed)) both;
+}
+.fy-icon-rail-line-2 {
+  animation: fy-rail-line calc(600ms / var(--speed)) var(--ease-expo)
+    calc(1800ms / var(--speed)) both;
+}
+@keyframes fy-rail-line {
+  to { stroke-dashoffset: 0; }
+}
+.fy-icon-rail-tie {
+  opacity: 0;
+  animation: fy-fade-in calc(280ms / var(--speed)) var(--ease-quart) both;
+  animation-delay: calc((2100ms + var(--i) * 60ms) / var(--speed));
+}
+
+/* card 2: plate + utensils — ellipses draw */
+.fy-icon-plate-rim {
+  stroke-dasharray: 250;
+  stroke-dashoffset: 250;
+  animation: fy-rail-line calc(700ms / var(--speed)) var(--ease-expo)
+    calc(2100ms / var(--speed)) both;
+}
+.fy-icon-plate-inner {
+  stroke-dasharray: 200;
+  stroke-dashoffset: 200;
+  animation: fy-rail-line calc(600ms / var(--speed)) var(--ease-expo)
+    calc(2400ms / var(--speed)) both;
+}
+.fy-icon-utensil {
+  opacity: 0;
+  animation: fy-fade-in calc(280ms / var(--speed)) var(--ease-quart) both;
+}
+.fy-icon-utensil-1 { animation-delay: calc(2700ms / var(--speed)); }
+.fy-icon-utensil-2 { animation-delay: calc(2780ms / var(--speed)); }
+.fy-icon-utensil-3 { animation-delay: calc(2860ms / var(--speed)); }
+.fy-icon-utensil-4 { animation-delay: calc(2940ms / var(--speed)); }
+.fy-icon-utensil-5 { animation-delay: calc(3020ms / var(--speed)); }
+
+/* card 3: building — outline, spine, windows by row */
+.fy-icon-bld-base {
+  stroke-dasharray: 170;
+  stroke-dashoffset: 170;
+  animation: fy-rail-line calc(500ms / var(--speed)) var(--ease-expo)
+    calc(2600ms / var(--speed)) both;
+}
+.fy-icon-bld-outline {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  animation: fy-rail-line calc(800ms / var(--speed)) var(--ease-expo)
+    calc(2700ms / var(--speed)) both;
+}
+.fy-icon-bld-spine {
+  stroke-dasharray: 90;
+  stroke-dashoffset: 90;
+  animation: fy-rail-line calc(450ms / var(--speed)) var(--ease-expo)
+    calc(3200ms / var(--speed)) both;
+}
+.fy-icon-bld-win-row {
+  opacity: 0;
+  animation: fy-fade-in calc(280ms / var(--speed)) var(--ease-quart) both;
+  animation-delay: calc((3300ms + var(--i) * 100ms) / var(--speed));
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * STEP 3 — 收尾三詞 + 結語小字
+ *   Lead animation: 三詞 stagger scale-in from 0.85, slow + ceremonial.
+ *   分隔點淡入。下方 rule 從中心向兩側生長 → 結語兩行依次 fade-in。
+ *   結尾 "— fin" italic 小字最後出現。
+ * ───────────────────────────────────────────────────────────────────── */
+.fy-coda {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 36px;
+  padding-bottom: 80px;
+  text-align: center;
+}
+.fy-coda-kicker {
+  color: var(--text-mute);
+  opacity: 0;
+  animation: fy-fade-in calc(600ms / var(--speed)) var(--ease-quart) both;
+}
+
+.fy-coda-triplet {
+  display: flex;
+  align-items: baseline;
+  gap: 28px;
+  color: var(--text);
+}
+.fy-coda-word {
+  font-size: 168px;
+  line-height: 1;
+  letter-spacing: var(--track-tight);
+  opacity: 0;
+  transform: translateY(24px) scale(0.88);
+  animation: fy-coda-word-in calc(1100ms / var(--speed)) var(--ease-expo) both;
+}
+@keyframes fy-coda-word-in {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.fy-coda-word-1 { animation-delay: calc(400ms / var(--speed)); }
+.fy-coda-word-2 { animation-delay: calc(1100ms / var(--speed)); }
+.fy-coda-word-3 {
+  animation-delay: calc(1800ms / var(--speed));
+  color: var(--accent);
+}
+.fy-coda-sep {
+  font-size: 96px;
+  color: var(--text-faint);
+  line-height: 1;
+  opacity: 0;
+  animation: fy-fade-in calc(450ms / var(--speed)) var(--ease-quart) both;
+}
+.fy-coda-sep-1 { animation-delay: calc(900ms / var(--speed)); }
+.fy-coda-sep-2 { animation-delay: calc(1600ms / var(--speed)); }
+
+.fy-coda-rule {
+  width: 240px;
+  height: 1px;
+  background: var(--rule);
+  transform: scaleX(0);
+  transform-origin: center;
+  animation: fy-q-underline calc(900ms / var(--speed)) var(--ease-expo)
+    calc(3300ms / var(--speed)) both;
+  margin-top: 12px;
+}
+
+.fy-coda-tail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-top: 12px;
+}
+.fy-coda-line {
+  margin: 0;
+  letter-spacing: var(--track-snug);
+  opacity: 0;
+  animation: fy-coda-line-in calc(700ms / var(--speed)) var(--ease-quart) both;
+}
+@keyframes fy-coda-line-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fy-coda-line-1 {
+  font-size: 42px;
+  color: var(--text);
+  animation-delay: calc(4000ms / var(--speed));
+}
+.fy-coda-line-2 {
+  font-family: var(--font-body);
+  font-size: 30px;
+  color: var(--text-mute);
+  line-height: 1.5;
+  animation-delay: calc(5400ms / var(--speed));
+}
+.fy-coda-em {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.fy-coda-end {
+  margin-top: 20px;
+  opacity: 0;
+  animation: fy-fade-in calc(900ms / var(--speed)) var(--ease-quart)
+    calc(6800ms / var(--speed)) both;
+}
+.fy-coda-end-mark {
+  font-size: 26px;
+  color: var(--text-faint);
+  letter-spacing: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * Shared fade-in helper (chapter-scoped name)
+ * ───────────────────────────────────────────────────────────────────── */
+@keyframes fy-fade-in {
+  to { opacity: 1; }
+}

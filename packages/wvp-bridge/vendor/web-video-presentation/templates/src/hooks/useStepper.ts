@@ -5,25 +5,7 @@ import type { ChapterDef } from "../registry/types";
  * Bump this when chapter step counts / structure change so old persisted
  * cursors don't land mid-removed-step.
  */
-const STORAGE_KEY = "presentation-cursor-v5";
-
-function readStorageKey(): string {
-  if (typeof window === "undefined") return STORAGE_KEY;
-  const project = new URLSearchParams(window.location.search).get("cf_project");
-  return project ? `${STORAGE_KEY}-${project}` : STORAGE_KEY;
-}
-
-function shouldStartFresh(): boolean {
-  if (typeof window === "undefined") return false;
-  const q = new URLSearchParams(window.location.search);
-  return q.get("start") === "1" || q.get("reset") === "1";
-}
-
-function usesExternalControls(): boolean {
-  if (typeof window === "undefined") return false;
-  const q = new URLSearchParams(window.location.search);
-  return q.get("external_controls") === "1";
-}
+const STORAGE_KEY = "presentation-cursor-v4";
 
 export type Cursor = { chapter: number; step: number };
 
@@ -56,13 +38,41 @@ function sanitize(cursor: Cursor, chapters: ChapterDef[]): Cursor {
   return { chapter, step };
 }
 
+/**
+ * Read `?chapter=N&step=M` from the URL for deep-linking. Used by
+ * the self-check tool (see scripts/visual-self-check.ts) and by anyone
+ * sharing a "重寫 2.3" style link. Returns null when not present so
+ * regular sessions fall back to localStorage / {0,0}.
+ *
+ * Params are 0-indexed to match the cursor shape. The human-friendly
+ * `{chapter+1}.{step+1}` labels shown by PageNumber are a presentation
+ * convention, not a URL convention — keep the wire format raw.
+ */
+function readCursorFromUrl(): Cursor | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const q = new URLSearchParams(window.location.search);
+    const c = q.get("chapter");
+    const s = q.get("step");
+    if (c === null && s === null) return null;
+    return {
+      chapter: c === null ? 0 : Number(c) | 0,
+      step: s === null ? 0 : Number(s) | 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function useStepper(chapters: ChapterDef[]): StepperState {
   const [cursor, setCursor] = useState<Cursor>(() => {
     const fallback = { chapter: 0, step: 0 };
     if (typeof window === "undefined") return fallback;
-    if (shouldStartFresh()) return fallback;
+    // URL deep-link wins over persisted cursor (one-shot; not re-saved).
+    const fromUrl = readCursorFromUrl();
+    if (fromUrl) return sanitize(fromUrl, chapters);
     try {
-      const raw = window.localStorage.getItem(readStorageKey());
+      const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) return sanitize(JSON.parse(raw), chapters);
     } catch {
       /* ignore */
@@ -83,9 +93,8 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   }, [chapters]);
 
   useEffect(() => {
-    if (shouldStartFresh()) return;
     try {
-      window.localStorage.setItem(readStorageKey(), JSON.stringify(cursor));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cursor));
     } catch {
       /* ignore */
     }
@@ -157,14 +166,9 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   );
 
   useEffect(() => {
-    if (usesExternalControls()) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement) return;
-      const autoGateOpen =
-        new URLSearchParams(window.location.search).get("auto") === "1" &&
-        document.querySelector(".auto-gate");
       if (e.key === "ArrowRight" || e.key === " ") {
-        if (autoGateOpen) return;
         e.preventDefault();
         next();
       } else if (e.key === "ArrowLeft" || e.key === "Backspace") {

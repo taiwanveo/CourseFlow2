@@ -48,10 +48,10 @@ body {
         these OR write hard-coded sizes — whatever the content needs) ── */
   --t-display-1:   clamp(140px, 11vw, 200px);
   --t-display-2:   clamp(80px, 7vw, 128px);
-  --t-h1:          clamp(64px, 5.5vw, 96px);
-  --t-h2:          clamp(44px, 4vw, 68px);
-  --t-body:        clamp(20px, 1.35vw, 26px);
-  --t-micro:       13px;
+  --t-h1:          clamp(56px, 5vw, 88px);
+  --t-h2:          clamp(40px, 3.6vw, 60px);
+  --t-body:        20px;
+  --t-micro:       12px;
 
   /* ── Tracking presets (used by primitive classes) ── */
   --track-tight:   -0.025em;   /* large serif display */

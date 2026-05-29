@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { resolveLlmProvider } from "@/lib/llm-provider";
+import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 import type { LlmProviderId } from "@courseflow/llm";
 import { loadProjectComposition } from "@/lib/project-composition";
 import { narrationsForChapter } from "@/lib/wvp-chapters";
@@ -78,6 +78,7 @@ export async function POST(
   const gen = await generateChapterCraft(supabase, id, craft as CraftRow, {
     provider: resolved.provider,
     encryptedKey: resolved.encryptedKey,
+    textModel: resolveEffectiveTextModel(resolved.provider, resolved.textModel, resolved.defaultModel),
     composition,
     article,
     themeId,

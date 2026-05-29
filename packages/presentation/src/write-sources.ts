@@ -56,11 +56,12 @@ export function validateChapterTsx(
   componentName: string,
   chapterCss = "",
   narrations: string[] = [],
+  /** 圖靈 TypeScript compile-check，由呼叫端注入（可用 ts.transpileModule 實作） */
+  syntaxChecker?: (code: string) => boolean,
 ): boolean {
   const normalized = normalizeChapterTsx(tsx, componentName);
   if (!normalized.includes("export default function")) return false;
   if (!normalized.includes("ChapterStepProps")) return false;
-  if (!normalized.includes("MaskReveal")) return false;
   if (!normalized.includes(`./${componentName}.css`)) return false;
   if (!normalized.includes(`function ${componentName}`)) return false;
   if (chapterUsesInvalidMaskReveal(normalized)) return false;
@@ -71,7 +72,10 @@ export function validateChapterTsx(
   for (let i = 0; i < stepCount; i++) {
     if (!normalized.includes(`step === ${i}`)) return false;
   }
-  return normalized.length > 200;
+  if (normalized.length <= 200) return false;
+  // TypeScript compile-check：由呼叫端注入的 checker（通常用 ts.transpileModule）
+  if (syntaxChecker && !syntaxChecker(normalized)) return false;
+  return true;
 }
 
 export async function writeChapterSourcesRaw(
@@ -123,4 +127,40 @@ export async function repairPresentationChapterImports(
     }
   }
   return fixed;
+}
+
+// ─────────────────────────────────────────────────────────────────
+//  Phase 5 靜態視覺自檢
+// ─────────────────────────────────────────────────────────────────
+
+/** 每個 step 分支內「有意義視覺」的辨識 pattern */
+const VISUAL_PATTERN =
+  /<svg|<canvas|animation|@keyframes|className=|style=\{|gsap\.|anime\(|lottie|\.animate\(|data-anim|transform|transition/i;
+
+/**
+ * 靜態掃描 LLM 生成的 TSX，確認每個 step 分支都有具體視覺動畫。
+ * 回傳 pass（全部通過）和哪些 step 不足。
+ */
+export function checkStepsHaveVisuals(
+  tsx: string,
+  stepCount: number,
+): { pass: boolean; failedSteps: number[] } {
+  const failedSteps: number[] = [];
+  for (let i = 0; i < stepCount; i++) {
+    // 找到 `step === N` 分支：擷取到下一個 `step ===` 或 return/); 前的內容
+    const marker = `step === ${i}`;
+    const start = tsx.indexOf(marker);
+    if (start === -1) {
+      failedSteps.push(i);
+      continue;
+    }
+    // 找到下一個 step 標記，限制 chunk 範圍避免跨步驟誤判
+    const nextMarker = tsx.indexOf("step ===", start + marker.length);
+    const end = nextMarker !== -1 ? nextMarker : Math.min(start + 2000, tsx.length);
+    const chunk = tsx.slice(start, end);
+    if (!VISUAL_PATTERN.test(chunk)) {
+      failedSteps.push(i);
+    }
+  }
+  return { pass: failedSteps.length === 0, failedSteps };
 }

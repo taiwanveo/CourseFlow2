@@ -1,12 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CourseComposition, StepAudio } from "@courseflow/core";
-import { isChapterStep } from "@courseflow/core";
 import {
   writePresentationAudioFiles,
   type PresentationAudioFile,
 } from "@courseflow/presentation";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
-import { narrationsForChapter } from "@/lib/wvp-chapters";
+import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 import { resolveCompositionChapterForCraft } from "@/lib/wvp-chapter-meta";
 
 type CraftRow = {
@@ -29,12 +28,10 @@ function normalizeText(s: string): string {
 }
 
 function craftNarrations(
-  craft: CraftRow,
+  _craft: CraftRow,
   composition: CourseComposition,
   chapterId: string,
 ): string[] {
-  const fromCraft = craft.checklist_result?.narrations?.filter((n) => n?.trim()) ?? [];
-  if (fromCraft.length > 0) return fromCraft;
   return narrationsForChapter(composition, chapterId);
 }
 
@@ -104,14 +101,11 @@ export async function syncPresentationAudioFromComposition(
     const chapter = resolveCompositionChapterForCraft(composition, craft);
     if (!chapter) continue;
 
-    const compSteps = composition.steps
-      .filter((s) => s.chapterId === chapter.id && !isChapterStep(s))
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((s) => ({
-        id: s.id,
-        script: s.script?.trim() ?? "",
-        screenContent: s.screenContent?.trim() ?? "",
-      }));
+    const compSteps = orderedWvpStepsForChapter(composition, chapter.id).map((s) => ({
+      id: s.id,
+      script: s.script?.trim() ?? "",
+      screenContent: s.screenContent?.trim() ?? "",
+    }));
 
     const narrations = craftNarrations(craft, composition, chapter.id);
     expectedSteps += narrations.length;

@@ -1,0 +1,28 @@
+{
+  "id": "newsroom",
+  "name": "Newsroom",
+  "nameZh": "報社",
+  "description": "Newsprint cream backdrop with ink-black serif type and a banner red accent. Old-school broadsheet / documentary feel — feels like a New York Times feature article.",
+  "descriptionZh": "報紙奶油底 + 墨黑 serif + 報頭紅強調色. 老派大報 / 紀錄片氣質, 像一篇 NYT 特稿.",
+  "mood": [
+    "light",
+    "newspaper",
+    "editorial",
+    "serif",
+    "documentary",
+    "warm"
+  ],
+  "bestFor": [
+    "紀錄片 / 報道",
+    "深度評測",
+    "時事評論",
+    "AI 產品分析",
+    "熱點解讀"
+  ],
+  "preview": {
+    "shell": "#ebe5d6",
+    "surface": "#f4ede0",
+    "text": "#1a1a1a",
+    "accent": "#c9302c"
+  }
+}

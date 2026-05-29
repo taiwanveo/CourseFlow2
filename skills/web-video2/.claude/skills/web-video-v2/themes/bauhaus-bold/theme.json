@@ -1,0 +1,27 @@
+{
+  "id": "bauhaus-bold",
+  "name": "Bauhaus Bold",
+  "nameZh": "包豪斯",
+  "description": "Pure off-white surface, primary-blue accent, and chunky Archivo Black display type. Bauhaus / brutalist modernist — best for opinionated manifestos and bold product pitches.",
+  "descriptionZh": "淨色底 + 主色藍強調色 + Archivo Black 黑體. 包豪斯 / 布魯塔利風格, 適合觀點鮮明的演講與產品釋出.",
+  "mood": [
+    "light",
+    "modernist",
+    "bauhaus",
+    "geometric",
+    "bold",
+    "manifesto"
+  ],
+  "bestFor": [
+    "產品釋出",
+    "觀點宣言",
+    "設計演講",
+    "品牌主張"
+  ],
+  "preview": {
+    "shell": "#f0eee8",
+    "surface": "#fafaf7",
+    "text": "#0a0a0a",
+    "accent": "#1a4cdb"
+  }
+}

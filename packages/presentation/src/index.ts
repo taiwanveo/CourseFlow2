@@ -11,6 +11,8 @@ export * from "./static-server.js";
 export * from "./sync-audio.js";
 export * from "./sync-illustrations.js";
 export * from "./illustration-paths.js";
+export * from "./step-image-media.js";
+export * from "./codegen/step-image-codegen.js";
 export * from "./dist-storage.js";
 export * from "./write-sources.js";
 export * from "./visual-demo.js";

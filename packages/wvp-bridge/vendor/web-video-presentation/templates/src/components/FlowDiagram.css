@@ -12,6 +12,21 @@
   gap: var(--space-6);
   align-items: center;
 }
+.cf-flow-split:not(:has(.cf-flow-aside img)) {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  text-align: center;
+}
+.cf-flow-split:not(:has(.cf-flow-aside img)) .cf-flow-main {
+  align-items: center;
+}
+.cf-flow-split:has(.cf-flow-aside img) {
+  align-items: start;
+}
+.cf-flow-split:has(.cf-flow-aside img) .cf-flow-main {
+  align-items: flex-start;
+  text-align: left;
+}
 
 .cf-flow-main {
   min-width: 0;
@@ -25,12 +40,17 @@
   align-items: center;
   justify-content: center;
   min-height: 0;
+  min-height: 240px;
+  padding: var(--space-2);
+  border-radius: calc(var(--r-card) - 2px);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
 .cf-flow-hero-img {
-  width: 100%;
-  max-height: min(72vh, 640px);
-  object-fit: cover;
+  max-width: 100%;
+  height: auto;
+  max-height: 460px;    /* 直接用 stage-px 上限，不依賴 100% */
+  object-fit: contain;
   border-radius: var(--r-card);
   border: var(--rule-w) solid var(--rule);
   box-shadow: var(--shadow-card);

@@ -40,6 +40,7 @@ const nextConfig: NextConfig = {
     "playwright",
     "playwright-core",
     "@courseflow/presentation",
+    "typescript",
   ],
   webpack: (config, { isServer }) => {
     config.resolve.alias = {

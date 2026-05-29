@@ -14,6 +14,10 @@ export interface ChapterCodegenInput {
   assets?: { url: string; alt?: string; step?: number; wvpChapterId?: string }[];
   stepVisualConfigs?: import("./step-visuals.js").StepVisualEntry[];
   stepMotions?: { enterAnimationId: string; transitionId: string }[];
+  /** 各步驟配圖副檔名（如 gif、png）；未列出的步驟預設 jpg */
+  stepImageExtensions?: Record<number, string>;
+  /** 有動畫 HTML 檔的步驟索引清單（對應 public/animations/<wvpChapterId>/<NN>.html） */
+  stepAnimationIndices?: number[];
 }
 
 export function chapterComponentName(wvpChapterId: string): string {

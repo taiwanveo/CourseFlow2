@@ -1,5 +1,6 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
+import { buildCodegenStepImageBlock, buildCodegenStepAnimationBlock } from "../step-image-codegen.js";
 import { assetsForChapter, assetForStep } from "../hook-slots.js";
 import { parseListRevealSlots } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
@@ -15,25 +16,59 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
     input.screenContents ?? [],
   );
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
+  const introCheckpoint = assetForStep(chapterAssets, 0);
+  const animIndices = new Set<number>(input.stepAnimationIndices ?? []);
+
+  // 只在確實有圖片或動畫時才傳 introImageUrl / introAnimationUrl；否則 ListRevealGrid 會是文字置中版型
+  const hasIntroStepImage = 0 in (input.stepImageExtensions ?? {});
+  const hasIntroAnimation = animIndices.has(0);
+
+  let introVisualLine: string;
+  if (hasIntroAnimation) {
+    introVisualLine = `introAnimationUrl={hasStepAnimation(0) ? stepAnimationUrl(0) : undefined}`;
+  } else if (introCheckpoint?.url?.trim()) {
+    introVisualLine = `introImageUrl="${escapeTsString(introCheckpoint.url.trim())}"`;
+  } else if (hasIntroStepImage) {
+    introVisualLine = "introImageUrl={stepImageUrl(0)}";
+  } else {
+    introVisualLine = ""; // 無圖 → 不傳 prop → showIntroImg=false → 標題自動置中
+  }
+
   const itemsLiteral = items
     .map((it, i) => {
       const wvpStep = i + 1;
+      const hasAnim = animIndices.has(wvpStep);
       const checkpoint = assetForStep(chapterAssets, wvpStep);
-      const imageUrlLine = checkpoint?.url?.trim()
-        ? `    imageUrl: "${escapeTsString(checkpoint.url.trim())}",\n`
-        : "";
+      let visualLine: string;
+      if (hasAnim) {
+        visualLine = `    animationUrl: hasStepAnimation(${wvpStep}) ? stepAnimationUrl(${wvpStep}) : undefined,\n`;
+      } else if (checkpoint?.url?.trim()) {
+        visualLine = `    imageUrl: "${escapeTsString(checkpoint.url.trim())}",\n`;
+      } else {
+        visualLine = `    imageUrl: stepImageUrl(${wvpStep}),\n`;
+      }
       return `  {
     num: ${JSON.stringify(it.num)},
     title: ${JSON.stringify(it.title)},
     body: ${JSON.stringify(it.body)},
-${imageUrlLine}  }`;
+${visualLine}  }`;
     })
     .join(",\n");
+
+  const stepImageBlock = buildCodegenStepImageBlock(
+    input.wvpChapterId,
+    input.stepImageExtensions ?? {},
+  );
+  const stepAnimationBlock = buildCodegenStepAnimationBlock(
+    input.wvpChapterId,
+    input.stepAnimationIndices ?? [],
+  );
 
   const tsx = `import { ListRevealGrid } from "../../components/ListRevealGrid";
 import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
+${stepImageBlock}${stepAnimationBlock}
 const ITEMS = [
 ${itemsLiteral}
 ] as const;
@@ -54,6 +89,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       introTitle={${JSON.stringify(intro)}}
       introSub={${JSON.stringify(introSub)}}
       items={[...ITEMS]}
+      ${introVisualLine}
       enterAnimationId={motion.enterAnimationId}
       transitionId={motion.transitionId}
     />

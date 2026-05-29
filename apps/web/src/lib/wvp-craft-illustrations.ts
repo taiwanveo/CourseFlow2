@@ -1,4 +1,3 @@
-import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CourseComposition } from "@courseflow/core";
@@ -16,13 +15,26 @@ import {
   type VisualDirectorPlan,
 } from "@courseflow/visual-config";
 import {
+  contentTypeForStepImageExt,
+  detectStepImageExtFromBuffer,
+  detectStepImageExtFromMime,
+  isAllowedUploadImage,
+  normalizeStepImageExt,
   wvpStepImageFileName,
   writePresentationIllustrationFiles,
+  type WvpStepImageExt,
 } from "@courseflow/presentation";
+import {
+  craftIllustrationStoragePath,
+  extFromStorageFileName,
+  findLocalStepIllustration,
+  readStepIllustrationWithMeta,
+  storageFileNameForStep,
+} from "@/lib/wvp-step-image-resolve";
 import { decryptApiKey } from "@/lib/crypto";
-import { listConfiguredLlmProviders } from "@/lib/llm-provider";
+import { listConfiguredLlmProviders, resolveEffectiveImageModel } from "@/lib/llm-provider";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
-import { narrationsForChapter } from "@/lib/wvp-chapters";
+import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 import {
   resolveCompositionChapterForCraft,
   screenContentsForChapter,
@@ -53,8 +65,10 @@ export type StepIllustrationEntry = {
   promptStyleId?: string | null;
   /** 是否需要此步驟配圖（可人工覆寫 AI 判斷） */
   needsImage?: boolean;
-  /** 圖片來源：ai=AI 生圖；upload=人工上傳 */
-  imageSource?: "ai" | "upload";
+  /** 圖片來源：ai=AI 生圖；upload=人工上傳；animation=AI 解說動畫 */
+  imageSource?: "ai" | "upload" | "animation";
+  /** AI 解說動畫：自包含的 HTML 字串（CSS/SVG/Canvas 動畫） */
+  animationHtml?: string | null;
   /** 是否納入「批次生圖」 */
   batchSelected?: boolean;
   imagePromptEn?: string;
@@ -63,19 +77,14 @@ export type StepIllustrationEntry = {
   imageWritten?: boolean;
   /** Supabase Storage 路徑（雲端持久化，避免 /tmp 遺失） */
   storagePath?: string | null;
+  /** 配圖副檔名（上傳 GIF/APNG 等時保留） */
+  imageExt?: WvpStepImageExt;
   error?: string | null;
 };
 
-const CRAFT_ILLUSTRATION_BUCKET = "courseflow-assets";
+export { craftIllustrationStoragePath } from "@/lib/wvp-step-image-resolve";
 
-export function craftIllustrationStoragePath(
-  userId: string,
-  projectId: string,
-  wvpChapterId: string,
-  stepIndex: number,
-): string {
-  return `${userId}/${projectId}/wvp-illustrations/${wvpChapterId}/${wvpStepImageFileName(stepIndex)}`;
-}
+const CRAFT_ILLUSTRATION_BUCKET = "courseflow-assets";
 
 async function listChapterIllustrationStorageNames(
   supabase: SupabaseClient,
@@ -105,9 +114,10 @@ async function uploadCraftIllustrationToStorage(
   supabase: SupabaseClient,
   storagePath: string,
   buffer: Buffer,
+  contentType: string,
 ): Promise<void> {
   const { error } = await supabase.storage.from(CRAFT_ILLUSTRATION_BUCKET).upload(storagePath, buffer, {
-    contentType: "image/jpeg",
+    contentType,
     upsert: true,
   });
   if (error) throw new Error(`配圖上傳失敗：${error.message}`);
@@ -118,20 +128,8 @@ async function localChapterIllustrationExists(
   wvpChapterId: string,
   stepIndex: number,
 ): Promise<boolean> {
-  try {
-    await access(
-      join(
-        presentationDirForProject(projectId),
-        "public",
-        "images",
-        wvpChapterId,
-        wvpStepImageFileName(stepIndex),
-      ),
-    );
-    return true;
-  } catch {
-    return false;
-  }
+  const hit = await findLocalStepIllustration(projectId, wvpChapterId, stepIndex);
+  return Boolean(hit?.buffer.length);
 }
 
 export type ChapterIllustrationsState = {
@@ -226,6 +224,7 @@ async function resolveImageLlm(
 ): Promise<{
   imageProvider?: LlmProviderId;
   imageApiKey?: string;
+  resolvedImageModel?: string;
   textProvider?: LlmProviderId;
   textApiKey?: string;
 }> {
@@ -236,14 +235,22 @@ async function resolveImageLlm(
   const textProvider = textProviders[0];
 
   let imageApiKey: string | undefined;
+  let resolvedImageModel: string | undefined;
   if (imageProvider) {
-    const { data: keyRow } = await supabase
+    const { data: imageKeyRow } = await supabase
       .from("user_api_keys")
-      .select("encrypted_key")
+      .select("encrypted_key, default_model, image_model")
       .eq("user_id", userId)
       .eq("provider", imageProvider)
       .maybeSingle();
-    if (keyRow?.encrypted_key) imageApiKey = decryptApiKey(keyRow.encrypted_key);
+    if (imageKeyRow?.encrypted_key) {
+      imageApiKey = decryptApiKey(imageKeyRow.encrypted_key);
+      resolvedImageModel = resolveEffectiveImageModel(
+        imageProvider,
+        (imageKeyRow as { image_model?: string | null }).image_model,
+        (imageKeyRow as { default_model?: string | null }).default_model,
+      );
+    }
   }
 
   let textApiKey: string | undefined;
@@ -257,7 +264,7 @@ async function resolveImageLlm(
     if (keyRow?.encrypted_key) textApiKey = decryptApiKey(keyRow.encrypted_key);
   }
 
-  return { imageProvider, imageApiKey, textProvider, textApiKey };
+  return { imageProvider, imageApiKey, resolvedImageModel, textProvider, textApiKey };
 }
 
 export async function getChapterIllustrationsState(
@@ -276,60 +283,76 @@ export async function getChapterIllustrationsState(
     craft.wvp_chapter_id,
   );
   const chapter = resolveCompositionChapterForCraft(composition, craft);
-  const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
-  const narrations =
-    cr?.narrations?.filter((n) => n?.trim()) ??
-    (chapter ? narrationsForChapter(composition, chapter.id) : []);
+  const narrations = chapter ? narrationsForChapter(composition, chapter.id) : [];
+  const wvpSteps = chapter ? orderedWvpStepsForChapter(composition, chapter.id) : [];
+  const screenContents = chapter ? screenContentsForChapter(composition, chapter.id) : [];
 
   const steps: StepIllustrationEntry[] = [];
   for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
-    const heuristicNeedsImage = wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
+    const wvpStep = wvpSteps[stepIndex];
+    const isDivider = Boolean(wvpStep && isChapterStep(wvpStep));
+    const heuristicNeedsImage = isDivider
+      ? false
+      : wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
 
     const existing = stored.find((s) => s.stepIndex === stepIndex);
-    const fileName = wvpStepImageFileName(stepIndex);
+    const storageFile = storageFileNameForStep(storageNames, stepIndex);
     const hasLocal = await localChapterIllustrationExists(
       projectId,
       craft.wvp_chapter_id,
       stepIndex,
     );
-    const hasStorage = storageNames.has(fileName);
+    const hasStorage = Boolean(storageFile);
+    const resolvedExt = existing?.imageExt
+      ? normalizeStepImageExt(existing.imageExt)
+      : storageFile
+        ? extFromStorageFileName(storageFile)
+        : undefined;
     let imageWritten = hasLocal || hasStorage;
     const lostPersisted =
       (existing?.imageWritten || existing?.status === "done") && !imageWritten;
 
-    const compSteps = chapter
-      ? composition.steps
-          .filter((s) => s.chapterId === chapter.id && !isChapterStep(s))
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-      : [];
-    const compStep = compSteps[stepIndex];
-    const screen = compStep?.screenContent?.trim() ?? "";
+    const compStep = wvpSteps[stepIndex];
+    const screen = screenContents[stepIndex]?.trim() ?? compStep?.screenContent?.trim() ?? "";
     const script = compStep?.script?.trim() ?? narrations[stepIndex] ?? "";
 
     if (existing) {
       const storagePath = hasStorage
-        ? craftIllustrationStoragePath(userId, projectId, craft.wvp_chapter_id, stepIndex)
+        ? craftIllustrationStoragePath(
+            userId,
+            projectId,
+            craft.wvp_chapter_id,
+            stepIndex,
+            resolvedExt ?? "jpg",
+          )
         : (existing.storagePath ?? null);
       const imageSource = existing.imageSource ?? "ai";
       const needsImage = existing.needsImage ?? heuristicNeedsImage;
       const batchSelected =
         existing.batchSelected ?? (needsImage && imageSource === "ai");
+      const resolvedStatus = imageWritten
+        ? "done"
+        : lostPersisted
+          ? "prompt-ready"
+          : existing.status === "generating"
+            ? "prompt-ready"
+            : needsImage
+              ? existing.status === "skip"
+                ? "prompt-draft"
+                : existing.status
+              : "skip";
       steps.push({
         ...existing,
+        recommendedOutput: isDivider ? "chapter-divider" : existing.recommendedOutput,
         screenSnippet: screen.slice(0, 120) || existing.screenSnippet,
         scriptSnippet: script.slice(0, 160) || existing.scriptSnippet,
         imageWritten,
         storagePath,
+        imageExt: resolvedExt ?? existing.imageExt,
         imageSource,
         needsImage,
         batchSelected,
-        status: imageWritten
-          ? "done"
-          : lostPersisted
-            ? "prompt-ready"
-            : existing.status === "generating"
-              ? "prompt-ready"
-              : existing.status,
+        status: resolvedStatus,
         error: lostPersisted
           ? "配圖檔案已遺失（請重新生圖）"
           : imageWritten
@@ -339,16 +362,17 @@ export async function getChapterIllustrationsState(
       continue;
     }
 
+    const defaultNeedsImage = heuristicNeedsImage;
     steps.push({
       stepIndex,
       screenSnippet: screen.slice(0, 120),
       scriptSnippet: script.slice(0, 160),
-      recommendedOutput: "ai-image",
-      status: heuristicNeedsImage ? (imageWritten ? "done" : "prompt-draft") : "skip",
+      recommendedOutput: isDivider ? "chapter-divider" : "ai-image",
+      status: defaultNeedsImage ? (imageWritten ? "done" : "prompt-draft") : "skip",
       promptForApi: "",
       imageSource: "ai",
-      needsImage: heuristicNeedsImage,
-      batchSelected: heuristicNeedsImage,
+      needsImage: defaultNeedsImage,
+      batchSelected: defaultNeedsImage,
       imageWritten,
     });
   }
@@ -385,10 +409,8 @@ export async function planChapterIllustrationPrompts(
   const chapter = resolveCompositionChapterForCraft(composition, craft);
   if (!chapter) throw new Error("找不到對應章節內容");
 
-  const cr = craft.checklist_result as { narrations?: string[] } | null | undefined;
-  const narrations =
-    cr?.narrations?.filter((n) => n?.trim()) ??
-    narrationsForChapter(composition, chapter.id);
+  const narrations = narrationsForChapter(composition, chapter.id);
+  const wvpSteps = orderedWvpStepsForChapter(composition, chapter.id);
   const screenContents = screenContentsForChapter(composition, chapter.id);
   const chapterConsistencyHint = buildChapterConsistencyHint(
     craft.title,
@@ -418,9 +440,13 @@ export async function planChapterIllustrationPrompts(
   const steps: StepIllustrationEntry[] = [];
 
   for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
-    const heuristicNeedsImage = wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
+    const wvpStep = wvpSteps[stepIndex];
+    const isDivider = Boolean(wvpStep && isChapterStep(wvpStep));
+    const heuristicNeedsImage = isDivider
+      ? false
+      : wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
     const prevStep = existing.find((s) => s.stepIndex === stepIndex);
-    const forcedNeedsImage = prevStep?.needsImage ?? true;
+    const forcedNeedsImage = prevStep?.needsImage ?? heuristicNeedsImage;
     if (!heuristicNeedsImage && !forcedNeedsImage) continue;
     const shouldRegenerate = !onlySet || onlySet.has(stepIndex);
 
@@ -556,8 +582,9 @@ export async function patchChapterIllustrationPrompts(
     promptForApi?: string;
     confirm?: boolean;
     needsImage?: boolean;
-    imageSource?: "ai" | "upload";
+    imageSource?: "ai" | "upload" | "animation";
     batchSelected?: boolean;
+    animationHtml?: string | null;
   }>,
 ): Promise<ChapterIllustrationsState> {
   const prev =
@@ -605,8 +632,18 @@ export async function patchChapterIllustrationPrompts(
     }
     if (p.imageSource !== undefined) {
       steps[idx]!.imageSource = p.imageSource;
-      if (p.imageSource === "upload") {
+      if (p.imageSource === "upload" || p.imageSource === "animation") {
         steps[idx]!.batchSelected = false;
+      }
+      if (p.imageSource === "animation" && !steps[idx]!.animationHtml) {
+        steps[idx]!.status = "prompt-draft";
+      }
+    }
+    if (p.animationHtml !== undefined) {
+      steps[idx]!.animationHtml = p.animationHtml;
+      if (steps[idx]!.imageSource === "animation" && p.animationHtml) {
+        steps[idx]!.status = "done";
+        steps[idx]!.imageWritten = true;
       }
     }
     if (p.batchSelected !== undefined) {
@@ -641,7 +678,7 @@ export async function generateChapterIllustrationSteps(
   stepIndices: number[],
   opts?: { styleFragment?: string; imageStyleId?: string },
 ): Promise<{ steps: StepIllustrationEntry[]; generated: number }> {
-  const { imageProvider, imageApiKey } = await resolveImageLlm(supabase, userId);
+  const { imageProvider, imageApiKey, resolvedImageModel } = await resolveImageLlm(supabase, userId);
   if (!imageApiKey || !imageProvider) {
     throw new Error("生圖需要 OpenAI 或 OpenRouter API Key");
   }
@@ -674,23 +711,31 @@ export async function generateChapterIllustrationSteps(
 
     try {
       const bytes = await generateStepImage(
-        { provider: imageProvider, apiKey: imageApiKey },
+        { provider: imageProvider, apiKey: imageApiKey, model: resolvedImageModel },
         step.promptForApi.trim(),
       );
       const buffer = Buffer.from(bytes);
+      const ext = detectStepImageExtFromBuffer(buffer);
       const storagePath = craftIllustrationStoragePath(
         userId,
         projectId,
         craft.wvp_chapter_id,
         stepIndex,
+        ext,
       );
-      await uploadCraftIllustrationToStorage(supabase, storagePath, buffer);
+      await uploadCraftIllustrationToStorage(
+        supabase,
+        storagePath,
+        buffer,
+        contentTypeForStepImageExt(ext),
+      );
       try {
         await writePresentationIllustrationFiles(presentationDir, [
           {
             wvpChapterId: craft.wvp_chapter_id,
             stepIndex,
             buffer,
+            ext,
           },
         ]);
       } catch (e) {
@@ -704,6 +749,8 @@ export async function generateChapterIllustrationSteps(
         status: "done",
         imageWritten: true,
         storagePath,
+        imageExt: ext,
+        imageSource: "ai",
         error: null,
       };
       generated++;
@@ -732,7 +779,18 @@ export async function setChapterIllustrationUploadedImage(
   craft: CraftRow,
   stepIndex: number,
   buffer: Buffer,
+  uploadMeta?: { mime?: string; fileName?: string },
 ): Promise<ChapterIllustrationsState> {
+  if (
+    uploadMeta?.mime &&
+    uploadMeta?.fileName &&
+    !isAllowedUploadImage({ type: uploadMeta.mime, name: uploadMeta.fileName })
+  ) {
+    throw new Error("僅支援 JPG、PNG、BMP、GIF（含 APNG）");
+  }
+  const ext = uploadMeta?.mime
+    ? detectStepImageExtFromMime(uploadMeta.mime, uploadMeta.fileName)
+    : detectStepImageExtFromBuffer(buffer);
   const prev =
     craft.checklist_result && typeof craft.checklist_result === "object"
       ? (craft.checklist_result as Record<string, unknown>)
@@ -746,11 +804,17 @@ export async function setChapterIllustrationUploadedImage(
     projectId,
     craft.wvp_chapter_id,
     stepIndex,
+    ext,
   );
-  await uploadCraftIllustrationToStorage(supabase, storagePath, buffer);
+  await uploadCraftIllustrationToStorage(
+    supabase,
+    storagePath,
+    buffer,
+    contentTypeForStepImageExt(ext),
+  );
   try {
     await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
-      { wvpChapterId: craft.wvp_chapter_id, stepIndex, buffer },
+      { wvpChapterId: craft.wvp_chapter_id, stepIndex, buffer, ext },
     ]);
   } catch {
     /* 快取失敗可忽略 */
@@ -764,6 +828,7 @@ export async function setChapterIllustrationUploadedImage(
     status: "done",
     imageWritten: true,
     storagePath,
+    imageExt: ext,
     error: null,
   };
 
@@ -788,44 +853,48 @@ export async function readChapterIllustrationImage(
   projectId: string,
   wvpChapterId: string,
   stepIndex: number,
+  hint?: { storagePath?: string | null; imageExt?: WvpStepImageExt },
 ): Promise<Buffer | null> {
-  // 先以 Storage 持久化版本為準，避免本機快取被其他流程覆寫後造成「回到工作室就變新圖」。
-  const storagePath = craftIllustrationStoragePath(
+  const hit = await readStepIllustrationWithMeta(
+    supabase,
+    userId,
+    projectId,
+    wvpChapterId,
+    stepIndex,
+    hint?.imageExt,
+    hint?.storagePath,
+  );
+  if (!hit?.buffer.length) return null;
+  try {
+    await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
+      { wvpChapterId, stepIndex, buffer: hit.buffer, ext: hit.ext },
+    ]);
+  } catch {
+    /* 快取失敗仍回傳圖片 */
+  }
+  return hit.buffer;
+}
+
+export async function readChapterIllustrationContentType(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string,
+  wvpChapterId: string,
+  stepIndex: number,
+): Promise<string | null> {
+  const hit = await readStepIllustrationWithMeta(
+    supabase,
     userId,
     projectId,
     wvpChapterId,
     stepIndex,
   );
-  const remote = await downloadCraftIllustrationFromStorage(supabase, storagePath);
-  if (remote?.length) {
-    try {
-      await writePresentationIllustrationFiles(presentationDirForProject(projectId), [
-        { wvpChapterId, stepIndex, buffer: remote },
-      ]);
-    } catch {
-      /* 快取失敗仍回傳圖片 */
-    }
-    return remote;
-  }
-
-  const path = join(
-    presentationDirForProject(projectId),
-    "public",
-    "images",
-    wvpChapterId,
-    wvpStepImageFileName(stepIndex),
-  );
-  try {
-    const local = await readFile(path);
-    if (local.length) return local;
-  } catch {
-    /* 無圖可用 */
-  }
-  return null;
+  if (!hit) return null;
+  return contentTypeForStepImageExt(hit.ext);
 }
 
-/** 與打包路徑共用：僅同步已寫入 presentation 的圖，不跑 Director */
+/** 與打包路徑共用：優先沿用既有圖片，缺圖時允許 Director 做內容感知決策 */
 export const craftPackIllustrationOpts: WvpIllustrationSyncOptions = {
-  skipVisualDirector: true,
+  skipVisualDirector: false,
   reuseExistingFiles: true,
 };

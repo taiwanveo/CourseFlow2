@@ -11,6 +11,10 @@ import { decryptApiKey } from "@/lib/crypto";
 import { generateOutline, generateScripts } from "@courseflow/llm";
 import type { LlmProviderId } from "@courseflow/llm";
 import {
+  buildScreenContentUserPrompt,
+  SCREEN_CONTENT_SYSTEM_PROMPT,
+} from "@courseflow/llm";
+import {
   createCompositionFromArticle,
   expandListStepsInGeneratedChapters,
   mergeScripts,
@@ -18,7 +22,7 @@ import {
 import type { GeneratedChapterInput } from "@courseflow/composition";
 import { saveComposition } from "@/lib/project-composition";
 import { defaultSubtitleForStep, defaultVisualForStep } from "@courseflow/db";
-import { resolveLlmProvider } from "@/lib/llm-provider";
+import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 import type { CourseComposition } from "@courseflow/core";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 
@@ -73,7 +77,7 @@ function cleanKeyPointClause(input: string): string {
   // 刪除容易造成殘句感的連接詞前綴（可重複清理）
   for (let i = 0; i < 3; i += 1) {
     const next = s.replace(
-      /^(使得|因此|所以|而|並且|另外|同時|這樣一來|透過這樣的方式|透過這個方式|透過這種方式|這些概念|這些|這個|則|還是|或是|以及)\s*/g,
+      /^(使得|因此|所以|而|並且|另外|同時|這樣一來|透過這樣的方式|透過這個方式|透過這種方式|這些概念|這些|這個|則|還是|或是|以及|是為了|這對於|它強調|它著重|這對|為了)\s*/g,
       "",
     );
     if (next === s) break;
@@ -93,10 +97,24 @@ function cleanKeyPointClause(input: string): string {
 function looksIncompleteClause(text: string): boolean {
   return (
     /(的|來|即可透過|可以透過|可以通過|使得|因此|所以)$/.test(text.trim()) ||
-    /^(使得|因此|所以|而|並且|另外|同時|透過這樣的方式|這些概念|還是|或是|以及)\b/.test(
+    /^(使得|因此|所以|而|並且|另外|同時|透過這樣的方式|這些概念|還是|或是|以及|是為了|這對於|它強調|它著重|這對|為了)\b/.test(
       text.trim(),
     )
   );
+}
+
+function looksLikeScriptFragments(text: string): boolean {
+  const parts = text
+    .split(/[／|｜、]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return false;
+  const fragmentLike = parts.filter(
+    (p) =>
+      /^(是為了|這對於|它強調|它著重|這對|為了|使得|因此|所以)\b/.test(p) ||
+      (!p.includes("：") && !p.includes(":") && p.length < 18),
+  );
+  return fragmentLike.length >= Math.ceil(parts.length / 2);
 }
 
 function isNarrativeLead(text: string): boolean {
@@ -199,17 +217,26 @@ function normalizeExistingScreenContent(text: string): string {
 }
 
 function shouldRewriteScreenContent(current: string): boolean {
-  const looksTooShort = current.length < 12;
-  const lacksStructure = !/[／|｜、，]/.test(current);
+  const looksTooShort = current.length < 20;
+  const lacksStructure = !/[／|｜]/.test(current) && !/[:：]/.test(current);
   const hasEllipsis = /\.\.\.|…/.test(current);
   const incompleteTail = looksIncompleteClause(current);
-  return looksTooShort || lacksStructure || hasEllipsis || incompleteTail || hasMainlandTerms(current);
+  const scriptFragments = looksLikeScriptFragments(current);
+  return (
+    looksTooShort ||
+    lacksStructure ||
+    hasEllipsis ||
+    incompleteTail ||
+    scriptFragments ||
+    hasMainlandTerms(current)
+  );
 }
 
 function needsHardValidationRetry(screenContent: string): boolean {
   const normalized = normalizeExistingScreenContent(screenContent);
   return (
     looksIncompleteClause(normalized) ||
+    looksLikeScriptFragments(normalized) ||
     hasMainlandTerms(normalized) ||
     isNarrativeLead(normalized) ||
     normalized
@@ -227,27 +254,8 @@ async function generateScreenContentByLlm(opts: {
   steps: Array<{ stepId: string; script: string; currentScreenContent: string }>;
 }): Promise<Map<string, string>> {
   if (opts.steps.length === 0) return new Map();
-  const system = `你是教學投影片編輯。任務：先從每步口播稿擷取「語意完整重點」，再做「輕度縮句」作為螢幕內容。
-規則：
-1) 每步輸出 1~4 個重點句（不是口號、不是殘句），使用「、」分隔。
-2) 先擷取語意完整重點，再稍微縮短文字長度（保留主詞+關鍵動作/結果）。
-3) 每個重點必須「單獨拿出來也完整可懂」。
-4) 禁止殘句：例如「透過簡單的拖放」「還是有些基礎的學習者」「這些概念」。
-5) 禁止省略符號（… 或 ...）。
-6) 必須使用台灣繁體中文慣用詞（程式設計、介面、滑鼠、網路、影片、資訊、資料、設定），避免中國大陸用詞。
-7) 螢幕內容不是口播逐字稿，要可視化重點摘要。
-只輸出 JSON。`;
-
-  const user = `語言：${opts.language}
-請輸出：
-{
-  "items": [
-    { "stepId": "s1", "screenContent": "重點A、重點B、重點C" }
-  ]
-}
-
-步驟資料：
-${JSON.stringify(opts.steps, null, 2)}`;
+  const system = SCREEN_CONTENT_SYSTEM_PROMPT;
+  const user = buildScreenContentUserPrompt(opts.language, opts.steps);
 
   const obj = await generateChapterPlan({
     provider: opts.provider,
@@ -400,11 +408,13 @@ export async function POST(
   const language =
     (project.settings as { language?: string })?.language ?? "zh-TW";
 
+  const textModel = resolveEffectiveTextModel(resolved.provider, resolved.textModel, resolved.defaultModel);
+
   try {
     const creds = {
       provider,
       apiKey: decryptApiKey(encryptedKey),
-      model: body.model,
+      model: textModel,
     };
     const outline = await generateOutline(creds, articleText, language);
     const chaptersForComposition: GeneratedChapterInput[] =
@@ -440,7 +450,7 @@ export async function POST(
     composition = normalizeGeneratedScriptsToTw(composition);
     composition = await normalizeGeneratedScreenContent(
       composition,
-      { provider, apiKey: creds.apiKey, model: body.model },
+      { provider, apiKey: creds.apiKey, model: textModel },
       language,
     );
     composition = ensureChapterDividerSteps(composition);

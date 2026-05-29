@@ -66,11 +66,11 @@ export function parseListRevealSlots(
       items: [],
     };
   }
-  const intro = screenHeadlineForSlot(screenContents[0], "本章重點", 56);
+  const intro = screenHeadlineForSlot(screenContents[0] || narrations[0], "本章重點", 96);
   const introSub = "";
   const items = narrations.slice(1).map((n, i) => ({
     num: String(i + 1).padStart(2, "0"),
-    title: screenHeadlineForSlot(screenContents[i + 1], `重點 ${i + 1}`, 48),
+    title: screenHeadlineForSlot(screenContents[i + 1] || n, `重點 ${i + 1}`, 72),
     body: "",
   }));
   return { intro, introSub, items };

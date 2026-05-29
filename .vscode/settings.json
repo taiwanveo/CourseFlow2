@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^\\$root = \"c:\\\\Vibe_Coidng_Local\\\\CourseFlow_v2\\.0\\.0\"\n\\$refFiles = Get-ChildItem \"\\$root\\\\skills\\\\web-video-presentation\" -Recurse -File \\| Where-Object \\{ \\$_\\.FullName -notmatch '\\\\\\\\templates\\\\\\\\' \\}\n\\$diffs = @\\(\\)\nforeach \\(\\$f in \\$refFiles\\) \\{\n    \\$rel = \\$f\\.FullName\\.Substring\\(\"\\$root\\\\skills\\\\web-video-presentation\\\\\"\\.Length\\)\n    \\$vendor = Join-Path \"\\$root\\\\packages\\\\wvp-bridge\\\\vendor\\\\web-video-presentation\" \\$rel\n    if \\(Test-Path \\$vendor\\) \\{\n        \\$h1 = \\(Get-FileHash \\$f\\.FullName -Algorithm SHA256\\)\\.Hash\n        \\$h2 = \\(Get-FileHash \\$vendor -Algorithm SHA256\\)\\.Hash\n        if \\(\\$h1 -ne \\$h2\\) \\{ \\$diffs \\+= \\$rel \\}\n    \\} else \\{\n        \\$diffs \\+= \"MISSING-IN-VENDOR: \\$rel\"\n    \\}\n\\}\nif \\(\\$diffs\\.Count -eq 0\\) \\{ Write-Host \"全部同步！\" \\} else \\{ \\$diffs \\| ForEach-Object \\{ Write-Host \"DIFF: \\$_\" \\} \\}$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

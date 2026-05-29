@@ -11,6 +11,7 @@ export function normalizeVizType(raw?: string): WvpChapterKind | null {
   if (v.includes("flow") || v.includes("diagram") || v.includes("process")) return "flow";
   if (v.includes("hook") || v.includes("image")) return "hook";
   if (v.includes("magazine") || v.includes("quote")) return "magazine";
+  if (v === "custom") return "custom";
   return null;
 }
 

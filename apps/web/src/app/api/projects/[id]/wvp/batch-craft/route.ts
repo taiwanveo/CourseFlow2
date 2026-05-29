@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { resolveLlmProvider } from "@/lib/llm-provider";
+import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
 import { assertWvpPhaseEditable } from "@courseflow/core";
 import type { LlmProviderId } from "@courseflow/llm";
@@ -111,6 +111,7 @@ export async function POST(
       const { results, build } = await batchCraftAllChaptersAndBuild(supabase, id, user.id, {
         provider: resolved.provider,
         encryptedKey: resolved.encryptedKey,
+        textModel: resolveEffectiveTextModel(resolved.provider, resolved.textModel, resolved.defaultModel),
         onlyMissing: body.onlyMissing ?? false,
       });
 
@@ -138,6 +139,7 @@ export async function POST(
     const { results, materialized } = await batchCraftAllChapters(supabase, id, user.id, {
       provider: resolved.provider,
       encryptedKey: resolved.encryptedKey,
+      textModel: resolveEffectiveTextModel(resolved.provider, resolved.textModel, resolved.defaultModel),
       onlyMissing: body.onlyMissing ?? false,
     });
 

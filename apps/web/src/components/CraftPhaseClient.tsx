@@ -47,6 +47,113 @@ const STATUS_LABEL: Record<string, string> = {
   approved: "已通過",
 };
 
+// ─── self-check report types ──────────────────────────────────────────────
+type SelfCheckSeverity = "ok" | "warn" | "fail";
+interface SelfCheckFinding { level: SelfCheckSeverity; message: string }
+interface SelfCheckStepResult {
+  pageLabel: string;
+  chapterId: string;
+  narration: string;
+  largestVisibleFontPx: number;
+  hasOverflow: boolean;
+  pageNumberOk: boolean | null;
+  subtitleVisible: boolean;
+  subtitleTextMatches: boolean;
+  findings: SelfCheckFinding[];
+}
+type SelfCheckReport =
+  | { exists: false }
+  | { exists: true; totals: { ok: number; warn: number; fail: number }; results: SelfCheckStepResult[] };
+
+function worstLevel(findings: SelfCheckFinding[]): SelfCheckSeverity {
+  if (findings.some((f) => f.level === "fail")) return "fail";
+  if (findings.some((f) => f.level === "warn")) return "warn";
+  return "ok";
+}
+
+function SelfCheckPanel({ report }: { report: SelfCheckReport | null }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!report) {
+    return (
+      <p className="text-[11px] text-zinc-500">
+        排版自檢尚未執行。在本機 presentation 目錄執行{" "}
+        <code className="rounded bg-zinc-800 px-1 py-0.5 text-zinc-300">npm run self-check</code>
+        {" "}後重新整理即可查看結果。
+      </p>
+    );
+  }
+  if (!report.exists) {
+    return (
+      <p className="text-[11px] text-zinc-500">
+        尚無排版自檢報告。在本機 presentation 目錄執行{" "}
+        <code className="rounded bg-zinc-800 px-1 py-0.5 text-zinc-300">npm run self-check</code>
+        {" "}後重新整理即可查看結果。
+      </p>
+    );
+  }
+
+  const { totals, results } = report;
+  const hasFail = totals.fail > 0;
+  const hasWarn = totals.warn > 0;
+  const summaryColor = hasFail
+    ? "text-red-400"
+    : hasWarn
+      ? "text-amber-400"
+      : "text-emerald-400";
+
+  const failItems = results.filter((r) => worstLevel(r.findings) === "fail");
+  const warnItems = results.filter((r) => worstLevel(r.findings) === "warn");
+  const showItems = expanded ? [...failItems, ...warnItems] : failItems.slice(0, 3);
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className={`text-xs font-medium ${summaryColor}`}>
+          {hasFail ? "✗" : hasWarn ? "△" : "✓"}{" "}
+          ok {totals.ok} / warn {totals.warn} / fail {totals.fail}
+        </span>
+        {(hasFail || hasWarn) ? (
+          <button
+            type="button"
+            className="text-[11px] text-zinc-400 underline hover:text-zinc-200"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? "收起" : "查看詳情"}
+          </button>
+        ) : null}
+      </div>
+
+      {showItems.length > 0 ? (
+        <ul className="space-y-1.5">
+          {showItems.map((r) => {
+            const level = worstLevel(r.findings);
+            const failMsgs = r.findings.filter((f) => f.level !== "ok");
+            return (
+              <li
+                key={`${r.chapterId}-${r.pageLabel}`}
+                className={`rounded border px-2 py-1 text-[11px] ${
+                  level === "fail"
+                    ? "border-red-800/50 bg-red-950/30 text-red-300"
+                    : "border-amber-800/50 bg-amber-950/30 text-amber-300"
+                }`}
+              >
+                <span className="font-mono font-semibold">{r.pageLabel}</span>
+                {" — "}
+                {failMsgs.map((f) => f.message).join("；")}
+              </li>
+            );
+          })}
+          {!expanded && failItems.length > 3 ? (
+            <li className="text-[11px] text-zinc-500">
+              … 還有 {failItems.length - 3} 項 fail，按「查看詳情」展開
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 /** 避免 React Strict Mode 重掛載時重複自動 scaffold */
 const autoScaffoldAttemptedForProject = new Set<string>();
 
@@ -137,11 +244,29 @@ export function CraftPhaseClient({
       )
     : null;
 
+  // ── self-check report ──────────────────────────────────────────────────
+  const [selfCheckReport, setSelfCheckReport] = useState<SelfCheckReport | null>(null);
+
+  const refreshSelfCheck = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/wvp/self-check-report`);
+      if (!res.ok) return;
+      const data = (await res.json()) as SelfCheckReport;
+      setSelfCheckReport(data);
+    } catch {
+      // report not available — not an error
+    }
+  }, [projectId]);
+
   useEffect(() => {
     fetch("/api/themes")
       .then((r) => r.json())
       .then((d) => setThemes(d.themes ?? []));
   }, []);
+
+  useEffect(() => {
+    void refreshSelfCheck();
+  }, [refreshSelfCheck]);
 
   const refreshWvp = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/wvp`);
@@ -363,6 +488,14 @@ export function CraftPhaseClient({
       setStylePickerOpen(true);
       return;
     }
+    if (
+      anchorTrialDone &&
+      !window.confirm(
+        "重新試執行將覆寫第 1 章畫面，並清除「已確認第 1 章風格」。是否繼續？",
+      )
+    ) {
+      return;
+    }
     setBusy("trial-ch1");
     try {
       await saveWvpSettings();
@@ -373,21 +506,27 @@ export function CraftPhaseClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "試執行失敗");
-      setSettings((s) => ({ ...s, anchorChapterTrialCompleted: true }));
+      setSettings((s) => ({
+        ...s,
+        anchorChapterTrialCompleted: true,
+        anchorChapterApproved: false,
+        anchorProfile: undefined,
+      }));
       await refreshWvp();
-      const tpl =
-        data.templateKind === "hook"
-          ? "Hook 多圖"
-          : data.templateKind === "flow"
-            ? "流程動畫"
-            : "清單揭示";
       if (data.illustrationSyncWarning) {
-        toast(`第 1 章試執行完成（${tpl}）。${data.illustrationSyncWarning}`, "info");
+        toast(
+          anchorTrialDone
+            ? `第 1 章已重新試執行。${data.illustrationSyncWarning}`
+            : `第 1 章試執行完成。${data.illustrationSyncWarning}`,
+          "info",
+        );
         playFinishedSound();
       } else {
-        toast(`第 1 章試執行完成（自動套用 ${tpl} 模板）`, "success", {
-          taskComplete: true,
-        });
+        toast(
+          anchorTrialDone ? "第 1 章已重新試執行，可開啟預覽查看。" : "第 1 章試執行完成，可開啟預覽查看。",
+          "success",
+          { taskComplete: true },
+        );
       }
     } catch (e) {
       toast(e instanceof Error ? e.message : "試執行失敗", "error");
@@ -559,16 +698,20 @@ export function CraftPhaseClient({
                       請先驗收第 1 章風格，確認無誤後才能執行全課「開始執行」。
                     </p>
                     <p className="text-[11px] leading-relaxed text-zinc-500">
-                      系統會依 Checkpoint 素材自動選擇 Hook 或清單揭示模板，無需手動逐一套用。
+                      系統會依 Checkpoint 素材自動選擇 Hook 或清單揭示模板，無需手動逐一套用。不滿意結果可再次試執行。
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
                         className="cf-btn cf-btn-primary cf-btn-sm"
-                        disabled={!!busy || !canTrialChapter1 || anchorTrialDone}
+                        disabled={!!busy || !canTrialChapter1}
                         onClick={() => void trialChapter1()}
                       >
-                        {busy === "trial-ch1" ? "試執行中…" : "試執行第 1 章"}
+                        {busy === "trial-ch1"
+                          ? "試執行中…"
+                          : anchorTrialDone
+                            ? "重新試執行第 1 章"
+                            : "試執行第 1 章"}
                       </button>
                       {anchorTrialDone ? (
                         <Link
@@ -711,6 +854,23 @@ export function CraftPhaseClient({
               hasImageStyle={hasImageStyle}
               onOpenStylePicker={() => setStylePickerOpen(true)}
             />
+          ) : null}
+
+          {chapters.length > 0 ? (
+            <div className="space-y-1.5 border-t border-zinc-800 pt-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-medium text-zinc-400">排版自檢報告</h3>
+                <button
+                  type="button"
+                  className="text-[11px] text-zinc-500 hover:text-zinc-300"
+                  onClick={() => void refreshSelfCheck()}
+                  title="重新整理自檢報告"
+                >
+                  ↻ 重新整理
+                </button>
+              </div>
+              <SelfCheckPanel report={selfCheckReport} />
+            </div>
           ) : null}
           </div>
         </aside>

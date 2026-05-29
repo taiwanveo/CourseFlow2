@@ -29,10 +29,20 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   const kind = resolveChapterTemplate(input);
   const hasUploadedAssets =
     assetsForChapter(input.assets, input.wvpChapterId).length > 0;
+  const hasPackagedStepImages =
+    Object.keys(input.stepImageExtensions ?? {}).length > 0;
+  const visualConfigCount = input.stepVisualConfigs?.length ?? 0;
+  const animationConfigCount =
+    input.stepVisualConfigs?.filter((e) => e.config.kind === "animation").length ?? 0;
+  const minStepsForVisualMix = Math.min(2, input.narrations.length);
+  /** 有工作室配圖或強制模板時，不得用 visual-mix（否則畫面完全沒有 step 配圖） */
   const useVisualMix =
+    !input.forceTemplate &&
+    !hasPackagedStepImages &&
     !hasUploadedAssets &&
-    input.stepVisualConfigs &&
-    input.stepVisualConfigs.length > 0;
+    visualConfigCount >= minStepsForVisualMix &&
+    (animationConfigCount >= 1 ||
+      visualConfigCount >= Math.ceil(input.narrations.length * 0.3));
   if (useVisualMix) {
     return {
       ...generateVisualMixSources(input, input.stepVisualConfigs!),

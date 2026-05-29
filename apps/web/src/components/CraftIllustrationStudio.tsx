@@ -210,7 +210,31 @@ export function CraftIllustrationStudio({
   };
 
   const aiSteps = state?.steps.filter((s) => s.needsImage !== false) ?? [];
-  const doneCount = aiSteps.filter((s) => s.status === "done" || s.imageWritten).length;
+  const doneCount = aiSteps.filter(
+    (s) => s.status === "done" || s.imageWritten || (s.imageSource === "animation" && s.animationHtml),
+  ).length;
+
+  const generateAnimation = async (stepIndex: number, animationPrompt?: string) => {
+    setBusyStep(stepIndex);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations/animate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ stepIndex, animationPrompt }),
+        },
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "生成動畫失敗");
+      setState(data as ChapterState);
+      toast(`步驟 ${stepIndex + 1} 解說動畫生成完成`, "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "生成動畫失敗", "error");
+    } finally {
+      setBusyStep(null);
+    }
+  };
 
   const patchStep = async (
     stepIndex: number,
@@ -218,8 +242,9 @@ export function CraftIllustrationStudio({
       promptForApi: string;
       confirm: boolean;
       needsImage: boolean;
-      imageSource: "ai" | "upload";
+      imageSource: "ai" | "upload" | "animation";
       batchSelected: boolean;
+      animationHtml: string | null;
     }>,
   ) => {
     const res = await fetch(
@@ -296,7 +321,9 @@ export function CraftIllustrationStudio({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-medium text-zinc-300">
                   步驟 {step.stepIndex + 1}
-                  {step.status === "skip" ? (
+                  {step.recommendedOutput === "chapter-divider" ? (
+                    <span className="ml-2 text-zinc-500">（章節分隔頁）</span>
+                  ) : step.status === "skip" ? (
                     <span className="ml-2 text-zinc-500">（略過：{step.error ?? step.recommendedOutput}）</span>
                   ) : null}
                   {step.status === "generating" || busyStep === step.stepIndex ? (
@@ -336,7 +363,7 @@ export function CraftIllustrationStudio({
                       }
                       onChange={(e) =>
                         void patchStep(step.stepIndex, {
-                          imageSource: e.target.value as "ai" | "upload",
+                          imageSource: e.target.value as "ai" | "upload" | "animation",
                         }).catch((err) =>
                           toast(err instanceof Error ? err.message : "更新失敗", "error"),
                         )
@@ -344,6 +371,7 @@ export function CraftIllustrationStudio({
                     >
                       <option value="ai">AI 生圖</option>
                       <option value="upload">自行上傳</option>
+                      <option value="animation">AI 解說動畫</option>
                     </select>
                     <label className="cf-chip text-[10px] text-zinc-300">
                       <input
@@ -416,7 +444,7 @@ export function CraftIllustrationStudio({
                         上傳圖片
                         <input
                           type="file"
-                          accept="image/*"
+                          accept=".jpg,.jpeg,.png,.bmp,.gif,image/jpeg,image/png,image/gif,image/bmp"
                           className="hidden"
                           disabled={disabled || loading || busyStep !== null || planningStep !== null}
                           onChange={(e) => {
@@ -440,7 +468,7 @@ export function CraftIllustrationStudio({
               {step.screenSnippet ? (
                 <p className="text-[10px] text-zinc-600">螢幕：{step.screenSnippet}</p>
               ) : null}
-              {step.status !== "skip" && (step.imageSource ?? "ai") === "ai" ? (
+              {step.needsImage !== false && (step.imageSource ?? "ai") === "ai" ? (
                 <label className="block text-[10px] text-zinc-500">
                   生圖提示詞（送進 AI 的真實內容）
                   <textarea
@@ -465,7 +493,15 @@ export function CraftIllustrationStudio({
                   />
                 </label>
               ) : null}
-              {(step.imageWritten || step.status === "done") && step.status !== "skip" ? (
+              {step.needsImage !== false && (step.imageSource ?? "ai") === "animation" ? (
+                <AnimationPanel
+                  step={step}
+                  disabled={disabled || loading || busyStep !== null}
+                  busy={busyStep === step.stepIndex}
+                  onGenerate={(prompt) => void generateAnimation(step.stepIndex, prompt)}
+                />
+              ) : null}
+              {(step.imageWritten || step.status === "done") && step.status !== "skip" && (step.imageSource ?? "ai") !== "animation" ? (
                 <div className="overflow-hidden rounded border border-zinc-800">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -482,6 +518,54 @@ export function CraftIllustrationStudio({
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function AnimationPanel({
+  step,
+  disabled,
+  busy,
+  onGenerate,
+}: {
+  step: StepIllustrationEntry;
+  disabled: boolean;
+  busy: boolean;
+  onGenerate: (prompt: string) => void;
+}) {
+  const [prompt, setPrompt] = useState(
+    step.animationHtml ? "" : (step.promptForApi ?? ""),
+  );
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-[10px] text-zinc-500">
+        動畫描述（讓 AI 知道要解說什麼）
+        <textarea
+          className="cf-input mt-1 min-h-[80px] w-full text-[11px] leading-snug"
+          disabled={disabled || busy}
+          value={prompt}
+          placeholder="例如：用動畫解說這個概念的三個步驟，以流程圖方式呈現..."
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+      </label>
+      <button
+        className="cf-btn cf-btn-primary cf-btn-sm"
+        disabled={disabled || busy}
+        onClick={() => onGenerate(prompt)}
+      >
+        {busy ? "生成中…" : step.animationHtml ? "重新生成動畫" : "AI 生成動畫"}
+      </button>
+      {step.animationHtml ? (
+        <div className="relative aspect-video w-full overflow-hidden rounded border border-zinc-700">
+          <iframe
+            srcDoc={step.animationHtml}
+            className="absolute inset-0 h-full w-full border-none"
+            sandbox="allow-scripts allow-same-origin"
+            title="動畫預覽"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

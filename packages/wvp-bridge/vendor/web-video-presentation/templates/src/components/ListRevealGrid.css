@@ -29,6 +29,47 @@
   justify-content: center;
   gap: var(--space-5);
 }
+.lr-intro-focus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+.lr-intro--has-figure {
+  justify-content: flex-start;
+}
+.lr-intro--has-figure .lr-intro-focus {
+  align-items: stretch;
+  text-align: left;
+}
+.lr-intro--has-figure .lr-intro-h {
+  text-align: left;
+  margin-inline: 0;
+}
+.lr-intro-visual {
+  width: 100%;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2);
+  border-radius: calc(var(--r-card) - 2px);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+}
+/* has-figure 時 ghost slot 只需預覽高度，讓圖片能佔更多空間 */
+.lr-intro--has-figure .lr-slot {
+  min-height: 80px;
+}
+.lr-intro-img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  max-height: 360px;    /* 直接用 stage-px 上限，不依賴 100%（父無明確 height） */
+  object-fit: contain;
+  border-radius: calc(var(--r-card) - 4px);
+  border: var(--rule-w) solid var(--rule);
+}
 .lr-intro-h {
   margin: 0;
   font-size: clamp(2rem, 4.2vw, 3.25rem);
@@ -93,9 +134,11 @@
 }
 
 .lr-slot-img {
-  width: 100%;
-  max-height: min(42vh, 320px);
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 320px;    /* 固定 stage-px */
+  object-fit: contain;
   border-radius: calc(var(--r-card) - 4px);
 }
 
@@ -116,28 +159,74 @@
   border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.lr-featured-card--has-visual {
+  justify-content: flex-start;
+  align-items: stretch;
+  text-align: left;
+  max-width: 1680px;
 }
 
 .lr-featured-title {
   margin: 0;
-  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  font-size: clamp(2.2rem, 4.2vw, 3.75rem);
   line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* No-image: centre-stage, much bigger */
+.lr-featured-card:not(.lr-featured-card--has-visual) .lr-featured-title {
+  font-size: clamp(3rem, 6vw, 6rem);
 }
 
 .lr-featured-visual {
   width: 100%;
+  flex: 1;
+  min-height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: calc(var(--r-card) - 2px);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
 .lr-featured-img {
   display: block;
   width: 100%;
-  max-height: min(52vh, 520px);
-  object-fit: cover;
+  max-width: 100%;
+  height: auto;
+  max-height: 700px;
+  object-fit: contain;
   border-radius: calc(var(--r-card) - 4px);
+  border: var(--rule-w) solid var(--rule);
 }
 
 .lr-featured-body {
   display: none;
+}
+
+/* 動畫 iframe 容器 */
+.lr-featured-visual--anim {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.lr-featured-anim {
+  display: block;
+  width: 100%;
+  min-height: 500px;
+  max-height: 700px;
+  border: none;
+  border-radius: calc(var(--r-card) - 2px);
+  overflow: hidden;
+  flex: 1;
 }
 
 .lr-grid-ghost .lr-slot {

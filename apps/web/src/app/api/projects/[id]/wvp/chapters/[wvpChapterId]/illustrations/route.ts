@@ -96,8 +96,9 @@ export async function PATCH(
       promptForApi?: string;
       confirm?: boolean;
       needsImage?: boolean;
-      imageSource?: "ai" | "upload";
+      imageSource?: "ai" | "upload" | "animation";
       batchSelected?: boolean;
+      animationHtml?: string | null;
     }>;
   };
   if (!body.patches?.length) {

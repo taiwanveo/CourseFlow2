@@ -2,24 +2,30 @@
   margin: 0;
   max-width: min(720px, 55vw);
   min-width: min(420px, 38vw);
+  min-height: 240px;    /* 固定 stage-px */
+  max-height: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
   border-radius: var(--r-card, 8px);
   overflow: hidden;
   border: var(--rule-w, 1px) solid var(--rule, rgba(255, 255, 255, 0.12));
   box-shadow: var(--shadow-card, 0 12px 40px rgba(0, 0, 0, 0.35));
+  background: color-mix(in srgb, var(--surface, rgba(255, 255, 255, 0.04)) 72%, transparent);
 }
 
 .cf-chapter-figure img {
   display: block;
-  width: 100%;
+  max-width: 100%;
   height: auto;
-  min-height: min(420px, 42vh);
-  max-height: min(640px, 58vh);
-  object-fit: cover;
+  max-height: 440px;    /* 直接用 stage-px 上限，不依賴 100% */
+  object-fit: contain;
 }
 
 .cf-chapter-figure-placeholder {
-  min-height: min(420px, 42vh);
-  max-height: min(640px, 58vh);
+  min-height: 320px;    /* 固定 stage-px */
+  max-height: 480px;
   display: grid;
   place-items: center;
   padding: 24px;

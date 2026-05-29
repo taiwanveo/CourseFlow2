@@ -55,9 +55,8 @@ h3::after,
 }
 
 .cf-chapter-figure img {
-  min-height: min(420px, 42vh);
-  max-height: min(640px, 58vh);
-  object-fit: cover;
+  max-height: 440px;    /* 固定 stage-px；避免 vh 在 iframe 縮放後失真 */
+  object-fit: contain; /* contain 確保圖片完整顯示，不裁切 */
 }
 
 /* 清單格：副標已停用，避免與主標重複 */

@@ -2,6 +2,7 @@ import type { CourseComposition, WvpChapterKind } from "@courseflow/core";
 import { isChapterStep } from "@courseflow/core";
 import { inferChapterKind } from "@courseflow/presentation";
 import { titleToWvpChapterId } from "@/lib/wvp-slug";
+import { orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 
 function compactSpaces(text: string): string {
   return text.replace(/\s+/g, " ").trim();
@@ -20,24 +21,34 @@ function splitShortPhrases(text: string): string[] {
 export function toScreenHeadline(
   source: string | null | undefined,
   fallback = "重點",
-  maxChars = 42,
+  maxChars = 96,
 ): string {
   const raw = compactSpaces((source ?? "").replace(/\.\.\.|…/g, ""));
   if (!raw) return fallback;
   const parts = splitShortPhrases(raw);
-  const core = parts.length > 0 ? parts.slice(0, 3).join("／") : raw;
+  const core = parts.length > 0 ? parts.join("／") : raw;
   if (core.length <= maxChars) return core;
-  return core.slice(0, Math.max(8, maxChars)).trim();
+  return core.slice(0, Math.max(12, maxChars)).trim();
+}
+
+function stripEditorChapterLabel(text: string): string {
+  return compactSpaces(text.replace(/^【章節】\s*/, "").replace(/\.\.\.|…/g, ""));
 }
 
 export function screenContentsForChapter(
   composition: CourseComposition,
   chapterId: string,
 ): string[] {
-  return composition.steps
-    .filter((s) => s.chapterId === chapterId && !isChapterStep(s))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((s) => toScreenHeadline(s.screenContent, "重點"));
+  const chapterTitle =
+    composition.chapters.find((c) => c.id === chapterId)?.title?.trim() ?? "";
+  return orderedWvpStepsForChapter(composition, chapterId).map((s) => {
+    if (isChapterStep(s)) {
+      const title = stripEditorChapterLabel(s.screenContent ?? "") || chapterTitle;
+      return title || "章節";
+    }
+    const raw = compactSpaces((s.screenContent ?? "").replace(/\.\.\.|…/g, ""));
+    return raw ? toScreenHeadline(raw, "重點", 96) : "重點";
+  });
 }
 
 export function resolveCompositionChapterForCraft(

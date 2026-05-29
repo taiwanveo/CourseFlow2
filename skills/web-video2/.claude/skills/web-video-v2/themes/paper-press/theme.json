@@ -1,0 +1,27 @@
+{
+  "id": "paper-press",
+  "name": "Paper Press",
+  "nameZh": "亮色印刷",
+  "description": "Warm cream backdrop with a single hot accent. Editorial magazine, gentle, daytime vibe.",
+  "descriptionZh": "暖色奶油底 + 單一熱橙強調色。雜誌氣質、柔和日間審美。",
+  "mood": [
+    "light",
+    "editorial",
+    "magazine",
+    "warm",
+    "daytime"
+  ],
+  "bestFor": [
+    "雜誌型內容",
+    "生活方式",
+    "日常工具評測",
+    "溫和教程",
+    "面向大眾的科技解讀"
+  ],
+  "preview": {
+    "shell": "#d8cfb8",
+    "surface": "#efe7d6",
+    "text": "#1a1714",
+    "accent": "#ff4a2b"
+  }
+}

@@ -1,7 +1,7 @@
 /** WVP 章節視覺型別（對應 Skill EXAMPLES / 解說片段落） */
-export type WvpChapterKind = "list-reveal" | "flow" | "hook" | "magazine";
+export type WvpChapterKind = "list-reveal" | "flow" | "hook" | "magazine" | "custom";
 
-export type WvpVizType = WvpChapterKind | "compare" | "quote-hero" | "custom";
+export type WvpVizType = WvpChapterKind | "compare" | "quote-hero";
 
 export interface WvpStepVisualPlan {
   step: number;

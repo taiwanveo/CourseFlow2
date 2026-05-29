@@ -1,0 +1,72 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * animations.css — generic, theme-agnostic motion vocabulary.
+ *
+ * All durations / easings come from the active theme's tokens.
+ * ───────────────────────────────────────────────────────────────────── */
+
+/* MaskReveal — clip-path text wipe (left → right).
+ *
+ * Uses `calc(700ms / var(--speed))` so the wipe tracks the playback rate
+ * cycle button. At 2× a hero word that took 700ms to wipe in now takes
+ * 350ms, keeping it in step with the (faster) narration. See
+ * references/CHAPTER-CRAFT.md "playback rate" for the convention. */
+.mask-reveal {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path calc(700ms / var(--speed)) var(--ease-quart);
+}
+.mask-reveal.in { clip-path: inset(0 0 0 0); }
+
+/* Hairline rule grow — scaleX from 0 → 1, transform-origin: left.
+ * Content reveal → tracks `--speed` via `--anim-cinematic`. */
+.rule-grow {
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--anim-cinematic) var(--ease-expo);
+}
+.rule-grow.in { transform: scaleX(1); }
+
+/* Generic vertical rise + opacity (small UI labels, captions) */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Scale-in with overshoot (use for stamp / badge / accent moment) */
+@keyframes scale-in {
+  0%   { opacity: 0; transform: scale(0.8); }
+  60%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Pop with overshoot ease (more spring) */
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.6) rotate(-2deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* Caret blink (bounded — for use INSIDE a sized animation) */
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+/* Slow-pulse halo (rings, notifications) */
+@keyframes pulse-halo {
+  0%   { opacity: 0.6; transform: scale(0.9); }
+  70%  { opacity: 0;   transform: scale(1.6); }
+  100% { opacity: 0;   transform: scale(1.6); }
+}
+
+/* Letter stagger (use with .letter-stagger > .letter, set --i: 0..n).
+ * Content reveal → `--anim-slow` so per-letter wipe shrinks with playback
+ * rate; the stagger interval (60ms × index) also divides by `--speed`
+ * to keep the overall ladder finishing on time at 1.5× / 2×. */
+.letter-stagger > .letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(40px) scale(0.85);
+  animation: letter-rise var(--anim-slow) var(--ease-expo) forwards;
+  animation-delay: calc(var(--i, 0) * 60ms / var(--speed));
+}
+@keyframes letter-rise {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}

@@ -7,6 +7,10 @@ export type ListRevealItem = {
   title: string;
   body: string;
   imageUrl?: string;
+  /** AI 解說動畫：自包含 HTML 字串（優先於 imageUrl） */
+  animationHtml?: string;
+  /** AI 解說動畫：項目 URL（和 animationHtml 二擇一，兩者同存時優先用 html） */
+  animationUrl?: string;
 };
 
 export function ListRevealGrid({
@@ -16,6 +20,8 @@ export function ListRevealGrid({
   introSub,
   items,
   kicker,
+  introImageUrl,
+  introAnimationUrl,
   enterAnimationId = "fade-up",
   transitionId = "crossfade",
 }: {
@@ -25,14 +31,22 @@ export function ListRevealGrid({
   introSub: string;
   items: ListRevealItem[];
   kicker?: string;
+  /** 第 0 步（章節引子／分隔頁）配圖 */
+  introImageUrl?: string;
+  /** 第 0 步（章節引子／分隔頁）AI 動畫 URL（優先於 introImageUrl） */
+  introAnimationUrl?: string;
   enterAnimationId?: string;
   transitionId?: string;
 }) {
+  const [introImgOk, setIntroImgOk] = useState(true);
+
   if (step === 0) {
     const cols = Math.min(Math.max(items.length, 1), 4);
+    const showIntroAnim = Boolean(introAnimationUrl?.trim());
+    const showIntroImg = !showIntroAnim && Boolean(introImageUrl?.trim()) && introImgOk;
     return (
       <div
-        className={`lr-scene scene-pad lr-intro cf-enter-${enterAnimationId}`}
+        className={`lr-scene scene-pad lr-intro cf-enter-${enterAnimationId}${showIntroAnim || showIntroImg ? " lr-intro--has-figure" : ""}`}
         data-cf-transition={transitionId}
       >
         <header className="lr-masthead">
@@ -40,12 +54,39 @@ export function ListRevealGrid({
           <span className="lr-kicker">{kicker ?? chapterTitle}</span>
           <span className="lr-rule" />
         </header>
-        <MaskReveal show duration={1100}>
-          <h1 className="lr-intro-h serif-cn">{introTitle}</h1>
-        </MaskReveal>
-        {introSub ? (
-          <MaskReveal show delay={400} duration={900}>
-            <div className="lr-intro-sub">{introSub}</div>
+        <div className="lr-intro-focus">
+          <MaskReveal show duration={1100}>
+            <h1 className="lr-intro-h serif-cn">{introTitle}</h1>
+          </MaskReveal>
+          {introSub ? (
+            <MaskReveal show delay={400} duration={900}>
+              <div className="lr-intro-sub">{introSub}</div>
+            </MaskReveal>
+          ) : null}
+        </div>
+        {showIntroAnim ? (
+          <MaskReveal show delay={220} duration={900}>
+            <div className="lr-intro-visual" data-no-advance>
+              <iframe
+                className="lr-item-anim"
+                src={introAnimationUrl}
+                sandbox="allow-scripts allow-same-origin"
+                allow="autoplay"
+                style={{ border: "none", width: "100%", height: "100%" }}
+              />
+            </div>
+          </MaskReveal>
+        ) : showIntroImg ? (
+          <MaskReveal show delay={220} duration={900}>
+            <div className="lr-intro-visual" data-no-advance>
+              <img
+                className="lr-intro-img"
+                src={introImageUrl}
+                alt={introTitle}
+                loading="eager"
+                onError={() => setIntroImgOk(false)}
+              />
+            </div>
           </MaskReveal>
         ) : null}
         <div className="lr-grid lr-grid-ghost" style={{ ["--lr-cols" as string]: String(cols) }}>
@@ -78,15 +119,31 @@ export function ListRevealGrid({
 
 function FeaturedCard({ item }: { item: ListRevealItem }) {
   const [imgOk, setImgOk] = useState(true);
-  const showImg = Boolean(item.imageUrl?.trim()) && imgOk;
+  const hasAnimation = Boolean(item.animationHtml?.trim() || item.animationUrl?.trim());
+  // hasVisual 在 render 時就確定，不依賴 imgOk，避免版面閃動
+  const hasVisual = hasAnimation || Boolean(item.imageUrl?.trim());
+  const showImg = !hasAnimation && Boolean(item.imageUrl?.trim()) && imgOk;
 
   return (
-    <article className="lr-featured-card">
+    <article className={`lr-featured-card${hasVisual ? " lr-featured-card--has-visual" : ""}`}>
       <div className="lr-slot-num hero-num">{item.num}</div>
       <MaskReveal show duration={900}>
         <h2 className="lr-featured-title serif-cn">{item.title}</h2>
       </MaskReveal>
-      {showImg ? (
+      {hasAnimation ? (
+        <MaskReveal show delay={220} duration={900}>
+          <div className="lr-featured-visual lr-featured-visual--anim">
+            <iframe
+              className="lr-featured-anim"
+              srcDoc={item.animationHtml || undefined}
+              src={item.animationHtml ? undefined : item.animationUrl}
+              sandbox="allow-scripts allow-same-origin"
+              title={item.title}
+              loading="eager"
+            />
+          </div>
+        </MaskReveal>
+      ) : showImg ? (
         <MaskReveal show delay={220} duration={900}>
           <div className="lr-featured-visual">
             <img

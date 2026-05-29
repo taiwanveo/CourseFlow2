@@ -27,6 +27,7 @@ export type StepVisualDecision = {
 export async function generateStepVisualConfigsForChapter(opts: {
   provider: LlmProviderId;
   apiKey: string;
+  model?: string;
   themeId: string;
   courseTopic?: string;
   narrations: string[];
@@ -45,6 +46,7 @@ export async function generateStepVisualConfigsForChapter(opts: {
     const obj = await generateChapterPlan({
       provider: opts.provider,
       apiKey: opts.apiKey,
+      model: opts.model,
       system,
       user,
     });
@@ -59,7 +61,10 @@ export async function generateStepVisualConfigsForChapter(opts: {
       decisions.push(preDecision);
       if (!preDecision.shouldIllustrate || preDecision.recommendedOutput !== "animation") continue;
     }
-    if (!preDecision && !shouldStepHaveVisual(stepScript, stepScreen)) {
+    const teachingCue = /(?:流程|步驟|對照|比較|拆解|示意|架構|階段|循環|並列)/.test(
+      `${stepScript}\n${stepScreen}`,
+    );
+    if (!preDecision && !shouldStepHaveVisual(stepScript, stepScreen) && !teachingCue) {
       decisions.push({
         step,
         recommendedOutput: "none",
@@ -122,7 +127,10 @@ export async function generateStepVisualConfigsForChapter(opts: {
 
     if (r.config.kind === "animation" && r.config.pattern === "callout") {
       const blob = `${stepScript}\n${stepScreen}`;
-      if (!/\d+/.test(blob) && !/(?:第一|第二|第三|對照|相比|占比|比例|趨勢)/.test(blob)) {
+      const hasCalloutSignal =
+        /\d+/.test(blob) ||
+        /(?:第一|第二|第三|對照|相比|占比|比例|趨勢|重點|關鍵|步驟)/.test(blob);
+      if (!hasCalloutSignal && !teachingCue) {
         decisions.push({
           step,
           recommendedOutput: "none",

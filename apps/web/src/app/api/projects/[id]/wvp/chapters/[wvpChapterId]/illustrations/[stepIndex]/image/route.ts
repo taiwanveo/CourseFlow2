@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import {
+  readChapterIllustrationContentType,
   readChapterIllustrationImage,
   setChapterIllustrationUploadedImage,
 } from "@/lib/wvp-craft-illustrations";
@@ -41,9 +42,18 @@ export async function GET(
   );
   if (!buf?.length) return new NextResponse("尚無配圖", { status: 404 });
 
+  const contentType =
+    (await readChapterIllustrationContentType(
+      supabase,
+      user.id,
+      id,
+      wvpChapterId,
+      stepIndex,
+    )) ?? "image/jpeg";
+
   return new NextResponse(new Uint8Array(buf), {
     headers: {
-      "Content-Type": "image/jpeg",
+      "Content-Type": contentType,
       "Cache-Control": "no-store",
     },
   });
@@ -96,6 +106,7 @@ export async function POST(
     craft,
     stepIndex,
     bytes,
+    { mime: file.type, fileName: file.name },
   );
   return NextResponse.json({ ok: true, ...state });
 }

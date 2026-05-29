@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { WvpChapterKind } from "@courseflow/core";
 import {
   buildPresentation,
   chapterComponentName,
@@ -13,10 +14,11 @@ import {
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { syncPresentationAudioFromComposition } from "@/lib/wvp-audio-sync";
 import { syncPresentationIllustrations } from "@/lib/wvp-illustration-sync";
+import { craftPackIllustrationOpts } from "@/lib/wvp-craft-illustrations";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
-import { narrationsForChapter } from "@/lib/wvp-chapters";
+import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 import {
   chapterKindForCraft,
   resolveCompositionChapterForCraft,
@@ -27,6 +29,12 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { parseWvpSettings, type WvpAssetRef } from "@/lib/wvp-settings";
+import {
+  resolveStepImageExtMapFromLocalDir,
+  resolveStepImageExtMapLocal,
+} from "@/lib/wvp-step-image-resolve";
+import { readdir } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import type { CourseComposition } from "@courseflow/core";
 
@@ -123,9 +131,9 @@ export async function materializeChapterFromCraft(
   projectAssets?: WvpAssetRef[],
 ): Promise<RegistryChapterEntry> {
   const chapter = resolveCompositionChapterForCraft(composition, craft);
-  const narrations =
-    craft.checklist_result?.narrations ??
-    (chapter ? narrationsForChapter(composition, chapter.id) : []);
+  const narrations = chapter
+    ? narrationsForChapter(composition, chapter.id)
+    : craft.checklist_result?.narrations ?? [];
   const aiPlan = craft.checklist_result?.aiPlan;
   const rawSource = craft.checklist_result?.chapterSource;
   const folderName = folderFromPresentationPath(
@@ -136,8 +144,16 @@ export async function materializeChapterFromCraft(
   const componentName = `Chapter${chapterComponentName(craft.wvp_chapter_id)}`;
 
   const assets = chapterAssetsForCodegen(projectAssets, craft.wvp_chapter_id);
+  const checklist = craft.checklist_result as
+    | {
+        appliedTemplate?: string;
+        chapterSource?: { templateKind?: string };
+      }
+    | undefined;
+  const forceTemplate = resolveCraftForceTemplate(checklist);
   const llmTsx = rawSource?.chapterTsx?.trim() ?? "";
-  if (
+  const useCachedLlmSource =
+    rawSource?.source === "llm" &&
     assets.length === 0 &&
     llmTsx &&
     validateChapterTsx(
@@ -146,8 +162,8 @@ export async function materializeChapterFromCraft(
       componentName,
       rawSource?.chapterCss ?? "",
       narrations,
-    )
-  ) {
+    );
+  if (useCachedLlmSource) {
     await writeChapterSourcesRaw(presentationDir, {
       folderName,
       componentName,
@@ -158,17 +174,48 @@ export async function materializeChapterFromCraft(
   } else {
     const stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
     const stepMotions = chapter
-      ? composition.steps
-          .filter((s) => s.chapterId === chapter.id && s.stepKind !== "chapter")
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((s) => {
-            const visual = composition.visuals.find((v) => v.stepId === s.id);
-            return {
-              enterAnimationId: visual?.enterAnimationId ?? "fade-up",
-              transitionId: visual?.transitionId ?? "crossfade",
-            };
-          })
+      ? orderedWvpStepsForChapter(composition, chapter.id).map((s) => {
+          const visual = composition.visuals.find((v) => v.stepId === s.id);
+          return {
+            enterAnimationId: visual?.enterAnimationId ?? "fade-up",
+            transitionId: visual?.transitionId ?? "crossfade",
+          };
+        })
       : [];
+    const projectIdFromPath = basename(dirname(presentationDir));
+    // 直接從 presentationDir 掃描，避免 presentationDirForProject 路徑重建不一致
+    const stepImageExtensionsFromDir: Record<number, string> = {};
+    try {
+      const imgDir = join(presentationDir, "public", "images", craft.wvp_chapter_id);
+      const names = await readdir(imgDir);
+      for (const name of names) {
+        const m = /^(\d{2})\.([a-z0-9]+)$/i.exec(name);
+        if (!m) continue;
+        const step = Number.parseInt(m[1]!, 10) - 1;
+        if (step >= 0) stepImageExtensionsFromDir[step] = m[2]!.toLowerCase();
+      }
+    } catch { /* 目錄不存在 */ }
+    const stepImageExtensions = {
+      ...(await resolveStepImageExtMapLocal(projectIdFromPath, craft)),
+      ...stepImageExtensionsFromDir,
+    };
+
+    // 掃描動畫目錄，找出哪些 step 有動畫 HTML 檔
+    const stepAnimationIndices: number[] = [];
+    try {
+      const animDir = join(presentationDir, "public", "animations", craft.wvp_chapter_id);
+      const animFiles = await readdir(animDir);
+      for (const name of animFiles) {
+        const m = /^(\d{2})\.html$/i.exec(name);
+        if (!m) continue;
+        const step = Number.parseInt(m[1]!, 10) - 1;
+        if (step >= 0) stepAnimationIndices.push(step);
+      }
+    } catch { /* 目錄不存在 */ }
+
+    const preferImageTemplate =
+      hasPackagedStepImagesForCraft(craft) ||
+      Object.keys(stepImageExtensions).length > 0;
     const written = await writeChapterToPresentation(presentationDir, {
       folderName,
       wvpChapterId: craft.wvp_chapter_id,
@@ -181,9 +228,12 @@ export async function materializeChapterFromCraft(
       chapterKind: chapter
         ? chapterKindForCraft(composition, chapter.id, craft.title, narrations, aiPlan)
         : undefined,
+      forceTemplate,
       assets: assets.length ? assets : undefined,
-      stepVisualConfigs,
+      stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,
       stepMotions,
+      stepImageExtensions,
+      stepAnimationIndices: stepAnimationIndices.length ? stepAnimationIndices : undefined,
     });
     if (
       written.narrations.length > 0 &&
@@ -242,9 +292,14 @@ export async function buildProjectPresentation(
   return buildPresentation(dir, { previewBase });
 }
 
-/** 打包預設不碰「視覺動效 / AI 配圖工作室」圖片；僅在 COURSEFLOW_PACK_ILLUSTRATIONS=1 時才同步 */
-function shouldSyncIllustrationsOnFullPack(): boolean {
-  return process.env.COURSEFLOW_PACK_ILLUSTRATIONS === "1";
+/** 打包配圖：預設 auto（沿用既有圖，缺圖時做內容感知決策）；=reuse 僅沿用；=1 重算；=0 略過 */
+function packIllustrationMode(): "skip" | "reuse" | "auto" | "regenerate" {
+  const v = process.env.COURSEFLOW_PACK_ILLUSTRATIONS?.trim();
+  if (v === "0") return "skip";
+  if (v === "reuse") return "reuse";
+  if (v === "auto" || !v) return "auto";
+  if (v === "1") return "regenerate";
+  return "auto";
 }
 
 function requiresDistInStorage(): boolean {
@@ -252,6 +307,74 @@ function requiresDistInStorage(): boolean {
     !!process.env.COURSEFLOW_PRESENTATION_ROOT?.trim() ||
     process.env.RENDER === "true" ||
     shouldAsyncWvpBuild()
+  );
+}
+
+const WVP_TEMPLATE_KINDS = new Set<string>([
+  "list-reveal",
+  "flow",
+  "hook",
+  "magazine",
+]);
+
+function resolveCraftForceTemplate(
+  checklist:
+    | { appliedTemplate?: string; chapterSource?: { templateKind?: string } }
+    | undefined,
+): WvpChapterKind | undefined {
+  const applied = checklist?.appliedTemplate?.trim();
+  if (applied && WVP_TEMPLATE_KINDS.has(applied as WvpChapterKind)) {
+    return applied as WvpChapterKind;
+  }
+  const kind = checklist?.chapterSource?.templateKind?.trim();
+  if (kind && kind !== "visual-mix" && WVP_TEMPLATE_KINDS.has(kind as WvpChapterKind)) {
+    return kind as WvpChapterKind;
+  }
+  return undefined;
+}
+
+function hasPackagedStepImagesForCraft(craft: CraftRow): boolean {
+  const raw = (craft.checklist_result as { stepIllustrations?: unknown } | undefined)
+    ?.stepIllustrations;
+  if (!Array.isArray(raw)) return false;
+  return raw.some(
+    (s) =>
+      s &&
+      typeof s === "object" &&
+      ((s as { imageWritten?: boolean; status?: string }).imageWritten === true ||
+        (s as { status?: string }).status === "done"),
+  );
+}
+
+const STEP_IMAGE_FILE_RE = /^\d{2}\.(jpe?g|png|gif|bmp)$/i;
+
+async function chapterIllustrationFilesOnDisk(
+  projectId: string,
+  wvpChapterId: string,
+): Promise<boolean> {
+  const dir = join(
+    presentationDirForProject(projectId),
+    "public",
+    "images",
+    wvpChapterId,
+  );
+  try {
+    const names = await readdir(dir);
+    return names.some((n) => STEP_IMAGE_FILE_RE.test(n));
+  } catch {
+    return false;
+  }
+}
+
+function stepIllustrationsMarkedDone(craft: CraftRow): boolean {
+  const raw = (craft.checklist_result as { stepIllustrations?: unknown } | undefined)
+    ?.stepIllustrations;
+  if (!Array.isArray(raw)) return false;
+  return raw.some(
+    (s) =>
+      s &&
+      typeof s === "object" &&
+      (s as { imageWritten?: boolean; status?: string }).imageWritten === true,
   );
 }
 
@@ -294,6 +417,36 @@ export async function buildAnchorChapterPreview(
     "midnight-press";
 
   const presentationDir = await ensurePresentationScaffolded(projectId, themeId);
+
+  await syncCheckpointAssetsToPresentation(projectId, wvpSettings.assets);
+
+  let illustrationSyncWarning: string | undefined;
+  if (packIllustrationMode() !== "skip") {
+    const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+    const illus = await syncPresentationIllustrations(
+      supabase,
+      userId,
+      projectId,
+      project.title ?? "Course",
+      composition,
+      [first] as Parameters<typeof syncPresentationIllustrations>[5],
+      wvpSettings.assets,
+      styleFragment,
+      themeId,
+      craftPackIllustrationOpts,
+    );
+    const hasLocalImages = await chapterIllustrationFilesOnDisk(
+      projectId,
+      first.wvp_chapter_id,
+    );
+    const studioMarkedDone = stepIllustrationsMarkedDone(first);
+    if (illus.written + illus.reusedExisting === 0 && !hasLocalImages) {
+      illustrationSyncWarning = studioMarkedDone
+        ? "配圖無法寫入預覽目錄，請在「視覺動效」重新上傳或生圖後再試執行。"
+        : "試跑未找到已完成的配圖；請先在「視覺動效」生圖或上傳。";
+    }
+  }
+
   const entries = await rebuildRegistryForProject(
     presentationDir,
     [first],
@@ -303,11 +456,6 @@ export async function buildAnchorChapterPreview(
   if (entries.length === 0) {
     throw new Error("第 1 章尚無口播步驟，請先在「文稿內容」完成大綱");
   }
-
-  await syncCheckpointAssetsToPresentation(projectId, wvpSettings.assets);
-
-  const illustrationSyncWarning =
-    "試跑僅打包畫面程式；配圖請在「AI 配圖工作室」確認提示詞後生圖。";
 
   const base = `/projects/${projectId}/wvp-embed/`;
   await buildProjectPresentation(projectId, base);
@@ -413,8 +561,13 @@ export async function syncFullWvpProject(
       audioSyncWarning = `僅寫入 ${audioSync.written}/${audioSync.expectedSteps} 段語音；部分步驟將無聲或依字數估算自動換頁。`;
     }
 
-    if (shouldSyncIllustrationsOnFullPack()) {
+    const illusMode = packIllustrationMode();
+    if (illusMode !== "skip") {
       const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+      const syncOpts =
+        illusMode === "regenerate"
+          ? { skipVisualDirector: false, reuseExistingFiles: false }
+          : craftPackIllustrationOpts;
       const illus = await syncPresentationIllustrations(
         supabase,
         userId,
@@ -425,14 +578,21 @@ export async function syncFullWvpProject(
         wvpSettings.assets,
         styleFragment,
         themeId,
-        {
-          // 正式打包啟用 Visual Director，讓配圖依文字語意做內容感知重算。
-          skipVisualDirector: false,
-          // 不沿用舊圖，避免先前較弱提示詞生成的圖持續被快取。
-          reuseExistingFiles: false,
-        },
+        syncOpts,
       );
-      if (illus.skippedNoKey && illus.attempted > 0) {
+      if (illusMode === "reuse") {
+        const packed = illus.written + illus.reusedExisting;
+        if (packed === 0) {
+          illustrationSyncWarning =
+            "未找到配圖工作室已完成的圖片；請先在「視覺動效」完成 AI 生圖或上傳後再打包。";
+        }
+      } else if (illusMode === "auto") {
+        const packed = illus.written + illus.reusedExisting;
+        if (packed === 0 && illus.directorSkipped === 0 && illus.attempted === 0) {
+          illustrationSyncWarning =
+            "本次建置未產生任何步驟配圖；該章可能改走內容感知動畫/圖表，或尚未具備可生成圖片的步驟。";
+        }
+      } else if (illus.skippedNoKey && illus.attempted > 0) {
         illustrationSyncWarning =
           "清單章節需 AI 配圖：請在設定頁填寫 OpenAI 或 OpenRouter API Key 後重新建置。";
       } else if (illus.attempted > 0 && illus.written === 0) {
@@ -440,9 +600,13 @@ export async function syncFullWvpProject(
       } else if (illus.written > 0 && illus.written < illus.attempted) {
         illustrationSyncWarning = `已生成 ${illus.written}/${illus.attempted} 張配圖，其餘卡片僅顯示標題。`;
       }
-    } else {
-      illustrationSyncWarning =
-        "打包未使用「視覺動效」上傳或 AI 生圖；配圖請在該階段完成後直接預覽，勿依賴打包重算。";
+
+      await rebuildRegistryForProject(
+        presentationDir,
+        (crafts ?? []) as CraftRow[],
+        composition,
+        wvpSettings.assets,
+      );
     }
 
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;

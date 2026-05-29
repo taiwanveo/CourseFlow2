@@ -1,0 +1,28 @@
+{
+  "id": "blueprint",
+  "name": "Blueprint",
+  "nameZh": "藍圖",
+  "description": "Deep navy backdrop with cyan accent and IBM Plex Mono. Engineering blueprint / industrial schematic vibe — best for system architecture and technical breakdowns.",
+  "descriptionZh": "深藏青底 + 青色強調色 + IBM Plex Mono. 工程藍圖 / 工業圖紙氣質, 適合系統架構與技術拆解.",
+  "mood": [
+    "dark",
+    "engineering",
+    "blueprint",
+    "industrial",
+    "technical",
+    "navy"
+  ],
+  "bestFor": [
+    "技術架構",
+    "系統拆解",
+    "技術評測",
+    "工程教程",
+    "API / SDK 介紹"
+  ],
+  "preview": {
+    "shell": "#0a121f",
+    "surface": "#0e1830",
+    "text": "#e6f0ff",
+    "accent": "#5fc7e8"
+  }
+}
