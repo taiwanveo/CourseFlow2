@@ -40,6 +40,8 @@ import {
   resolveStepImageExtMapFromLocalDir,
   resolveStepImageExtMapLocal,
 } from "@/lib/wvp-step-image-resolve";
+import { syncChapterIllustrationToStepImages } from "@/lib/wvp-craft-illustrations";
+import { makeDefaultStepMotions } from "@/lib/wvp-motion-utils";
 import {
   generateStepVisualConfigsForChapter,
   type StepVisualDecision,
@@ -145,6 +147,7 @@ export async function generateChapterCraft(
     anchorProfile?: WvpAnchorProfile;
     forceTemplate?: WvpChapterKind;
     assets?: WvpAssetRef[];
+    userId?: string;
   },
 ): Promise<{
   ok: boolean;
@@ -282,6 +285,16 @@ export async function generateChapterCraft(
         });
         stepVisualConfigs = visualDecisionResult.configs;
         stepVisualDecisions = visualDecisionResult.decisions;
+        // 若章節有「整章配圖」，先同步為各步驟本機圖片，讓 resolveStepImageExtMapFromLocalDir 可掃到
+        if (opts.userId) {
+          await syncChapterIllustrationToStepImages(
+            supabase,
+            opts.userId,
+            projectId,
+            craft,
+            opts.narrations.length,
+          );
+        }
         const stepImageExtensions = {
           ...(await resolveStepImageExtMapLocal(projectId, craft)),
           ...(await resolveStepImageExtMapFromLocalDir(projectId, wvpChapterId)),
@@ -302,6 +315,7 @@ export async function generateChapterCraft(
           assets: chapterAssets.length ? chapterAssets : undefined,
           stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,
           stepImageExtensions,
+          stepMotions: makeDefaultStepMotions(opts.narrations.length),
         });
         chapterSource = {
           chapterTsx: gen.tsx,
@@ -432,6 +446,7 @@ export async function applyChapterTemplate(
     screenContents,
     forceTemplate: template,
     assets: chapterAssets.length ? chapterAssets : undefined,
+    stepMotions: makeDefaultStepMotions(narrations.length),
   });
   const outNarrations =
     "narrations" in gen && Array.isArray(gen.narrations) ? gen.narrations : narrations;
@@ -536,7 +551,7 @@ export async function runAnchorChapterTrial(
     };
   }
 
-  const composition = await loadProjectComposition(supabase, projectId);
+  const composition = await loadProjectComposition(supabase, projectId, { forceFresh: true });
   if (!composition) {
     return {
       ok: false,
@@ -614,6 +629,7 @@ export async function runAnchorChapterTrial(
     narrations,
     assets: wvpSettings.assets,
     forceTemplate: template,
+    userId,
   });
 
   if (!gen.ok) {
@@ -735,6 +751,7 @@ export async function batchCraftAllChapters(
       narrations: sync.narrations,
       anchorProfile: row.sort_order !== firstSort ? anchorProfile : undefined,
       assets: wvpSettings.assets,
+      userId,
     });
     entry.generated = gen.ok;
     entry.chapterSource = gen.chapterSource;

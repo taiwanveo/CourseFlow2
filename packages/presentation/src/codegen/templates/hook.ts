@@ -1,5 +1,5 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
-import { chapterComponentName } from "../chapter-types.js";
+import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import {
   assetsForChapter,
   buildHookSlides,
@@ -52,7 +52,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
   return (
     <HookImageStrip
       step={step}
-      chapterTitle={${JSON.stringify(input.title)}}
+      chapterTitle={${JSON.stringify(deriveChapterKicker(input.wvpChapterId))}}
       introKicker={${JSON.stringify(introKicker)}}
       slides={[...SLIDES]}
       takeoverTitle={${JSON.stringify(takeover)}}

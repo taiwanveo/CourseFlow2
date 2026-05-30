@@ -1,3 +1,4 @@
+/* ══ HookImageStrip 版型根容器 ══ 封面圖片套、图片網格 */
 .hk-scene {
   color: var(--text);
   display: flex;
@@ -6,6 +7,7 @@
   height: 100%;
 }
 
+/* ══ 章節標籤橫列 ══ accent 色 mono 字體，含左側短線 */
 .hk-kicker {
   display: flex;
   align-items: center;
@@ -23,12 +25,14 @@
   background: var(--accent);
 }
 
+/* ══ 圖片格 3 欄網格 ══ 各格為 16:9 號位圖框 */
 .hk-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-5);
   align-items: center;
 }
+/* ══ 16:9 號位圖框 ══ 號線邊框，願示序號 + 說明文字 */
 .hk-ghost {
   aspect-ratio: 16 / 9;
   border: var(--rule-w) dashed var(--rule);
@@ -52,6 +56,7 @@
   align-self: end;
 }
 
+/* ══ 單圖全寬展示區 ══ 单彜圖片次局属，寬 78% */
 .hk-solo-frame {
   width: 78%;
   margin: 0 auto;

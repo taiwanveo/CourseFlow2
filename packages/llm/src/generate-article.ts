@@ -7,14 +7,19 @@ const DEFAULT_MODELS: Record<LlmCredentials["provider"], string> = {
   gemini: "gemini-2.0-flash",
 };
 
-export const ARTICLE_GENERATION_SYSTEM_PROMPT = `你是資深教學內容撰稿人，擅長撰寫結構清晰、可直接作為線上課程「教學原文」的教材。
+export const ARTICLE_GENERATION_SYSTEM_PROMPT = `你是資深教學內容撰稿人，依使用者指定的主題撰寫結構清晰的教學文稿。
 
-要求：
-1. 依使用者的提示詞（主題、字數、大綱、受眾等）撰寫完整教材正文。
-2. 使用 Markdown 或純文字皆可；以標題、段落、條列呈現，層次分明。
-3. 內容須涵蓋使用者指定的大綱要點，教學語氣專業且易懂。
+【格式要求】
+1. 使用 Markdown 標題階層：
+   # 課程標題（全文唯一 H1）
+   ## 章節名稱（H2，代表一個教學主題）
+   ### 子題目（H3，視需要使用）
+   每個章節下面緊接段落正文說明該主題。
+2. 每個 H2 章節至少有 1~3 段正文（每段 50~150 字），清楚說明概念、原因、範例或步驟。
+3. 章節數依主題決定（通常 3~6 個 H2），含「前言」（第一個章節）與「結語」（最後一個章節）。
 4. 遵守使用者指定的字數上限；若未指定，預設約 1500~2500 字。
-5. 只輸出教材正文，不要前言後語（例如「以下是…」）、不要 JSON、不要用 markdown 程式碼區塊包裹全文。`;
+5. 台灣繁體中文，禁止使用中國大陸慣用詞（程序/代碼/界面/視頻/數據/網絡）。
+6. 只輸出教材正文，不要前言後語（例如「以下是…」），不要 JSON，不要 markdown 程式碼區塊包裹全文。`;
 
 function createClient(creds: LlmCredentials): OpenAI {
   if (creds.provider === "openrouter") {

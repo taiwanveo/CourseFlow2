@@ -1,6 +1,6 @@
-// ⚠️ 这是 anchor 参考代码，不会被任何项目编译。
-//    抄到真实项目时（presentation/src/chapters/NN-list/），
-//    把下面两个 import 改成：
+// ⚠️ 這是 anchor 參考程式碼，不會被任何專案編譯。
+//    抄到真實專案時（presentation/src/chapters/NN-list/），
+//    把下面兩個 import 改成：
 //      import { MaskReveal } from "../../components/MaskReveal";
 //      import type { ChapterStepProps } from "../../registry/types";
 import { MaskReveal } from "../../../templates/src/components/MaskReveal";
@@ -8,22 +8,22 @@ import type { ChapterStepProps } from "../../../templates/src/registry/types";
 import "./chapter.css";
 
 /**
- * list-reveal · 完整章节示例
+ * list-reveal · 完整章節示例
  * ─────────────────────────────────────────
- * 默认绑 newsroom 主题。
+ * 預設綁 newsroom 主題。
  *
- * 关键手段：
- * - 槽位用 hero-num（serif 巨号）替代普通文字编号
- * - 引子用 masthead 双线规则 + serif 大字
- * - 槽位状态切换有专属动画：
- *     ghost  → active：mask reveal 标题 + 数字砸下（accent 红）
+ * 關鍵手段：
+ * - 槽位用 hero-num（serif 巨號）替代普通文字編號
+ * - 引子用 masthead 雙線規則 + serif 大字
+ * - 槽位狀態切換有專屬動畫：
+ *     ghost  → active：mask reveal 標題 + 數字砸下（accent 紅）
  *     active → past   ：accent 灰化（filter）
- * - 关键：所有槽位的 React 节点位置不重排，只切换 className
+ * - 關鍵：所有槽位的 React 節點位置不重排，只切換 className
  */
 const ITEMS = [
-  { num: "01", title: "文字渲染", body: "图里的文字也能正确写出来" },
-  { num: "02", title: "指令遵循", body: "可以给到非常具体的要求" },
-  { num: "03", title: "照片真实感", body: "光影 / 材质 / 人物接近真实" },
+  { num: "01", title: "文字渲染", body: "圖裡的文字也能正確寫出來" },
+  { num: "02", title: "指令遵循", body: "可以給到非常具體的要求" },
+  { num: "03", title: "照片真實感", body: "光影 / 材質 / 人物接近真實" },
 ];
 
 export default function ListRevealChapter({ step }: ChapterStepProps) {
@@ -38,11 +38,11 @@ export default function ListRevealChapter({ step }: ChapterStepProps) {
         </header>
         <MaskReveal show duration={1100}>
           <h1 className="lr-intro-h">
-            强在<span className="lr-em">哪</span>
+            強在<span className="lr-em">哪</span>
           </h1>
         </MaskReveal>
         <MaskReveal show delay={400} duration={900}>
-          <div className="lr-intro-sub">三件事 —— 一个个看</div>
+          <div className="lr-intro-sub">三件事 —— 一個個看</div>
         </MaskReveal>
 
         <div className="lr-grid">
@@ -59,7 +59,7 @@ export default function ListRevealChapter({ step }: ChapterStepProps) {
     <div className="lr-scene scene-pad">
       <header className="lr-masthead">
         <span className="lr-rule" />
-        <span className="lr-kicker">第一部分 · 强在哪</span>
+        <span className="lr-kicker">第一部分 · 強在哪</span>
         <span className="lr-rule" />
       </header>
 

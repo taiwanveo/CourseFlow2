@@ -4,14 +4,14 @@
  * All durations / easings come from the active theme's tokens.
  * ───────────────────────────────────────────────────────────────────── */
 
-/* MaskReveal — clip-path text wipe (left → right) */
+/* ══ 左→右文字撦除進入 ══ clip-path wipe，需加 .in class 觸發 */
 .mask-reveal {
   clip-path: inset(0 100% 0 0);
   transition: clip-path 700ms var(--ease-quart);
 }
 .mask-reveal.in { clip-path: inset(0 0 0 0); }
 
-/* Hairline rule grow — scaleX from 0 → 1, transform-origin: left */
+/* ══ 分隔線從左展開 ══ scaleX 0→1，需加 .in class 觸發 */
 .rule-grow {
   transform: scaleX(0);
   transform-origin: left;
@@ -61,3 +61,60 @@
 @keyframes letter-rise {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+/* ─── Scene enter animations (cf-enter-*) ─────────────────────── */
+@keyframes cf-fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cf-scale-in {
+  0%   { opacity: 0; transform: scale(0.92); }
+  60%  { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes cf-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.cf-enter-fade-up   { animation: cf-fade-up  var(--dur-slow, 600ms) var(--ease-expo, cubic-bezier(0.16,1,0.3,1)) both; }
+.cf-enter-scale-in  { animation: cf-scale-in var(--dur-slow, 600ms) var(--ease-expo, cubic-bezier(0.16,1,0.3,1)) both; }
+.cf-enter-fade-in   { animation: cf-fade-in  var(--dur-base, 400ms) var(--ease-quart, cubic-bezier(0.25,1,0.5,1)) both; }
+.cf-enter-crossfade { animation: cf-fade-in  var(--dur-base, 400ms) var(--ease-quart, cubic-bezier(0.25,1,0.5,1)) both; }
+
+/* ─── Extended scene enter animations ─────────────────────────────── */
+@keyframes cf-slide-left {
+  from { opacity: 0; transform: translateX(-44px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes cf-slide-right {
+  from { opacity: 0; transform: translateX(44px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes cf-blur-in {
+  from { opacity: 0; filter: blur(10px) saturate(0.4); }
+  to   { opacity: 1; filter: blur(0)    saturate(1); }
+}
+@keyframes cf-wipe-up {
+  from { clip-path: inset(100% 0 0 0); }
+  to   { clip-path: inset(0    0 0 0); }
+}
+@keyframes cf-drop-in {
+  from { opacity: 0; transform: translateY(-36px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cf-overshoot {
+  0%   { opacity: 0; transform: scale(0.82); }
+  65%  { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes cf-rise-soft {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.cf-enter-slide-left  { animation: cf-slide-left  var(--dur-slow, 600ms) var(--ease-expo,      cubic-bezier(0.16,1,0.3,1))    both; }
+.cf-enter-slide-right { animation: cf-slide-right var(--dur-slow, 600ms) var(--ease-expo,      cubic-bezier(0.16,1,0.3,1))    both; }
+.cf-enter-blur-in     { animation: cf-blur-in     var(--dur-slow, 700ms) var(--ease-quart,     cubic-bezier(0.25,1,0.5,1))    both; }
+.cf-enter-wipe-up     { animation: cf-wipe-up     var(--dur-slow, 700ms) var(--ease-expo,      cubic-bezier(0.16,1,0.3,1))    both; }
+.cf-enter-drop-in     { animation: cf-drop-in     var(--dur-slow, 600ms) var(--ease-expo,      cubic-bezier(0.16,1,0.3,1))    both; }
+.cf-enter-overshoot   { animation: cf-overshoot   var(--dur-slow, 800ms) var(--ease-overshoot, cubic-bezier(0.34,1.56,0.64,1)) both; }
+.cf-enter-rise-soft   { animation: cf-rise-soft   var(--dur-base, 500ms) var(--ease-soft,      cubic-bezier(0.4,0,0.1,1))     both; }

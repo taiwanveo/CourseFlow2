@@ -14,11 +14,12 @@ import {
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { syncPresentationAudioFromComposition } from "@/lib/wvp-audio-sync";
 import { syncPresentationIllustrations } from "@/lib/wvp-illustration-sync";
-import { craftPackIllustrationOpts } from "@/lib/wvp-craft-illustrations";
+import { craftPackIllustrationOpts, syncChapterIllustrationToStepImages } from "@/lib/wvp-craft-illustrations";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
+import { pickEnterAnimation } from "@/lib/wvp-motion-utils";
 import {
   chapterKindForCraft,
   resolveCompositionChapterForCraft,
@@ -152,10 +153,19 @@ export async function materializeChapterFromCraft(
     | undefined;
   const forceTemplate = resolveCraftForceTemplate(checklist);
   const llmTsx = rawSource?.chapterTsx?.trim() ?? "";
+  // 比對目前 screenContents 與 LLM TSX 快取：若使用者在「文稿內容」階段修改了
+  // 螢幕內容，快取的 TSX 會有過期的硬編碼文字，需重新從模板產生。
+  const currentScreenContents = chapter ? screenContentsForChapter(composition, chapter.id) : [];
+  const llmCacheScreenContentsStale =
+    llmTsx &&
+    currentScreenContents
+      .filter((sc) => sc && sc !== "重點" && sc.length > 3)
+      .some((sc) => !llmTsx.includes(sc));
   const useCachedLlmSource =
     rawSource?.source === "llm" &&
     assets.length === 0 &&
     llmTsx &&
+    !llmCacheScreenContentsStale &&
     validateChapterTsx(
       llmTsx,
       narrations.length,
@@ -174,10 +184,10 @@ export async function materializeChapterFromCraft(
   } else {
     const stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
     const stepMotions = chapter
-      ? orderedWvpStepsForChapter(composition, chapter.id).map((s) => {
+      ? orderedWvpStepsForChapter(composition, chapter.id).map((s, stepIndex) => {
           const visual = composition.visuals.find((v) => v.stepId === s.id);
           return {
-            enterAnimationId: visual?.enterAnimationId ?? "fade-up",
+            enterAnimationId: visual?.enterAnimationId ?? pickEnterAnimation(stepIndex),
             transitionId: visual?.transitionId ?? "crossfade",
           };
         })
@@ -224,7 +234,7 @@ export async function materializeChapterFromCraft(
       visualIdeas: aiPlan?.visualIdeas,
       stepBeats: aiPlan?.stepBeats,
       stepVisuals: (aiPlan?.stepVisuals as { step: number; vizType?: string }[]) ?? undefined,
-      screenContents: chapter ? screenContentsForChapter(composition, chapter.id) : [],
+      screenContents: chapter ? currentScreenContents : [],
       chapterKind: chapter
         ? chapterKindForCraft(composition, chapter.id, craft.title, narrations, aiPlan)
         : undefined,
@@ -422,7 +432,7 @@ export async function buildAnchorChapterPreview(
 
   let illustrationSyncWarning: string | undefined;
   if (packIllustrationMode() !== "skip") {
-    const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+    const styleFragment = await resolveImageStyleFragment(wvpSettings.imageStyle, themeId);
     const illus = await syncPresentationIllustrations(
       supabase,
       userId,
@@ -561,9 +571,30 @@ export async function syncFullWvpProject(
       audioSyncWarning = `僅寫入 ${audioSync.written}/${audioSync.expectedSteps} 段語音；部分步驟將無聲或依字數估算自動換頁。`;
     }
 
+    // 先把「章節配圖」（整章一張圖）複製成各步驟本機圖片，
+    // 讓後續 syncPresentationIllustrations 的 reuseExistingFiles 路徑能掃到
+    for (const craft of (crafts ?? []) as CraftRow[]) {
+      const cr = craft.checklist_result as { chapterIllustration?: { visualMode?: string } } | null;
+      if (cr?.chapterIllustration?.visualMode && cr.chapterIllustration.visualMode !== "animation") {
+        const chapter2 = resolveCompositionChapterForCraft(composition, craft);
+        const narrationCount = chapter2 ? narrationsForChapter(composition, chapter2.id).length : 0;
+        if (narrationCount > 0) {
+          await syncChapterIllustrationToStepImages(
+            supabase,
+            userId,
+            projectId,
+            craft,
+            narrationCount,
+          ).catch((e) =>
+            console.warn(`[wvp-build] chapter illustration sync failed for ${craft.wvp_chapter_id}:`, e),
+          );
+        }
+      }
+    }
+
     const illusMode = packIllustrationMode();
     if (illusMode !== "skip") {
-      const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+      const styleFragment = await resolveImageStyleFragment(wvpSettings.imageStyle, themeId);
       const syncOpts =
         illusMode === "regenerate"
           ? { skipVisualDirector: false, reuseExistingFiles: false }

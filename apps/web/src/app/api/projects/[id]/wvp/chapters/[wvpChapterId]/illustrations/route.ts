@@ -2,13 +2,12 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertWvpPhaseEditable } from "@courseflow/core";
-import { loadProjectComposition } from "@/lib/project-composition";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { parseWvpSettings } from "@/lib/wvp-settings";
 import {
-  getChapterIllustrationsState,
-  patchChapterIllustrationPrompts,
+  getChapterIllustrationEntryState,
+  patchChapterIllustrationEntry,
 } from "@/lib/wvp-craft-illustrations";
 
 export const runtime = "nodejs";
@@ -45,7 +44,7 @@ async function loadCraft(
   return { craft, project };
 }
 
-/** 取得本章配圖提示詞／狀態 */
+/** 取得本章配圖狀態（ChapterIllustrationEntry） */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
@@ -60,22 +59,16 @@ export async function GET(
   const loaded = await loadCraft(supabase, id, user.id, wvpChapterId);
   if ("error" in loaded && loaded.error) return loaded.error;
 
-  const composition = await loadProjectComposition(supabase, id);
-  if (!composition) {
-    return NextResponse.json({ error: "無法載入專案內容" }, { status: 400 });
-  }
-
-  const state = await getChapterIllustrationsState(
+  const entry = await getChapterIllustrationEntryState(
     supabase,
     user.id,
     id,
     loaded.craft!,
-    composition,
   );
-  return NextResponse.json({ ok: true, ...state });
+  return NextResponse.json({ ok: true, wvpChapterId, chapterIllustration: entry });
 }
 
-/** 更新提示詞或標記已確認 */
+/** 更新章節配圖設定（visualMode / promptForApi / confirm） */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
@@ -91,48 +84,21 @@ export async function PATCH(
   if ("error" in loaded && loaded.error) return loaded.error;
 
   const body = (await req.json()) as {
-    patches?: Array<{
-      stepIndex: number;
-      promptForApi?: string;
-      confirm?: boolean;
-      needsImage?: boolean;
-      imageSource?: "ai" | "upload" | "animation";
-      batchSelected?: boolean;
-      animationHtml?: string | null;
-    }>;
+    visualMode?: "animation" | "ai-image" | "upload";
+    promptForApi?: string;
+    confirm?: boolean;
   };
-  if (!body.patches?.length) {
-    return NextResponse.json({ error: "缺少 patches" }, { status: 400 });
-  }
 
-  await patchChapterIllustrationPrompts(
+  const entry = await patchChapterIllustrationEntry(
     supabase,
     id,
     loaded.craft!,
-    body.patches,
+    {
+      ...(body.visualMode !== undefined ? { visualMode: body.visualMode } : {}),
+      ...(body.promptForApi !== undefined ? { promptForApi: body.promptForApi } : {}),
+      ...(body.confirm !== undefined ? { confirm: body.confirm } as Record<string, unknown> : {}),
+    },
   );
-
-  const { data: updatedCraft } = await supabase
-    .from("chapter_craft")
-    .select("*")
-    .eq("project_id", id)
-    .eq("wvp_chapter_id", wvpChapterId)
-    .single();
-  if (!updatedCraft) {
-    return NextResponse.json({ error: "章節不存在" }, { status: 404 });
-  }
-
-  const composition = await loadProjectComposition(supabase, id);
-  if (!composition) {
-    return NextResponse.json({ error: "無法載入專案內容" }, { status: 400 });
-  }
-
-  const fullState = await getChapterIllustrationsState(
-    supabase,
-    user.id,
-    id,
-    updatedCraft,
-    composition,
-  );
-  return NextResponse.json({ ok: true, ...fullState });
+  return NextResponse.json({ ok: true, wvpChapterId, chapterIllustration: entry });
 }
+

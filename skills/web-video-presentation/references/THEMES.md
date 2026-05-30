@@ -1,82 +1,81 @@
-# 主题系统
+# 主題系統
 
-每个演示从头到尾跑**一个主题**。我们**不**在章节间翻转明暗 —— 那会
-打断视频的视觉连贯性，录屏时看起来像很硬的剪辑。如果想要"暗一点的氛围"
-段落，请在**同一调色板内**降对比、收聚光，而不是翻转表面色。
+每個演示從頭到尾跑**一個主題**。我們**不**在章節間翻轉明暗 —— 那會
+打斷影片的視覺連貫性，錄屏時看起來像很硬的剪輯。如果想要"暗一點的氛圍"
+段落，請在**同一調色盤內**降對比、收聚光，而不是翻轉表面色。
 
-主题 = 一组 CSS 设计 token + 一个 `theme.json` 元数据。
+主題 = 一組 CSS 設計 token + 一個 `theme.json` 後設資料。
 
-**章节对 token 的消费分两层**：
+**章節對 token 的消費分兩層**：
 
-1. **必须用 token 的**（换主题不破的底线）—— 颜色 + 字体家族
-2. **章节自由发挥的**（按内容设计）—— 字号 / 间距 / 动画时长 / 缓动 /
-   边框宽度 / 一般圆角 / 字距等都可硬编码
+1. **必須用 token 的**（換主題不破的底線）—— 顏色 + 字型家族
+2. **章節自由發揮的**（按內容設計）—— 字號 / 間距 / 動畫時長 / 緩動 /
+   邊框寬度 / 一般圓角 / 字距等都可硬編碼
 
-主题**不只管**颜色和字体，但其他维度（hero 数字、分割线、卡片、舞台
-装饰）通过 **primitive class**（`.hero-num` / `.rule` / `.card` /
-`.stage-frame`）自动接入，章节用 class 即可，不需要手动 `var()`。
+主題**不只管**顏色和字型，但其他維度（hero 數字、分割線、卡片、舞臺
+裝飾）透過 **primitive class**（`.hero-num` / `.rule` / `.card` /
+`.stage-frame`）自動接入，章節用 class 即可，不需要手動 `var()`。
 
-主题管的维度：
+主題管的維度：
 
-| 维度                       | 主题怎么管                                                        |
+| 維度                       | 主題怎麼管                                                        |
 | -------------------------- | ----------------------------------------------------------------- |
-| **调色板**                 | shell / surface 阶梯、text 阶梯、accent + 透明度衍生              |
-| **字型**                   | 中文 / 英文 / body / 等宽家族 + OpenType 特性集                     |
-| **舞台 padding 密度**      | `--stage-pad-x/y` —— 精炼主题 140×100，密集主题 80×60              |
-| **圆角性格**               | `--r-card` —— sharp (0) / refined (4) / soft (16) / keynote (32)  |
-| **分割线性格**             | `--rule-w` + `--rule-style` —— 细/粗 × 实/虚                       |
-| **hero 数字风格**          | `--hero-num-*` —— 编辑级斜体 / 终端等宽 / 粗黑 / 手写              |
-| **舞台 / 卡片阴影**        | `--shadow-stage` / `--card-shadow` —— 纸浮 / 偏移实色 / 内阴影     |
-| **装饰层**                 | `--surface-pattern*` / `--surface-vignette` / `--text-shadow`     |
-| **动效基线**               | `theme.json` 的 `mood` —— 电影感慢 / 弹簧 / 利落 / 安静            |
+| **調色盤**                 | shell / surface 階梯、text 階梯、accent + 透明度衍生              |
+| **字型**                   | 中文 / 英文 / body / 等寬家族 + OpenType 特性集                     |
+| **舞臺 padding 密度**      | `--stage-pad-x/y` —— 精煉主題 140×100，密集主題 80×60              |
+| **圓角性格**               | `--r-card` —— sharp (0) / refined (4) / soft (16) / keynote (32)  |
+| **分割線性格**             | `--rule-w` + `--rule-style` —— 細/粗 × 實/虛                       |
+| **hero 數字風格**          | `--hero-num-*` —— 編輯級斜體 / 終端等寬 / 粗黑 / 手寫              |
+| **舞臺 / 卡片陰影**        | `--shadow-stage` / `--card-shadow` —— 紙浮 / 偏移實色 / 內陰影     |
+| **裝飾層**                 | `--surface-pattern*` / `--surface-vignette` / `--text-shadow`     |
+| **動效基線**               | `theme.json` 的 `mood` —— 電影感慢 / 彈簧 / 利落 / 安靜            |
 
-> **`mood` 不写时长数值**。具体 ms / 缓动由 chapter agent 看 `mood`
-> 自己拍板（慢主题别写 200ms 快动画，仅此而已）。
+> **`mood` 不寫時長數值**。具體 ms / 緩動由 chapter agent 看 `mood`
+> 自己拍板（慢主題別寫 200ms 快動畫，僅此而已）。
 
-每个主题约 25~35 个 token。完整契约见下方。
+每個主題約 25~35 個 token。完整契約見下方。
 
 ---
 
-## 内置主题
+## 內建主題
 
-23 套主题，每个都有**独立的设计 DNA** —— 不是简单的换色版。挑一个
-匹配你主题情绪的，或者作为你自己主题的起点。
+23 套主題，每個都有**獨立的設計 DNA** —— 不是簡單的換色版。挑一個
+匹配你主題情緒的，或者作為你自己主題的起點。
 
-### 深色主题
+### 深色主題
 
 | id                | 性格                                                                                                                                                                                                            |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `midnight-press`  | 电影感编辑级深色。暖色 espresso（不是纯黑）+ 火热橙。Instrument Serif italic 英文 vs Noto Serif SC 中文。hero 数字：斜体衬线。慢速电影感节奏（1.6s 揭示）。140×100 padding。只有 vignette，没有颗粒。            |
-| `chalk-garden`    | 深石板黑板。Patrick Hand 全场手写，粉笔黄 accent。**2px 虚线 rule** 是签名。film grain（overlay）+ vignette。衬线带 chalk text-shadow。手绘节奏。                                                                |
-| `terminal-green`  | 80 年代磷光终端。纯黑 + JetBrains Mono only + 0px 直角。**CRT 扫描线**贴在舞台上。文字带磷光 text-shadow。利落线性动效（180/400/650ms）。hero 数字：等宽带发光。                                                  |
-| `blueprint`       | 工程蓝图。深海军蓝 + 绘图青 + IBM Plex Mono。**2px 虚线青色 rule + 60px 制图网格**是签名。hero 数字：等宽青色。等宽配对营造技术 / 蓝图感。                                                                       |
-| `dark-botanical`  | 高级感编辑暗底 —— 时尚刊物 / 博物馆图录。近黑 + 暖陶 / 玫粉 / 鎏金叠层。Cormorant italic + IBM Plex Sans。**柔光晕染（blurred light pool）作为签名**。慢速电影感节奏（1.7s）。140×100 padding。              |
-| `neon-cyber`      | 赛博朋克未来派。深海军底 + 电光青 + 玫红双霓虹。Clash Display + Satoshi。**青色发光网格 + 双色霓虹描边（cyan + magenta text-shadow）**是签名。snappy 节奏（380/650ms）。                                       |
-| `bold-signal`     | hero pitch-deck 暗底。Archivo Black + Space Grotesk。大橙色焦点色卡 + 制表数编号。**对角线深色渐变 + 大字标语**是签名。punchy 节奏（420/680ms）。                                                                |
-| `creative-voltage`| 复古朋克创意工作室。饱和电光蓝底 + 霓虹黄强调。Syne + Space Mono。**halftone 网点 + 偏移霓黄阴影**是签名。punchy + 能量节奏（450/720ms）。                                                                       |
+| `midnight-press`  | 電影感編輯級深色。暖色 espresso（不是純黑）+ 火熱橙。Instrument Serif italic 英文 vs Noto Serif SC 中文。hero 數字：斜體襯線。慢速電影感節奏（1.6s 揭示）。140×100 padding。只有 vignette，沒有顆粒。            |
+| `chalk-garden`    | 深石板黑板。Patrick Hand 全場手寫，粉筆黃 accent。**2px 虛線 rule** 是簽名。film grain（overlay）+ vignette。襯線帶 chalk text-shadow。手繪節奏。                                                                |
+| `terminal-green`  | 80 年代磷光終端。純黑 + JetBrains Mono only + 0px 直角。**CRT 掃描線**貼在舞臺上。文字帶磷光 text-shadow。利落線性動效（180/400/650ms）。hero 數字：等寬頻發光。                                                  |
+| `blueprint`       | 工程藍圖。深海軍藍 + 繪圖青 + IBM Plex Mono。**2px 虛線青色 rule + 60px 製圖網格**是簽名。hero 數字：等寬青色。等寬配對營造技術 / 藍圖感。                                                                       |
+| `dark-botanical`  | 高級感編輯暗底 —— 時尚刊物 / 博物館圖錄。近黑 + 暖陶 / 玫粉 / 鎏金疊層。Cormorant italic + IBM Plex Sans。**柔光暈染（blurred light pool）作為簽名**。慢速電影感節奏（1.7s）。140×100 padding。              |
+| `neon-cyber`      | 賽博朋克未來派。深海軍底 + 電光青 + 玫紅雙霓虹。Clash Display + Satoshi。**青色發光網格 + 雙色霓虹描邊（cyan + magenta text-shadow）**是簽名。snappy 節奏（380/650ms）。                                       |
+| `bold-signal`     | hero pitch-deck 暗底。Archivo Black + Space Grotesk。大橙色焦點色卡 + 製表數編號。**對角線深色漸變 + 大字標語**是簽名。punchy 節奏（420/680ms）。                                                                |
+| `creative-voltage`| 復古朋克創意工作室。飽和電光藍底 + 霓虹黃強調。Syne + Space Mono。**halftone 網點 + 偏移霓黃陰影**是簽名。punchy + 能量節奏（450/720ms）。                                                                       |
 
-### 浅色主题
+### 淺色主題
 
-| id                   | 性格                                                                                                                                                                                                            |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `paper-press`        | midnight-press 的白天孪生兄弟。暖奶油 + 纸纹（multiply blend）。火热橙。hero 数字：斜体编辑级衬线。慢速电影感节奏。140×100 padding。                                                                              |
-| `warm-keynote`       | 现代 SaaS keynote。奶油 + 棕褐墨 + 青绿 + Inter。**大圆角（32px）glass slab** 配 backdrop blur。**粗黑 font-black hero 数字**。舞台上 40px 暖色网格。弹簧动效。                                                  |
-| `newsroom`           | NYT 报刊。报纸奶油 + 墨黑衬线 + 旗红。Playfair Display + Noto Serif SC。**0 圆角**（报纸不会圆角）。hero 数字：超大斜体显示衬线。安静的印刷节奏。淡纸纹。                                                        |
-| `bauhaus-bold`       | 现代主义宣言。米白 + 墨黑 + 原色蓝。Archivo Black + Inter。**0 圆角 + 4px 实色厚边 + 4px 黑色画框包住舞台 + 偏移实色阴影**。hero 数字：font-weight 900 巨字。利落快速动效。无装饰。                              |
-| `sunset-zine`        | 独立 risograph zine。暖桃 + riso 洋红 + Fraunces。**虚线剪贴线 + 偏移桃色阴影**。hero 数字：斜体 Fraunces。粗 riso 纸纹。弹簧 overshoot 动效。                                                                  |
-| `monochrome-print`   | 安静精炼的印刷杂志 —— Monocle / Wallpaper / MIT Press。米白 + 墨黑衬线 + 墨蓝 accent。Source Serif。**只有 1px 实线发丝、4px 精炼圆角**。hero 数字：斜体 tabular figures。**无装饰** —— 极简纯粹。极静节奏（1.7s 揭示）。 |
-| `vintage-editorial`  | 俏皮编辑奶油底。Fraunces italic + Work Sans + 暖陶 accent。**细线几何叠层（圆 + 线 + 点）**是签名。有性格、会说话，像专栏作家。中速带轻微 overshoot。                                                            |
-| `pastel-dream`       | 友好柔光。柔粉蓝灰底 + 奶油卡 + 鼠尾草绿。Plus Jakarta Sans。**大圆角（20px）+ 右侧多色 pill 色条**是签名。soft springy（520/820ms）。                                                                          |
-| `split-canvas`       | 双拼画布 —— 蜜桃 + 薰衣草 50/50 硬切分。Outfit + 玫红 accent。**屏幕本身就是双色底**，章节自由在哪一侧落内容。playful 中速（480/780ms）。                                                                       |
-| `electric-studio`    | 企业电光蓝。净白底 + 单一电光蓝 + Manrope。**贴底 4px 电蓝条**作为签名，B2B / 路演 / 财报场景的清晰自信。punchy 节奏（420/700ms）。                                                                              |
-| `indigo-porcelain`   | 靛蓝瓷 —— **靛蓝当墨**（不是 accent，是字色本身）+ 瓷白纸。Playfair Display italic + Noto Serif SC + IBM Plex Sans 正文。学术 / 研究气质，像一本当代思想期刊。无装饰 —— 纯粹。慢速（1.55s）。                       |
-| `forest-ink`         | 森林墨 —— **森林绿当墨** + 象牙暖纸。Source Serif 正文 + Playfair Display。旧版《国家地理》感，沉稳、文献感。faint warm grain。慢速（1.65s）。                                                                  |
-| `kraft-paper`        | 牛皮纸 —— **深棕当墨** + 牛皮米。Fraunces + Source Serif + 紫铜 accent。老笔记本 / 老信封感。**粗暖纸纹**是签名。慢速 tactile（1.55s）。                                                                       |
-| `dune`               | 沙丘 —— **炭褐当墨** + 沙底 + 几乎无 accent（muted clay）。Inter display + Source Serif 正文。**无装饰 + 极宽 padding（140×100）**是签名。建筑手册 / 画廊感。最慢节奏（1.75s）。                                |
-| `swiss-ikb`          | 瑞士国际主义。**极细 200 weight Inter / Helvetica** + 净暖白底 + IKB 克莱因蓝 + **1px 发丝网格 (64px)**。`r-card: 0` 直角。Massimo Vignelli / Helvetica Forever 能量。punchy + linear（400/650ms）。           |
+| id                  | 性格                                                                                                                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paper-press`       | midnight-press 的白天孿生兄弟。暖奶油 + 紙紋（multiply blend）。火熱橙。hero 數字：斜體編輯級襯線。慢速電影感節奏。140×100 padding。                                                                              |
+| `warm-keynote`      | 現代 SaaS keynote。奶油 + 棕褐墨 + 青綠 + Inter。**大圓角（32px）glass slab** 配 backdrop blur。**粗黑 font-black hero 數字**。舞臺上 40px 暖色網格。彈簧動效。                                                  |
+| `newsroom`          | NYT 報刊。報紙奶油 + 墨黑襯線 + 旗紅。Playfair Display + Noto Serif SC。**0 圓角**（報紙不會圓角）。hero 數字：超大斜體顯示襯線。安靜的印刷節奏。淡紙紋。                                                        |
+| `bauhaus-bold`      | 現代主義宣言。米白 + 墨黑 + 原色藍。Archivo Black + Inter。**0 圓角 + 4px 實色厚邊 + 4px 黑色畫框包住舞臺 + 偏移實色陰影**。hero 數字：font-weight 900 巨字。利落快速動效。無裝飾。                              |
+| `sunset-zine`       | 獨立 risograph zine。暖桃 + riso 洋紅 + Fraunces。**虛線剪貼線 + 偏移桃色陰影**。hero 數字：斜體 Fraunces。粗 riso 紙紋。彈簧 overshoot 動效。                                                                  |
+| `monochrome-print`  | 安靜精煉的印刷雜誌 —— Monocle / Wallpaper / MIT Press。米白 + 墨黑襯線 + 墨藍 accent。Source Serif。**只有 1px 實線髮絲、4px 精煉圓角**。hero 數字：斜體 tabular figures。**無裝飾** —— 極簡純粹。極靜節奏（1.7s 揭示）。 |
+| `vintage-editorial` | 俏皮編輯奶油底。Fraunces italic + Work Sans + 暖陶 accent。**細線幾何疊層（圓 + 線 + 點）**是簽名。有性格、會說話，像專欄作家。中速帶輕微 overshoot。                                                            |
+| `pastel-dream`      | 友好柔光。柔粉藍灰底 + 奶油卡 + 鼠尾草綠。Plus Jakarta Sans。**大圓角（20px）+ 右側多色 pill 色條**是簽名。soft springy（520/820ms）。                                                                          |
+| `split-canvas`      | 雙拼畫布 —— 蜜桃 + 薰衣草 50/50 硬切分。Outfit + 玫紅 accent。**螢幕本身就是雙色底**，章節自由在哪一側落內容。playful 中速（480/780ms）。                                                                       |
+| `electric-studio`   | 企業電光藍。淨白底 + 單一電光藍 + Manrope。**貼底 4px 電藍條**作為簽名，B2B / 路演 / 財報場景的清晰自信。punchy 節奏（420/700ms）。                                                                              |
+| `indigo-porcelain`  | 靛藍瓷 —— **靛藍當墨**（不是 accent，是字色本身）+ 瓷白紙。Playfair Display italic + Noto Serif SC + IBM Plex Sans 正文。學術 / 研究氣質，像一本當代思想期刊。無裝飾 —— 純粹。慢速（1.55s）。                       |
+| `forest-ink`        | 森林墨 —— **森林綠當墨** + 象牙暖紙。Source Serif 正文 + Playfair Display。舊版《國家地理》感，沉穩、文獻感。faint warm grain。慢速（1.65s）。                                                                  |
+| `kraft-paper`       | 牛皮紙 —— **深棕當墨** + 牛皮米。Fraunces + Source Serif + 紫銅 accent。老筆記本 / 老信封感。**粗暖紙紋**是簽名。慢速 tactile（1.55s）。                                                                       |
+| `dune`              | 沙丘 —— **炭褐當墨** + 沙底 + 幾乎無 accent（muted clay）。Inter display + Source Serif 正文。**無裝飾 + 極寬 padding（140×100）**是簽名。建築手冊 / 畫廊感。最慢節奏（1.75s）。                                |
+| `swiss-ikb`         | 瑞士國際主義。**極細 200 weight Inter / Helvetica** + 淨暖白底 + IKB 克萊因藍 + **1px 髮絲網格（64px）**。`r-card: 0` 直角。Massimo Vignelli / Helvetica Forever 能量。punchy + linear（400/650ms）。           |
 
-
-随时列出可用主题：
+隨時列出可用主題：
 
 ```bash
 bash <path-to-web-video-presentation>/scripts/scaffold.sh --list-themes
@@ -84,190 +83,177 @@ bash <path-to-web-video-presentation>/scripts/scaffold.sh --list-themes
 
 ---
 
-## 脚手架时挑一个主题
+## 腳手架時挑一個主題
 
 ```bash
-# 默认（midnight-press）
+# 預設（midnight-press）
 bash scripts/scaffold.sh ./presentation
 
-# 显式指定
+# 顯式指定
 bash scripts/scaffold.sh ./talk --theme=newsroom
 ```
 
-脚手架会把所选主题的 `tokens.css` 拷到 `<project>/src/styles/tokens.css`，
-并把主题 id 写到 `<project>/.theme`，方便以后看是从哪个主题开始的。
+腳手架會把所選主題的 `tokens.css` 拷到 `<project>/src/styles/tokens.css`，
+並把主題 id 寫到 `<project>/.theme`，方便以後看是從哪個主題開始的。
 
 ---
 
-## 之后切换主题
+## 之後切換主題
 
-切换 = 一次文件覆盖：
+切換 = 一次檔案覆蓋：
 
 ```bash
-cp <path-to-web-video-presentation>/themes/newsroom/tokens.css \
+cp <path-to-web-video-v2>/themes/newsroom/tokens.css \
    presentation/src/styles/tokens.css
 ```
 
-刷新 dev server。完成。章节代码一行没动。
+重新整理 dev server。完成。章節程式碼一行沒動。
 
-如果切换后某章节看起来有问题，那是该章节在某处硬编码了颜色 / 字体 /
-尺寸，而不是用语义 token。去找出来 —— bug 在章节里，不在主题里。
+如果切換後某章節看起來有問題，那是該章節在某處硬編碼了顏色 / 字型 /
+尺寸，而不是用語義 token。去找出來 —— bug 在章節裡，不在主題裡。
 
 ---
 
-## 完整 token 契约
+## 完整 token 契約
 
-`base.css` 给**性格 token 都准备了合理的默认值**。主题的 `tokens.css`
-只需要覆盖**调色板 + 字体 + 性格旋钮 + 装饰**这四类。
+`base.css` 給**性格 token 都準備了合理的預設值**。主題的 `tokens.css`
+只需要覆蓋**調色盤 + 字型 + 性格旋鈕 + 裝飾**這四類。
 
-> **base.css 里的字号 / 间距 / 时长尺度只供 primitive class 自己用**
-> （`.label-mono` / `.kicker` / `.scene-pad` 等）。**不是**章节必须消费
-> 的契约——章节这一层要不要 `var(--t-h1)` 还是直接写 `font-size: 96px`
+> **base.css 裡的字號 / 間距 / 時長尺度只供 primitive class 自己用**
+> （`.label-mono` / `.kicker` / `.scene-pad` 等）。**不是**章節必須消費
+> 的契約——章節這一層要不要 `var(--t-h1)` 還是直接寫 `font-size: 96px`
 > 完全自由。
 
-### 必填（主题必须定义）
+### 必填（主題必須定義）
 
-#### 表面色（4 个）
+#### 表面色（4 個）
 
 | token         | 作用                                                |
 | ------------- | --------------------------------------------------- |
-| `--shell`     | letterbox / 舞台外的页面背景                        |
-| `--surface`   | 舞台主背景                                          |
-| `--surface-2` | 凸起 —— 卡片、代码块、嵌入面板                      |
-| `--surface-3` | 最里层 —— surface-2 里再嵌一层时用                  |
+| `--shell`     | letterbox / 舞臺外的頁面背景                        |
+| `--surface`   | 舞臺主背景                                          |
+| `--surface-2` | 凸起 —— 卡片、程式碼塊、嵌入面板                      |
+| `--surface-3` | 最裡層 —— surface-2 裡再嵌一層時用                  |
 
-#### 文字（4 个）
+#### 文字（4 個）
 
 | token          | 作用                                  |
 | -------------- | ------------------------------------- |
 | `--text`       | 主                                    |
-| `--text-2`     | 次（副标题、正文）                    |
-| `--text-mute`  | 静音 —— 标签 / 元数据                 |
-| `--text-faint` | 三级 —— 提示 / 禁用                   |
+| `--text-2`     | 次（副標題、正文）                    |
+| `--text-mute`  | 靜音 —— 標籤 / 後設資料                 |
+| `--text-faint` | 三級 —— 提示 / 禁用                   |
 
-#### 线条（1 个）
+#### 線條（1 個）
 
 | token    | 作用              |
 | -------- | ----------------- |
-| `--rule` | 发丝分割线颜色    |
+| `--rule` | 髮絲分割線顏色    |
 
-#### Accent（3 个）
+#### Accent（3 個）
 
 | token           | 作用                                          |
 | --------------- | --------------------------------------------- |
-| `--accent`      | accent 本体（一个品牌强色）                   |
-| `--accent-soft` | 低透明度叠层 —— pill 背景、悬浮光晕            |
-| `--accent-glow` | 中透明度叠层 —— text shadow、圆点发光          |
+| `--accent`      | accent 本體（一個品牌強色）                   |
+| `--accent-soft` | 低透明度疊層 —— pill 背景、懸浮光暈            |
+| `--accent-glow` | 中透明度疊層 —— text shadow、圓點發光          |
 
-#### 字型家族（4 个）
+#### 字型家族（4 個）
 
 | token               | 作用                                       |
 | ------------------- | ------------------------------------------ |
-| `--font-display-cn` | 中文显示家族                               |
-| `--font-display-en` | 拉丁显示家族（斜体强调声音）               |
+| `--font-display-cn` | 中文顯示家族                               |
+| `--font-display-en` | 拉丁顯示家族（斜體強調聲音）               |
 | `--font-body`       | 正文 / 段落家族                            |
-| `--font-mono`       | 等宽家族（终端、mono caps、badge）          |
+| `--font-mono`       | 等寬家族（終端、mono caps、badge）          |
 
-### 可选的性格覆盖（主题应该定义来表达自己的性格）
+### 可選的性格覆蓋（主題應該定義來表達自己的性格）
 
-这些有 base 默认值；主题重新定义来表达性格。
+這些有 base 預設值；主題重新定義來表達性格。
 
-| token              | base 默认           | 作用                                                  |
+| token              | base 預設           | 作用                                                  |
 | ------------------ | ------------------- | ----------------------------------------------------- |
-| `--font-features`  | `"tnum","ss01"`     | body 上的 OpenType 特性栈                             |
-| `--r-card`         | `--r-md`            | 默认卡片圆角（sharp / refined / keynote）              |
-| `--r-stage`        | `0`                 | 直接加在舞台本身的圆角                                 |
-| `--rule-w`         | `1px`               | rule 粗细（1=发丝，2=中等，4=厚重）                    |
-| `--rule-style`     | `solid`             | rule 样式（`solid` / `dashed` / `dotted`）             |
-| `--hero-num-font`  | `--font-display-en` | `.hero-num` 用什么字体（主题决定性格）                 |
+| `--font-features`  | `"tnum","ss01"`     | body 上的 OpenType 特性棧                             |
+| `--r-card`         | `--r-md`            | 預設卡片圓角（sharp / refined / keynote）              |
+| `--r-stage`        | `0`                 | 直接加在舞臺本身的圓角                                 |
+| `--rule-w`         | `1px`               | rule 粗細（1=髮絲，2=中等，4=厚重）                    |
+| `--rule-style`     | `solid`             | rule 樣式（`solid` / `dashed` / `dotted`）             |
+| `--hero-num-font`  | `--font-display-en` | `.hero-num` 用什麼字型（主題決定性格）                 |
 | `--hero-num-style` | `italic`            | `italic` / `normal`                                   |
-| `--hero-num-weight`| `400`               | 400（编辑级）/ 500（等宽）/ 900（粗黑）                |
-| `--hero-num-track` | `--track-tight`     | hero 数字的字距                                       |
-| `--stage-pad-x`    | `96px`              | 舞台横向内边距（密度旋钮）                            |
-| `--stage-pad-y`    | `80px`              | 舞台纵向内边距                                        |
+| `--hero-num-weight`| `400`               | 400（編輯級）/ 500（等寬）/ 900（粗黑）                |
+| `--hero-num-track` | `--track-tight`     | hero 數字的字距                                       |
+| `--stage-pad-x`    | `96px`              | 舞臺橫向內邊距（密度旋鈕）                            |
+| `--stage-pad-y`    | `80px`              | 舞臺縱向內邊距                                        |
 | `--card-shadow`    | none                | `.card` 的 box-shadow                                 |
 | `--card-glass-bg`  | `rgba(255,255,255,0.06)` | `.card-glass` 的背景                            |
-| `--card-glass-border` | `rgba(255,255,255,0.12)` | `.card-glass` 的边框                            |
-| `--shadow-stage`   | dark drop           | 舞台的 box-shadow                                     |
-| `--stage-border`   | `none`              | 舞台的可选边框（Bauhaus 用 `4px solid black`）         |
+| `--card-glass-border` | `rgba(255,255,255,0.12)` | `.card-glass` 的邊框                            |
+| `--shadow-stage`   | dark drop           | 舞臺的 box-shadow                                     |
+| `--stage-border`   | `none`              | 舞臺的可選邊框（Bauhaus 用 `4px solid black`）         |
 
-### 可选的装饰层（主题可选用，给质感加签名）
+### 可選的裝飾層（主題可選用，給質感加簽名）
 
-这些默认是 no-op；主题选择性启用。装饰画**在舞台上**（pattern 用
-`stage-frame::after`，vignette 用 `stage-frame::before`），所以会被屏幕
-录制器捕捉到。
+這些預設是 no-op；主題選擇性啟用。裝飾畫**在舞臺上**（pattern 用
+`stage-frame::after`，vignette 用 `stage-frame::before`），所以會被螢幕
+錄製器捕捉到。
 
 | token                        | 作用                                                                                                       |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `--surface-pattern`          | 叠在舞台上的 `background-image`。SVG 噪声 / 网格 / 扫描线。                                                |
-| `--surface-pattern-size`     | 配套的 `background-size`。可平铺渐变必填。                                                                  |
-| `--surface-pattern-blend`    | pattern 层的 `mix-blend-mode`（`normal` / `multiply` / `overlay`）。                                       |
-| `--surface-pattern-opacity`  | pattern 层的整体透明度乘子。                                                                                |
-| `--surface-vignette`         | vignette 叠层的 `background`（黑板 / 电影感边角的径向渐变）。                                              |
-| `--text-shadow`              | 应用在 `.serif-cn` / `.serif-it` / `.display-en` 上。如粉笔晕 / 磷光辉。                                    |
+| `--surface-pattern`          | 疊在舞臺上的 `background-image`。SVG 噪聲 / 網格 / 掃描線。                                                |
+| `--surface-pattern-size`     | 配套的 `background-size`。可平鋪漸變必填。                                                                  |
+| `--surface-pattern-blend`    | pattern 層的 `mix-blend-mode`（`normal` / `multiply` / `overlay`）。                                       |
+| `--surface-pattern-opacity`  | pattern 層的整體透明度乘子。                                                                                |
+| `--surface-vignette`         | vignette 疊層的 `background`（黑板 / 電影感邊角的徑向漸變）。                                              |
+| `--text-shadow`              | 應用在 `.serif-cn` / `.serif-it` / `.display-en` 上。如粉筆暈 / 磷光輝。                                    |
 
-如果你需要的装饰找不到对应槽位，那就跨过"主题契约"边界进入"章节自定义
-CSS"领域 —— 在那里解决，别扩主题契约。
+如果你需要的裝飾找不到對應槽位，那就跨過"主題契約"邊界進入"章節自定義
+CSS"領域 —— 在那裡解決，別擴主題契約。
 
 ---
 
-## 创作新主题
+## 創作新主題
 
-### 1. 复制一个最接近的作为起点
+### 1. 複製一個最接近的作為起點
 
-挑一个**最接近**你目标气质的：
+挑一個**最接近**你目標氣質的：
 
-| 目标情绪                                | 起点                  |
-| --------------------------------------- | --------------------- |
-| 阴郁、电影感、编辑级                    | `midnight-press`      |
-| 编辑级 - 浅色                           | `paper-press`         |
-| 现代 keynote / SaaS                     | `warm-keynote`        |
-| 教室 / 解说                             | `chalk-garden`        |
-| 终端 / 黑客 / 复古 CRT                  | `terminal-green`      |
-| 纪录片 / 严肃 / 新闻                    | `newsroom`            |
-| 工程 / 蓝图 / 技术                      | `blueprint`           |
-| 现代主义 / 布鲁塔利斯特 / 宣言          | `bauhaus-bold`        |
-| 独立 / 玩味 / zine                      | `sunset-zine`         |
-| 精炼 / 安静 / 印刷                      | `monochrome-print`    |
-| 高级感暗底 / 时尚 / 博物馆图录          | `dark-botanical`      |
-| 赛博朋克 / 未来感 / AI / web3           | `neon-cyber`          |
-| 俏皮编辑 / 有声音的博主 / 文化随笔      | `vintage-editorial`   |
-| 柔粉 / 友好 / onboarding / 女性向       | `pastel-dream`        |
-| 双色分屏 / 对照 / 辩论                  | `split-canvas`        |
-| pitch deck / 大字宣言 / 焦点色卡         | `bold-signal`         |
-| B2B / 企业 / 投资人路演                 | `electric-studio`     |
-| 复古朋克 / 创意工作室 / 设计周          | `creative-voltage`    |
-| 学术 / 研究 / 中国当代文化              | `indigo-porcelain`    |
-| 自然 / 可持续 / 户外 / 纪录             | `forest-ink`          |
-| 文学 / 怀旧 / 书评 / 手工艺             | `kraft-paper`         |
-| 建筑 / 艺术展览 / 高端画廊              | `dune`                |
-| 瑞士国际主义 / Helvetica / 信息驱动设计 | `swiss-ikb`           |
+| 目標情緒                            | 起點               |
+| ----------------------------------- | ------------------ |
+| 陰鬱、電影感、編輯級                | `midnight-press`   |
+| 編輯級 - 淺色                       | `paper-press`      |
+| 現代 keynote / SaaS                 | `warm-keynote`     |
+| 教室 / 解說                         | `chalk-garden`     |
+| 終端 / 駭客 / 賽博                  | `terminal-green`   |
+| 紀錄片 / 嚴肅 / 新聞                | `newsroom`         |
+| 工程 / 藍圖 / 技術                  | `blueprint`        |
+| 現代主義 / 布魯塔利斯特 / 宣言      | `bauhaus-bold`     |
+| 獨立 / 玩味 / zine                  | `sunset-zine`      |
+| 精煉 / 安靜 / 印刷                  | `monochrome-print` |
 
 ```bash
-cd <path-to-web-video-presentation>/themes
+cd <path-to-web-video-v2>/themes
 cp -r monochrome-print my-theme
 ```
 
 ### 2. 改 `my-theme/tokens.css`
 
-按契约自上而下走一遍：调色板 → 字体 → 性格旋钮（`--r-card` /
-`--rule-*` / `--hero-num-*` / `--stage-pad-*`）→ 阴影 → 装饰。
-**不要**碰字号 / 间距 / 时长尺度 —— 那些是 base.css 给 primitive class
-用的内部默认值，不是主题契约的一部分。
+按契約自上而下走一遍：調色盤 → 字型 → 性格旋鈕（`--r-card` /
+`--rule-*` / `--hero-num-*` / `--stage-pad-*`）→ 陰影 → 裝飾。
+**不要**碰字號 / 間距 / 時長尺度 —— 那些是 base.css 給 primitive class
+用的內部預設值，不是主題契約的一部分。
 
-**几条不那么显而易见的规则：**
+**幾條不那麼顯而易見的規則：**
 
-- 深色主题里 `--shell` **比 `--surface` 更深 / 更饱和**；浅色主题里
-  `--shell` **比 `--surface` 略灰一点** —— 这样舞台读起来是"主体"，
-  外围会退后。
-- 维持 `--text` 与 `--surface` **至少 4.5:1 对比度**。96px+ 的标题
-  可以放宽到 3:1，body / cue 必须 ≥ 4.5:1。
-- `--accent` 是**唯一的**饱和色。第二个饱和色会跟第一个打架。
+- 深色主題裡 `--shell` **比 `--surface` 更深 / 更飽和**；淺色主題裡
+  `--shell` **比 `--surface` 略灰一點** —— 這樣舞臺讀起來是"主體"，
+  外圍會退後。
+- 維持 `--text` 與 `--surface` **至少 4.5:1 對比度**。96px+ 的標題
+  可以放寬到 3:1，body / cue 必須 ≥ 4.5:1。
+- `--accent` 是**唯一的**飽和色。第二個飽和色會跟第一個打架。
 - `--accent-glow` 和 `--accent-soft` 是 `--accent` **同色相的透明度
-  叠层**，永远不要用别的色相。
-- `--text-faint` 在 `--surface` 上 13px 大写时**仍然要可读**。
-- 挑**一个设计签名**重重发力：虚线 rule、粗黑边、扫描线、纸纹、glass
-  slab。别同时叠三个。
+  疊層**，永遠不要用別的色相。
+- `--text-faint` 在 `--surface` 上 13px 大寫時**仍然要可讀**。
+- 挑**一個設計簽名**重重發力：虛線 rule、粗黑邊、掃描線、紙紋、glass
+  slab。別同時疊三個。
 
 ### 3. 改 `my-theme/theme.json`
 
@@ -275,11 +261,11 @@ cp -r monochrome-print my-theme
 {
   "id": "my-theme",
   "name": "My Theme",
-  "nameZh": "我的主题",
-  "description": "一句英文描述它的气质。",
-  "descriptionZh": "一句中文描述它的气质。",
+  "nameZh": "我的主題",
+  "description": "一句英文描述它的氣質。",
+  "descriptionZh": "一句中文描述它的氣質。",
   "mood": ["dark", "moody", "futuristic"],
-  "bestFor": ["<匹配场景 1>", "<匹配场景 2>"],
+  "bestFor": ["<匹配場景 1>", "<匹配場景 2>"],
   "preview": {
     "shell": "#080808",
     "surface": "#101010",
@@ -289,26 +275,26 @@ cp -r monochrome-print my-theme
 }
 ```
 
-`id` 必须等于目录名。
+`id` 必須等於目錄名。
 
-### 主题元数据字段说明
+### 主題後設資料欄位說明
 
-| 字段 | 必填 | 取值 | 决定什么 |
+| 欄位 | 必填 | 取值 | 決定什麼 |
 |---|---|---|---|
-| `id` / `name` / `nameZh` | ✓ | 字符串 | 主题标识 |
-| `description` / `descriptionZh` | ✓ | 一句话 | Checkpoint Plan 列清单时的简介 |
-| `mood` | ✓ | 标签数组 | 模糊匹配用 |
-| `bestFor` | ✓ | 场景数组 | Checkpoint Plan 智能推荐时的命中点 |
-| `preview` | ✓ | 4 色对象 | Checkpoint Plan 列清单时的视觉预览 |
+| `id` / `name` / `nameZh` | ✓ | 字串 | 主題標識 |
+| `description` / `descriptionZh` | ✓ | 一句話 | Checkpoint Plan 列清單時的簡介 |
+| `mood` | ✓ | 標籤陣列 | 模糊匹配用 |
+| `bestFor` | ✓ | 場景陣列 | Checkpoint Plan 智慧推薦時的命中點 |
+| `preview` | ✓ | 4 色物件 | Checkpoint Plan 列清單時的視覺預覽 |
 
-> **主题不再约束动画选型 / 时长 / 字号 / emoji**。视觉风格由 `tokens.css`
-> 的颜色 / 字体 / 字号 token 决定，动画 / 节奏 / 视觉演示完全交给 chapter
-> agent 在每章实现时按内容自由发挥，避免主题字段过早限制创造力。
+> **主題不再約束動畫選型 / 時長 / 字號 / emoji**。視覺風格由 `tokens.css`
+> 的顏色 / 字型 / 字號 token 決定，動畫 / 節奏 / 視覺演示完全交給 chapter
+> agent 在每章實現時按內容自由發揮，避免主題欄位過早限制創造力。
 >
-> 风格审美约束（不要紫粉渐变、不要 emoji 装饰、不要假数据等）由
-> [`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) 统一规定，与具体主题无关。
+> 風格審美約束（不要紫粉漸變、不要 emoji 裝飾、不要假資料等）由
+> [`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) 統一規定，與具體主題無關。
 
-### 4. 用所有 demo 章节测试一遍
+### 4. 用所有 demo 章節測試一遍
 
 ```bash
 bash scripts/scaffold.sh /tmp/test-theme --theme=my-theme
@@ -316,36 +302,36 @@ cd /tmp/test-theme
 npm run dev
 ```
 
-把 demo 每一步点完。检查：
+把 demo 每一步點完。檢查：
 
-- 标题衬线在舞台上很清晰。
-- accent 圆点在发光但不爆。
-- 斜体强调有可读的背景。
-- 进度条（悬浮底边）能看到，是 accent 色。
-- masthead 行（`.masthead`）读起来像编辑 chrome，不像 navbar。
-- hero 数字（`.hero-num`）感觉**和整体字型同源**，不像贴上去的。
-- 卡片（`.card`）感觉是合适的材质（纸 / 玻璃 / cell）。
-- 装饰**被注意到一次然后被忘掉** —— 永远不打扰。
+- 標題襯線在舞臺上很清晰。
+- accent 圓點在發光但不爆。
+- 斜體強調有可讀的背景。
+- 進度條（懸浮底邊）能看到，是 accent 色。
+- masthead 行（`.masthead`）讀起來像編輯 chrome，不像 navbar。
+- hero 數字（`.hero-num`）感覺**和整體字型同源**，不像貼上去的。
+- 卡片（`.card`）感覺是合適的材質（紙 / 玻璃 / cell）。
+- 裝飾**被注意到一次然後被忘掉** —— 永遠不打擾。
 
-哪里不对就改 `tokens.css`，刷新即可。无需重新构建。
+哪裡不對就改 `tokens.css`，重新整理即可。無需重新構建。
 
-### 5. 加到文档里
+### 5. 加到檔案裡
 
-在本文件顶部"内置主题"表里追加一行。
+在本檔案頂部"內建主題"表裡追加一行。
 
 ---
 
 ## 反模式
 
-- **章节 CSS 硬编码 hex 颜色 / 字体名** —— 缺哪个色彩 / 字体语义就在
-  契约里补一个，给所有主题加上（注意：**字号 / 间距 / 时长**硬编码不算
-  反模式，章节按内容自由设计）
-- **演示中途切换主题** —— 选一个，一以贯之
-- **第二个 accent 色** —— 只能有一个。用尺度 + 字重做层级
-- **在组件层 override 主题 token**（颜色 / 字体 / 性格签名）—— 只在
-  `:root` 里覆盖。一次性的颜色需求 = 提一个派生 token，让所有主题都
+- **章節 CSS 硬編碼 hex 顏色 / 字型名** —— 缺哪個色彩 / 字型語義就在
+  契約裡補一個，給所有主題加上（注意：**字號 / 間距 / 時長**硬編碼不算
+  反模式，章節按內容自由設計）
+- **演示中途切換主題** —— 選一個，一以貫之
+- **第二個 accent 色** —— 只能有一個。用尺度 + 字重做層級
+- **在元件層 override 主題 token**（顏色 / 字型 / 性格簽名）—— 只在
+  `:root` 裡覆蓋。一次性的顏色需求 = 提一個派生 token，讓所有主題都
   提供自己的值
-- **依赖主题的 TSX 条件分支** —— 章节必须主题无关。布局依赖明 vs 暗
-  = 布局脆弱，修布局
-- **一个主题叠三个设计签名** —— 选 ONE 个（虚线 rule / 扫描线 /
-  glass slab / 纸纹 / 粗边），三个会自己打架
+- **依賴主題的 TSX 條件分支** —— 章節必須主題無關。佈局依賴明 vs 暗
+  = 佈局脆弱，修佈局
+- **一個主題疊三個設計簽名** —— 選 ONE 個（虛線 rule / 掃描線 /
+  glass slab / 紙紋 / 粗邊），三個會自己打架

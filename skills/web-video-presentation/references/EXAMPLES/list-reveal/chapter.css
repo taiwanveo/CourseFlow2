@@ -1,6 +1,6 @@
 /* ─────────────────────────────────────────────────────────────────
- * list-reveal · 完整章节示例样式
- * 默认绑 newsroom 主题。零硬编码视觉属性。
+ * list-reveal · 完整章節示例樣式
+ * 預設綁 newsroom 主題。零硬編碼視覺屬性。
  * ───────────────────────────────────────────────────────────────── */
 
 .lr-scene {
@@ -72,7 +72,7 @@
               border-color var(--dur-base) var(--ease-quart);
 }
 
-/* ghost: 虚线边 + 大灰序号 */
+/* ghost: 虛線邊 + 大灰序號 */
 .lr-slot-ghost {
   border: var(--rule-w) dashed var(--rule);
   background: transparent;
@@ -82,7 +82,7 @@
   color: var(--text-faint);
 }
 
-/* active: 红框 + 实心面板 + 巨号砸下 */
+/* active: 紅框 + 實心面板 + 巨號砸下 */
 .lr-slot-active {
   border: var(--rule-w) solid var(--accent);
   background: var(--surface);

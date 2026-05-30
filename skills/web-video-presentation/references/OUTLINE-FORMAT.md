@@ -1,28 +1,28 @@
 # `outline.md` 格式 spec
 
-视频章节规划的产出文件。**用户可以直接编辑**，所以格式必须人类友好
+影片章節規劃的產出檔案。**使用者可以直接編輯**，所以格式必須人類友好
 （用 markdown 不用 JSON / YAML）。
 
-!重要：阅读此文件后必须继续阅读 [`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) 的全部内容，了解对网页效果的真实需求，然后再开始编写 outline
+!重要：閱讀此檔案後必須繼續閱讀 [`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) 的全部內容，瞭解對網頁效果的真實需求，然後再開始編寫 outline
 
-> ## ⚠️ outline 是开发计划，不是视觉规划
+> ## ⚠️ outline 是開發計劃，不是視覺規劃
 >
-> outline 只规划**节奏 + 内容 + 信息密度**：
+> outline 只規劃**節奏 + 內容 + 資訊密度**：
 >
-> - 章节切分 / 每章 step 数 / 每步估时
-> - 每步屏幕内容（hero / 标语 / 数据 / 列表项）
-> - 章节级**信息池**（从 article 抽的数字 / 引用 / 案例 / 标签）
+> - 章節切分 / 每章 step 數 / 每步估時
+> - 每步螢幕內容（hero / 標語 / 資料 / 列表項）
+> - 章節級**資訊池**（從 article 抽的數字 / 引用 / 案例 / 標籤）
 >
-> **outline 里的 step 数是初始预估**。最终 step 数以章节实现时的
-> `narrations.ts` 为准——后者既是 step 数源，也是音频合成源
-> （详见 [`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) 「代码层最小约束」+
-> [`AUDIO.md`](AUDIO.md)）。如果实现时章节 step 数和 outline 不一致，
-> 回过来同步 outline 即可，不需要纠结"对得严丝合缝"。
+> **outline 裡的 step 數是初始預估**。最終 step 數以章節實現時的
+> `narrations.ts` 為準——後者既是 step 數源，也是音訊合成源
+> （詳見 [`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) 「程式碼層最小約束」+
+> [`AUDIO.md`](AUDIO.md)）。如果實現時章節 step 數和 outline 不一致，
+> 回過來同步 outline 即可，不需要糾結"對得嚴絲合縫"。
 
-> **写 outline 前必读**（双源原则，[CHAPTER-CRAFT.md Part 0 原则 10](CHAPTER-CRAFT.md#10-双源原则scriptmd-定节拍--articlemd-定画面密度)）：
+> **寫 outline 前必讀**（雙源原則，[CHAPTER-CRAFT.md Part 0 原則 10](CHAPTER-CRAFT.md#10-雙源原則scriptmd-定節拍--articlemd-定畫面密度)）：
 >
-> - **`script.md`** —— 决定**节拍**：按 `---` 切节拍，每节拍 1~2 step、估时
-> - **`article.md`**（如有）—— 决定**画面信息密度**：每章首段抽**信息池**
+> - **`script.md`** —— 決定**節拍**：按 `---` 切節拍，每節拍 1~2 step、估時
+> - **`article.md`**（如有）—— 決定**畫面資訊密度**：每章首段抽**資訊池**
 
 ---
 
@@ -31,173 +31,173 @@
 ````markdown
 # Video Outline
 
-> **主题**：`<theme-id>`（Checkpoint Plan 已选定）—— <一句话风格描述>
-> **总时长**：约 <T> 分 <S> 秒（口播 ~<X> 字 ÷ 4 字/秒）
-> **章节数**：<N> 章 / <M> 步
+> **主題**：`<theme-id>`（Checkpoint Plan 已選定）—— <一句話風格描述>
+> **總時長**：約 <T> 分 <S> 秒（口播 ~<X> 字 ÷ 4 字/秒）
+> **章節數**：<N> 章 / <M> 步
 
 ---
 
-## 1. <chapter-id> — <章节标题>（<S> steps · ~<T>s）
+## 1. <chapter-id> — <章節標題>（<S> steps · ~<T>s）
 
-**信息池**（chapter agent 按需挂角标 / 副标 / pull-quote / mono cue）：
-- <类型：数字 / 引用 / 出处 / 案例 / 词义 / 时间 / 对比 / ...>：<内容> —— <来源 article §X / Lxx>
+**資訊池**（chapter agent 按需掛角標 / 副標 / pull-quote / mono cue）：
+- <型別：數字 / 引用 / 出處 / 案例 / 詞義 / 時間 / 對比 / ...>：<內容> —— <來源 article §X / Lxx>
 - ...
 
-**开发计划**：
+**開發計劃**：
 
-- step 1 (~Ts) — <屏幕内容>
+- step 1 (~Ts) — <螢幕內容>
 - ...
 
-口播节选：
-> <1~3 句节选，对应到 script.md 完整文本>
+口播節選：
+> <1~3 句節選，對應到 script.md 完整文字>
 
 ---
 
 ## 2. <chapter-id> — ...
 ````
 
-> **关于时长**：outline 里**只**写 step 的 `(~Ts)` 口播估时（音画对齐
-> 用），**绝对不写**动画时长 / 错峰量 / keyframe 数值。这些都在章节开发
-> 阶段决定（[`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) Part 3 时长参考）。
+> **關於時長**：outline 裡**只**寫 step 的 `(~Ts)` 口播估時（音畫對齊
+> 用），**絕對不寫**動畫時長 / 錯峰量 / keyframe 數值。這些都在章節開發
+> 階段決定（[`CHAPTER-CRAFT.md`](CHAPTER-CRAFT.md) Part 3 時長參考）。
 
 > **想看具象示例**：
-> - 钩子型开场结构 → [`EXAMPLES/hook-chapter/`](EXAMPLES/hook-chapter/)
-> - 列举型章节结构 → [`EXAMPLES/list-reveal/`](EXAMPLES/list-reveal/)
-> - 科技测评类（实测 / 对比 / 跑分） → [`EXAMPLES/case-tech-review/`](EXAMPLES/case-tech-review/)
+> - 鉤子型開場結構 → [`EXAMPLES/hook-chapter/`](EXAMPLES/hook-chapter/)
+> - 列舉型章節結構 → [`EXAMPLES/list-reveal/`](EXAMPLES/list-reveal/)
+> - 科技測評類（實測 / 對比 / 跑分） → [`EXAMPLES/case-tech-review/`](EXAMPLES/case-tech-review/)
 
 ---
 
-## 字段约定
+## 欄位約定
 
-### 顶部 metadata block
+### 頂部 metadata block
 
-用引用块（`>`）形式，方便扫一眼整体规模：
+用引用塊（`>`）形式，方便掃一眼整體規模：
 
-| 字段 | 必填 | 说明 |
+| 欄位 | 必填 | 說明 |
 |---|---|---|
-| **主题** | ✓ | Checkpoint Plan 必须已选定。chapter agent 实现时按主题颜色 / 字体 token 走，动画 / 节奏 / 视觉演示由章节自由发挥 |
-| **总时长** | ✓ | 估算口播时长（中文 ~ 250 字 / 分钟） |
-| **章节数** | ✓ | `N 章 / M 步` |
+| **主題** | ✓ | Checkpoint Plan 必須已選定。chapter agent 實現時按主題顏色 / 字型 token 走，動畫 / 節奏 / 視覺演示由章節自由發揮 |
+| **總時長** | ✓ | 估算口播時長（中文 ~ 250 字 / 分鐘） |
+| **章節數** | ✓ | `N 章 / M 步` |
 
-### 章节标题：`## N. <id> — <title>（<S> steps · ~<T>s）`
+### 章節標題：`## N. <id> — <title>（<S> steps · ~<T>s）`
 
-| 部分 | 规则 |
+| 部分 | 規則 |
 |---|---|
-| `N` | 1-indexed 顺序，对齐 `chapters.ts` 的注册顺序 |
-| `<id>` | **小写 + 连字符**。会成为 React `key` / 文件夹名 (`src/chapters/0N-<id>/`) / 音频子目录 (`public/audio/<id>/`) |
-| `<title>` | 给人看的中文标题。**不会**进 React 代码 |
-| `<S> steps` | 该章 step 总数 |
-| `~<T>s` | 该章口播总估时（中文 ~ 4 字/秒） |
+| `N` | 1-indexed 順序，對齊 `chapters.ts` 的註冊順序 |
+| `<id>` | **小寫 + 連字元**。會成為 React `key` / 資料夾名 (`src/chapters/0N-<id>/`) / 音訊子目錄 (`public/audio/<id>/`) |
+| `<title>` | 給人看的中文標題。**不會**進 React 程式碼 |
+| `<S> steps` | 該章 step 總數 |
+| `~<T>s` | 該章口播總估時（中文 ~ 4 字/秒） |
 
 合法 id：`coldopen`、`hook`、`why-good`、`why-good-text-render`。
-不合法：`why_good`（用连字符）、`Hook`（小写）、`第一章`（拉丁字符）。
+不合法：`why_good`（用連字元）、`Hook`（小寫）、`第一章`（拉丁字元）。
 
-### 章节首段「信息池」（**双源原则核心落地**）
+### 章節首段「資訊池」（**雙源原則核心落地**）
 
-每章独立列出从 `article.md` 抽的细节集合，**让 chapter agent 实现每步
-画面时按需取用**——可能挂成右下角 mono 角标 / 副标小字 /
-pull-quote 引用 / 数据浮层。
+每章獨立列出從 `article.md` 抽的細節集合，**讓 chapter agent 實現每步
+畫面時按需取用**——可能掛成右下角 mono 角標 / 副標小字 /
+pull-quote 引用 / 資料浮層。
 
-#### 信息池条目格式
+#### 資訊池條目格式
 
 ```
-- <类型>：<具体内容> —— <来源 article §X / Lxx 或简注>
+- <型別>：<具體內容> —— <來源 article §X / Lxx 或簡注>
 ```
 
-> **没 article（用户直接给 script）**：信息池退化为"主动设计画面信息
-> 密度"——靠数字 / 对比 / 元数据等让画面比口播信息密。可以列"画面
-> 装饰元素池"而非"article 抽取池"。
+> **沒 article（使用者直接給 script）**：資訊池退化為"主動設計畫面資訊
+> 密度"——靠數字 / 對比 / 後設資料等讓畫面比口播資訊密。可以列"畫面
+> 裝飾元素池"而非"article 抽取池"。
 
 ### Step 列表：每步 **1 行**
 
 ```
-- step N (~Ts) — <屏幕内容>
+- step N (~Ts) — <螢幕內容>
 ```
 
-| 规则 | 原因 |
+| 規則 | 原因 |
 |---|---|
-| `step N` 1-indexed | agent 实现时 `if (step === N - 1) ...`（注意零基偏移） |
-| **`(~Ts)`** 必填 | 按 script.md 本步对应口播段字数 ÷ 4 估算（中文 ~ 4 字/秒）。范围 3~10s |
-| **屏幕内容** | 一句话讲清楚这一步舞台上有什么：hero / 标语 / 数据 / 装饰元素。**≤ 1 行**，再多就该拆 step |
-| **不写动画** | 写死 = 翻译机化（详见本文件顶部框） |
-| **不写时长数值 / 错峰量** | 这些在章节开发阶段决定 |
-| **不写实现手段** | filter / SVG / Canvas 选型留给 chapter agent |
+| `step N` 1-indexed | agent 實現時 `if (step === N - 1) ...`（注意零基偏移） |
+| **`(~Ts)`** 必填 | 按 script.md 本步對應口播段字數 ÷ 4 估算（中文 ~ 4 字/秒）。範圍 3~10s |
+| **螢幕內容** | 一句話講清楚這一步舞臺上有什麼：hero / 標語 / 資料 / 裝飾元素。**≤ 1 行**，再多就該拆 step |
+| **不寫動畫** | 寫死 = 翻譯機化（詳見本檔案頂部框） |
+| **不寫時長數值 / 錯峰量** | 這些在章節開發階段決定 |
+| **不寫實現手段** | filter / SVG / Canvas 選型留給 chapter agent |
 
 
-### 口播节选（每章末尾，可选但推荐）
+### 口播節選（每章末尾，可選但推薦）
 
-精炼 1~3 句，**不是完整稿子**，仅供章节规划阶段对照"这章在讲什么"。
-完整文本回 `script.md`。`outline.md` 章节 = `script.md` 中两个明显
-主题切换之间的段落。
+精煉 1~3 句，**不是完整稿子**，僅供章節規劃階段對照"這章在講什麼"。
+完整文字回 `script.md`。`outline.md` 章節 = `script.md` 中兩個明顯
+主題切換之間的段落。
 
-> 音频合成（[`AUDIO.md`](AUDIO.md)）会**回到 `script.md`** 切分完整
-> 文本，**不**用 outline 节选。
+> 音訊合成（[`AUDIO.md`](AUDIO.md)）會**回到 `script.md`** 切分完整
+> 文字，**不**用 outline 節選。
 
 ---
 
-## 命名规则速查
+## 命名規則速查
 
-| 对象 | 规则 | 示例 |
+| 物件 | 規則 | 示例 |
 |---|---|---|
-| 章节 id | 小写 + 连字符 | `coldopen`, `why-good` |
-| 章节文件夹 | `0N-<id>` | `src/chapters/01-coldopen/` |
-| 章节组件 | PascalCase | `Coldopen.tsx`, `WhyGood.tsx` |
-| 章节 CSS 类前缀 | 章节缩写（避免跨章冲突） | `.cd-` / `.wg-` / `.mg-` |
-| 音频子目录 | `<id>/` | `public/audio/coldopen/` |
-| 音频文件 | `<step-N>.mp3` (1-indexed) | `public/audio/coldopen/1.mp3` |
+| 章節 id | 小寫 + 連字元 | `coldopen`, `why-good` |
+| 章節資料夾 | `0N-<id>` | `src/chapters/01-coldopen/` |
+| 章節元件 | PascalCase | `Coldopen.tsx`, `WhyGood.tsx` |
+| 章節 CSS 類字首 | 章節縮寫（避免跨章衝突） | `.cd-` / `.wg-` / `.mg-` |
+| 音訊子目錄 | `<id>/` | `public/audio/coldopen/` |
+| 音訊檔案 | `<step-N>.mp3` (1-indexed) | `public/audio/coldopen/1.mp3` |
 
 ---
 
-## 章节切分的经验法则
+## 章節切分的經驗法則
 
-- **每章 3~8 步**。少于 3 步太薄；多于 8 步观众会忘记这章在讲啥
-- **总时长 ÷ 30 秒** ≈ 章节数（一章约 30~60 秒讲完）
-- **每章 = 一个聚焦主题**。"为什么强 + 怎么用" 是两章，不是一章
-- **章节边界 = 口播稿里讲者会换语气 / 换主题的位置**。读 `script.md`
-  时哪里你下意识想"咳一声接下一段"，那里就是章节边界
-- **慢节奏 / 长镜头风主题**（midnight-press / 电影感片头）每章可少到
-  2~3 step；**信息密集型**（科技测评 / 对比表）每章可放宽到 8~10 step
+- **每章 3~8 步**。少於 3 步太薄；多於 8 步觀眾會忘記這章在講啥
+- **總時長 ÷ 30 秒** ≈ 章節數（一章約 30~60 秒講完）
+- **每章 = 一個聚焦主題**。"為什麼強 + 怎麼用" 是兩章，不是一章
+- **章節邊界 = 口播稿裡講者會換語氣 / 換主題的位置**。讀 `script.md`
+  時哪裡你下意識想"咳一聲接下一段"，那裡就是章節邊界
+- **慢節奏 / 長鏡頭風主題**（midnight-press / 電影感片頭）每章可少到
+  2~3 step；**資訊密集型**（科技測評 / 對比表）每章可放寬到 8~10 step
 
 ---
 
-## 素材清单（outline.md 末尾）
+## 素材清單（outline.md 末尾）
 
 ```markdown
-## 素材清单
+## 素材清單
 
 ### 1. coldopen
-- ✓ <资源 1 描述> （<已就位路径>）
-- ⚠️ <资源 2 描述>（待提供）
-- ⚠️ <资源 3 描述>（待提供）
+- ✓ <資源 1 描述> （<已就位路徑>）
+- ⚠️ <資源 2 描述>（待提供）
+- ⚠️ <資源 3 描述>（待提供）
 
 ---
 
-## 自检（写完 outline **强制**执行，不可跳过）
+## 自檢（寫完 outline **強制**執行，不可跳過）
 
-> ⚠️ **硬性流程**：outline 写完后**必须**走自检 → 修改 → 提交 三步。
-> **禁止**写完直接进入 Checkpoint Plan 让用户对齐。
+> ⚠️ **硬性流程**：outline 寫完後**必須**走自檢 → 修改 → 提交 三步。
+> **禁止**寫完直接進入 Checkpoint Plan 讓使用者對齊。
 >
-> **执行方式**（按能力降级）：
+> **執行方式**（按能力降級）：
 >
-> 1. **优先 Agent Teams**：开一个独立 reviewer agent，传入 `outline.md`
->    + 本节自检清单 + `script.md` / `article.md` 路径，让它**逐项核查 +
->    出结论**（哪几条 fail + 证据）。
-> 2. **其次 subAgent**：当前 agent 没 Teams 但能开 subagent，用 subagent
->    走同样流程。
-> 3. **都没有**：自己**严格逐项**核查。
+> 1. **優先 Agent Teams**：開一個獨立 reviewer agent，傳入 `outline.md`
+>    + 本節自檢清單 + `script.md` / `article.md` 路徑，讓它**逐項核查 +
+>    出結論**（哪幾條 fail + 證據）。
+> 2. **其次 subAgent**：當前 agent 沒 Teams 但能開 subagent，用 subagent
+>    走同樣流程。
+> 3. **都沒有**：自己**嚴格逐項**核查。
 >
-> 拿到结论后**先按 fail 项改 outline，再进入 Checkpoint Plan**。
+> 拿到結論後**先按 fail 項改 outline，再進入 Checkpoint Plan**。
 
-- [ ] 每个 step 都是**单一句屏幕内容描述**，没有"动画"行 / "手段"行
-- [ ] 没有任何 step 写了具体毫秒 / 秒数（除 `(~Ts)` 口播估时）
-- [ ] 每章首段都有「信息池」block，至少 3 条 article 抽取项，**每条
-      必带来源标注**（`—— 来源 article §X / Lxx`）—— 没标注 chapter agent
+- [ ] 每個 step 都是**單一句螢幕內容描述**，沒有"動畫"行 / "手段"行
+- [ ] 沒有任何 step 寫了具體毫秒 / 秒數（除 `(~Ts)` 口播估時）
+- [ ] 每章首段都有「資訊池」block，至少 3 條 article 抽取項，**每條
+      必帶來源標註**（`—— 來源 article §X / Lxx`）—— 沒標註 chapter agent
       回不到原文
-- [ ] **所有 step `(~Ts)` 累加 ≈ 顶部声明的总时长**（误差 < 10%）—— 不
-      一致说明节奏规划失真
-- [ ] 章节切分符合"每章 3~8 步 / 30~60s 一聚焦主题"经验
-- [ ] 末尾「素材清单」分章节列出，✓ / ⚠️ 标注清楚
-- [ ] 脚本不得包含标题、序号等非口播内容，仅包含人类正常可读的内容
+- [ ] **所有 step `(~Ts)` 累加 ≈ 頂部宣告的總時長**（誤差 < 10%）—— 不
+      一致說明節奏規劃失真
+- [ ] 章節切分符合"每章 3~8 步 / 30~60s 一聚焦主題"經驗
+- [ ] 末尾「素材清單」分章節列出，✓ / ⚠️ 標註清楚
+- [ ] 指令碼不得包含標題、序號等非口播內容，僅包含人類正常可讀的內容
 
-写完看一眼：**outline 是不是干净到 chapter agent 看了能立刻开工 + 还有
-设计空间**？是 = 合格。如果你看了都觉得"太空，agent 不知道动画选什么"
+寫完看一眼：**outline 是不是乾淨到 chapter agent 看了能立刻開工 + 還有
+設計空間**？是 = 合格。如果你看了都覺得"太空，agent 不知道動畫選什麼"

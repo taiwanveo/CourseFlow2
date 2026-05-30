@@ -1,5 +1,5 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
-import { chapterComponentName } from "../chapter-types.js";
+import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import { assetsForChapter } from "../hook-slots.js";
 import { parseFlowSlots } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
@@ -47,7 +47,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
   return (
     <FlowDiagram
       step={step}
-      chapterTitle={${JSON.stringify(input.title)}}
+      chapterTitle={${JSON.stringify(deriveChapterKicker(input.wvpChapterId))}}
       intro={${JSON.stringify(intro)}}
       nodes={[...NODES]}
       stepImageUrl={stepImage(step)}

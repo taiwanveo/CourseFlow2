@@ -1,5 +1,14 @@
 import { useEffect } from "react";
 
+/** 通知父頁（WvpPlayShell）目前游標位置，用於啟用/停用翻頁按鈕 */
+export function notifyCursorToParent(globalIndex: number, totalGlobal: number) {
+  try {
+    window.parent.postMessage({ type: "cf-cursor", globalIndex, totalGlobal }, "*");
+  } catch {
+    /* cross-origin or no parent */
+  }
+}
+
 type BridgeOpts = {
   onFirst: () => void;
   onPrev: () => void;

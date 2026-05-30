@@ -1,3 +1,5 @@
+/* ══ 自動播放等待遠罩 ══
+   點擊任意處即開始播放，黑色毛玻璃全螢幕覆蓋層（z-index:100） */
 .auto-gate {
   position: fixed;
   inset: 0;
@@ -15,6 +17,7 @@
   to { opacity: 1; }
 }
 
+/* ══ 遠罩中央提示卡片 ══ */
 .auto-gate-card {
   text-align: center;
   color: #f4f4f5;
@@ -24,6 +27,7 @@
   gap: 12px;
   align-items: center;
 }
+/* ══ 提示卡片上方小標籤（如 "AUTO PLAY"） */
 .auto-gate-kicker {
   font-family: var(--font-mono);
   font-size: 11px;
@@ -31,6 +35,8 @@
   text-transform: uppercase;
   color: rgba(244, 244, 245, 0.55);
 }
+/* ══ 提示卡片主標 ══ 56px，如 "CLICK TO PLAY"
+   修改 font-size 可調整主標大小 */
 .auto-gate-title {
   font-family: var(--font-display-en, system-ui);
   font-size: 56px;
@@ -38,6 +44,7 @@
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
+/* ══ 提示卡片副文字 ══ 含鍵盤快捷鍵提示 */
 .auto-gate-sub {
   font-family: var(--font-body, var(--font-display-en));
   font-size: 16px;

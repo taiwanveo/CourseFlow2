@@ -1,3 +1,4 @@
+/* ══ FlowDiagram 版型根容器 ══ 縦向置中，橫排分割佈局 */
 .cf-flow-scene {
   height: 100%;
   display: flex;
@@ -6,6 +7,9 @@
   gap: var(--space-5);
 }
 
+/* ══ 左文右圖分割佈局 ══
+   左欄 1.1fr(文字)，右欄 0.9fr(圖片)
+   無圖時自動切成單欄置中局 */
 .cf-flow-split {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
@@ -35,6 +39,7 @@
   gap: var(--space-5);
 }
 
+/* ══ 右側圖片區 ══ 包裹 hero 圖片，毛玻璃背景 */
 .cf-flow-aside {
   display: flex;
   align-items: center;
@@ -61,9 +66,10 @@
   letter-spacing: 0.12em;
 }
 
+/* ══ 導言大段落文字 ══ 可修改 font-size 調整導言大小 */
 .cf-flow-intro {
   margin: 0;
-  font-size: clamp(2.2rem, 4vw, 3.8rem);
+  font-size: clamp(2.0rem, 3.6vw, 3.8rem);
   line-height: 1.12;
   max-width: 18ch;
 }

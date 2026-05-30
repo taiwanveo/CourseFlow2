@@ -10,6 +10,7 @@ export const PROVIDER_TEXT_FALLBACK: Record<LlmProviderId, string> = {
 };
 export const PROVIDER_IMAGE_FALLBACK: Partial<Record<LlmProviderId, string>> = {
   openai:     "dall-e-3",
+  // OpenRouter 預設使用 Gemini image model（DALL-E 3 需透過 OpenAI 直接呼叫）
   openrouter: "google/gemini-2.5-flash-image",
 };
 
@@ -27,15 +28,14 @@ export function resolveEffectiveTextModel(
   );
 }
 
-/** 解析最終使用的圖片生成模型（imageModel → defaultModel → 硬編碼後備） */
+/** 解析最終使用的圖片生成模型（imageModel → 硬編碼後備，不用 defaultModel 避免誤用文字模型） */
 export function resolveEffectiveImageModel(
   provider: LlmProviderId,
   imageModel: string | null | undefined,
-  defaultModel: string | null | undefined,
+  _defaultModel?: string | null | undefined,
 ): string {
   return (
     imageModel?.trim() ||
-    defaultModel?.trim() ||
     PROVIDER_IMAGE_FALLBACK[provider] ||
     "dall-e-3"
   );

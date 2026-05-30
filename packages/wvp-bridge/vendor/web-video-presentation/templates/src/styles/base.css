@@ -44,14 +44,15 @@ body {
  *    A theme can override any of these in its tokens.css.
  * ───────────────────────────────────────────────────────────────────── */
 :root {
-  /* ── Type scale (used by primitive classes below; chapters can use
-        these OR write hard-coded sizes — whatever the content needs) ── */
-  --t-display-1:   clamp(140px, 11vw, 200px);
-  --t-display-2:   clamp(80px, 7vw, 128px);
-  --t-h1:          clamp(56px, 5vw, 88px);
-  --t-h2:          clamp(40px, 3.6vw, 60px);
-  --t-body:        20px;
-  --t-micro:       12px;
+  /* ── Type scale ── 字型尺度變數（下方所有小點都用這幾數，統一修改即可全局生效）
+     stage 1920px 以 ~0.48 縮放至 viewport，所有 px 尺度和視覺尺度相差約一帳 */
+  --t-display-1:   clamp(140px, 11vw, 200px);   /* 超大展示字（封面巨型標題） */
+  --t-display-2:   clamp(80px, 7vw, 128px);     /* 大展示字（Hero 數字、強調展示） */
+  --t-h1:          clamp(90px, 7.5vw, 140px);   /* 一級標題（章節大標） */
+  --t-h2:          80px;                         /* 二級標題（清單格標題、卡片標題），視覺約 38px */
+  --t-body:        63px;                         /* 內文（字幕、清單格內文），視覺約 30px */
+  --t-cue:         64px;                         /* 章節 kicker / mono 標籤（序號行） */
+  --t-micro:       12px;                         /* 極小標籤（不隨 stage 縮放，原始 px） */
 
   /* ── Tracking presets (used by primitive classes) ── */
   --track-tight:   -0.025em;   /* large serif display */
@@ -67,8 +68,8 @@ body {
   --space-9:    96px;
 
   /* ── Stage padding (theme can dial density) ── */
-  --stage-pad-x: 96px;
-  --stage-pad-y: 80px;
+  --stage-pad-x: 96px;   /* 幻燈片內容安全左右邊距 — 縮小可讓內容更寬 */
+  --stage-pad-y: 80px;   /* 幻燈片內容安全上下邊距 */
 
   /* ── Radius scale (themes reference these via --r-card; chapters write
         their own radii freely) ── */
@@ -116,6 +117,9 @@ body {
  * 3. Stage chrome — letterbox + 16:9 fitter + raw 1920×1080 frame.
  *    The fitter is sized to ACTUAL visible px so flex-centering is exact.
  * ───────────────────────────────────────────────────────────────────── */
+/* ══ 1920×1080 stage 幾何架構 ══
+   .stage-frame 是實際 1920px 寬的画布，由 Stage.tsx 利用 transform:scale()
+   縮放至 viewport。所有內容 CSS px 必須就兄 1920px 的尺度撰寫。 */
 .app-shell {
   position: fixed;
   inset: 0;

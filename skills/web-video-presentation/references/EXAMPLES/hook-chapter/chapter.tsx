@@ -1,6 +1,6 @@
-// ⚠️ 这是 anchor 参考代码，不会被任何项目编译。
-//    抄到真实项目时（presentation/src/chapters/NN-hook/），
-//    把下面两个 import 改成：
+// ⚠️ 這是 anchor 參考程式碼，不會被任何專案編譯。
+//    抄到真實專案時（presentation/src/chapters/NN-hook/），
+//    把下面兩個 import 改成：
 //      import { MaskReveal } from "../../components/MaskReveal";
 //      import type { ChapterStepProps } from "../../registry/types";
 import { MaskReveal } from "../../../templates/src/components/MaskReveal";
@@ -8,28 +8,28 @@ import type { ChapterStepProps } from "../../../templates/src/registry/types";
 import "./chapter.css";
 
 /**
- * hook-chapter · 完整章节示例
+ * hook-chapter · 完整章節示例
  * ─────────────────────────────────────────
- * 默认绑 newsroom 主题（serif + 报头红 + 印刷盖章 motion）。
+ * 預設綁 newsroom 主題（serif + 報頭紅 + 印刷蓋章 motion）。
  *
- * 关键手段：
+ * 關鍵手段：
  * - 真素材：<img src="/hook/{name}.png" /> 而不是 placeholder
- * - 字号狠对比：hero 用 --t-display-1（≥ 144px）+ 微微负字距
- * - 主导动作：mask reveal + 印章砸下（贴 newsroom 印刷气质）
- * - takeover：三张图缩入 + 巨字爆出 + accent 红条贯穿
- * - 收束：brush 划掉旧概念
+ * - 字號狠對比：hero 用 --t-display-1（≥ 144px）+ 微微負字距
+ * - 主導動作：mask reveal + 印章砸下（貼 newsroom 印刷氣質）
+ * - takeover：三張圖縮入 + 巨字爆出 + accent 紅條貫穿
+ * - 收束：brush 劃掉舊概念
  *
- * 切其它主题时按那个主题的气质自由换"印章砸下 / brush"等效动作，
- * 结构和字号节奏保持。
+ * 切其它主題時按那個主題的氣質自由換"印章砸下 / brush"等效動作，
+ * 結構和字號節奏保持。
  */
 export default function HookChapter({ step }: ChapterStepProps) {
-  // step 1 — 三张 ghost（精修：加 kicker 引子 + accent 红条）
+  // step 1 — 三張 ghost（精修：加 kicker 引子 + accent 紅條）
   if (step === 0) {
     return (
       <div className="hk-scene scene-pad">
         <div className="hk-kicker">
           <span className="hk-kicker-line" />
-          <span className="hk-kicker-text">这几天</span>
+          <span className="hk-kicker-text">這幾天</span>
         </div>
         <div className="hk-grid" key={step}>
           {["01", "02", "03"].map((i, idx) => (
@@ -45,14 +45,14 @@ export default function HookChapter({ step }: ChapterStepProps) {
     );
   }
 
-  // step 2-4 — 每张图独占（真素材 + 角章 + 旁白）
-  // ⚠️ 这是结构示例。具体反例 caption / src 应该来自 outline.md 本章
-  //    article 补字段（双源原则）—— 别照抄下面这些占位字符串。
+  // step 2-4 — 每張圖獨佔（真素材 + 角章 + 旁白）
+  // ⚠️ 這是結構示例。具體反例 caption / src 應該來自 outline.md 本章
+  //    article 補欄位（雙源原則）—— 別照抄下面這些佔位字串。
   const reveals: Array<{ src: string; label: string; caption: string }> = [
     {
       src: "/hook/<asset-1>.png",
       label: "01 / 03",
-      caption: "<反例 1 caption，来自 article §X>",
+      caption: "<反例 1 caption，來自 article §X>",
     },
     {
       src: "/hook/<asset-2>.png",
@@ -87,7 +87,7 @@ export default function HookChapter({ step }: ChapterStepProps) {
     );
   }
 
-  // step 5 — takeover：三张缩入 + 巨字爆出 + accent 红条
+  // step 5 — takeover：三張縮入 + 巨字爆出 + accent 紅條
   if (step === 4) {
     return (
       <div className="hk-scene scene-pad hk-takeover" key={step}>
@@ -105,19 +105,19 @@ export default function HookChapter({ step }: ChapterStepProps) {
         <span className="hk-accent-bar" />
         <h1 className="hk-hero">
           <MaskReveal show duration={1100}>
-            {/* hero 文案来自 outline 本章 step 5；这里只是占位 */}
-            &lt;主题大字 takeover&gt;
+            {/* hero 文案來自 outline 本章 step 5；這裡只是佔位 */}
+            &lt;主題大字 takeover&gt;
           </MaskReveal>
         </h1>
       </div>
     );
   }
 
-  // step 6 — 钩子收束：brush 划掉
+  // step 6 — 鉤子收束：brush 劃掉
   return (
     <div className="hk-scene scene-pad hk-close" key={step}>
       <div className="hk-quote-wrap">
-        <h2 className="hk-quote">&lt;下一句钩子&gt;</h2>
+        <h2 className="hk-quote">&lt;下一句鉤子&gt;</h2>
         <span className="hk-brush" aria-hidden />
       </div>
     </div>

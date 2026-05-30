@@ -1,107 +1,107 @@
-# EXAMPLES —— 完整章节 / 题材 anchor
+# EXAMPLES —— 完整章節 / 題材 anchor
 
-> ## ⚠️ 这是**结构示意**，不是抄袭模板
+> ## ⚠️ 這是**結構示意**，不是抄襲模板
 >
-> 这些 example **不是给你照抄的**。它们的角色是"看一个完整章节大概
-> 什么形状、动画怎么分层、CSS 用了哪些 token、outline 长什么样"。
+> 這些 example **不是給你照抄的**。它們的角色是"看一個完整章節大概
+> 什麼形狀、動畫怎麼分層、CSS 用了哪些 token、outline 長什麼樣"。
 >
-> **正确使用流程**：
+> **正確使用流程**：
 >
-> 1. 走完 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md) Part 0 五问
-> 2. 实在卡壳"我这一章的整体结构应该是什么"才翻 EXAMPLES
-> 3. **保留它的"形"**（step 切分逻辑、字号关系、布局原则），**按本
->    项目的主题 + 内容换动作选型**
+> 1. 走完 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md) Part 0 五問
+> 2. 實在卡殼"我這一章的整體結構應該是什麼"才翻 EXAMPLES
+> 3. **保留它的"形"**（step 切分邏輯、字號關係、佈局原則），**按本
+>    專案的主題 + 內容換動作選型**
 >
-> 倒过来——先翻 EXAMPLES 选一个照搬到底 = [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
-> Part 5 第 8 条「整章只用一种入场动画」同质化反模式（每个用户的视频
-> 看起来像同一个模板的 N 个变奏）。
+> 倒過來——先翻 EXAMPLES 選一個照搬到底 = [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
+> Part 5 第 8 條「整章只用一種入場動畫」同質化反模式（每個使用者的影片
+> 看起來像同一個模板的 N 個變奏）。
 
-两类参考资源，让 agent 在写章节时**有具体形状可参考**，不用从零设计。
+兩類參考資源，讓 agent 在寫章節時**有具體形狀可參考**，不用從零設計。
 
-> **不是必须按这个写**。卡壳时翻一翻；用力发挥时大胆偏离。
+> **不是必須按這個寫**。卡殼時翻一翻；用力發揮時大膽偏離。
 
-## 目录
+## 目錄
 
-### A. 章节结构 anchor（与题材无关）
+### A. 章節結構 anchor（與題材無關）
 
-| 例子 | 适用场景 | 文件 |
+| 例子 | 適用場景 | 檔案 |
 |---|---|---|
-| [`hook-chapter/`](hook-chapter/) | **钩子型开场** —— 多张图片逐张揭示后 hero takeover | `chapter.tsx` + `chapter.css` |
-| [`list-reveal/`](list-reveal/) | **列举型** —— 口播说"三件事 / N 个特性"，每项 1 step | `chapter.tsx` + `chapter.css` |
+| [`hook-chapter/`](hook-chapter/) | **鉤子型開場** —— 多張圖片逐張揭示後 hero takeover | `chapter.tsx` + `chapter.css` |
+| [`list-reveal/`](list-reveal/) | **列舉型** —— 口播說"三件事 / N 個特性"，每項 1 step | `chapter.tsx` + `chapter.css` |
 
-每个 example 都是**完整章节**：**内容驱动主导动作** + 必要的伴随动作
-（**不强求挂持续微动**，按 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
-Part 0 原则 7 节制使用）、真素材（不是占位卡）、字号狠对比、绑了
-`newsroom` 主题作为示范。
+每個 example 都是**完整章節**：**內容驅動主導動作** + 必要的伴隨動作
+（**不強求掛持續微動**，按 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
+Part 0 原則 7 節制使用）、真素材（不是佔位卡）、字號狠對比、綁了
+`newsroom` 主題作為示範。
 
-### B. 题材 case anchor（与题材相关）
+### B. 題材 case anchor（與題材相關）
 
-| 例子 | 题材 | 文件 |
+| 例子 | 題材 | 檔案 |
 |---|---|---|
-| [`case-tech-review/`](case-tech-review/) | 科技测评 / 实测对比 / 跑分类视频 | README + outline 节选 |
+| [`case-tech-review/`](case-tech-review/) | 科技測評 / 實測對比 / 跑分類影片 | README + outline 節選 |
 
-> 题材 case 展示**真实 outline 的样子**（含 article 补字段如何填、
-> 章节切分如何决策）。拿到与某个 case 题材相似的需求时，先翻它再
-> 写自己的 outline。
+> 題材 case 展示**真實 outline 的樣子**（含 article 補欄位如何填、
+> 章節切分如何決策）。拿到與某個 case 題材相似的需求時，先翻它再
+> 寫自己的 outline。
 
-## 怎么用
+## 怎麼用
 
-### 写章节卡壳时
+### 寫章節卡殼時
 
-1. 看哪个 anchor 跟你这一章**结构最像**（钩子型 vs 列举型 vs 其它）
-2. 翻 `README.md` 看这个例子的设计思路 + 节奏
-3. 翻 `chapter.tsx` 看实现：JSX 结构、`step` 切分、用了哪些组件 / 类名
-4. 翻 `chapter.css` 看动画用了哪些 keyframes、token、`infinite` 持续
-   微动写在哪
-5. 写自己这一章时**保留 anchor 的"形"，按本章内容 + 本主题气质换动画选型**
+1. 看哪個 anchor 跟你這一章**結構最像**（鉤子型 vs 列舉型 vs 其它）
+2. 翻 `README.md` 看這個例子的設計思路 + 節奏
+3. 翻 `chapter.tsx` 看實現：JSX 結構、`step` 切分、用了哪些元件 / 類名
+4. 翻 `chapter.css` 看動畫用了哪些 keyframes、token、`infinite` 持續
+   微動寫在哪
+5. 寫自己這一章時**保留 anchor 的"形"，按本章內容 + 本主題氣質換動畫選型**
 
-### 切换主题时
+### 切換主題時
 
-每个 example 的 README 末尾有"切到其它主题怎么换"的提示 —— 通常只需要
-**换主导动作的形式**（newsroom 印章砸下 → terminal 打字机 → chalk
-粉笔自绘），**结构、step 切分、字号关系不动**。
+每個 example 的 README 末尾有"切到其它主題怎麼換"的提示 —— 通常只需要
+**換主導動作的形式**（newsroom 印章砸下 → terminal 打字機 → chalk
+粉筆自繪），**結構、step 切分、字號關係不動**。
 
 ---
 
-## ⚠️ 这两个 anchor 是"地板"，不是"天花板"
+## ⚠️ 這兩個 anchor 是"地板"，不是"天花板"
 
-这两个例子已经引入印章砸下、stagger、accent 红条 —— 但**仍然是相对克
-制的版本**。**鼓励你做得更狂、更"视频感"**：
+這兩個例子已經引入印章砸下、stagger、accent 紅條 —— 但**仍然是相對克
+制的版本**。**鼓勵你做得更狂、更"影片感"**：
 
-### 进阶玩法（任选搭配）
+### 進階玩法（任選搭配）
 
-| 维度 | 这俩 anchor 给的（地板） | 可以升级到（无上限） |
+| 維度 | 這倆 anchor 給的（地板） | 可以升級到（無上限） |
 |---|---|---|
-| 背景层 | 纯色 surface | + SVG turbulence filter 纸纹永不停斜向漂移 |
-| 主导动作 | mask reveal + 印章砸下 | + Canvas 粒子从屏幕外汇聚成 hero 字 |
-| 伴随动作 | accent 红条 scaleX | + SVG path stroke-dashoffset 自绘下划线 / 装饰花纹 |
-| 持续微动 | accent 光晕呼吸 | + 多层粒子漂移 / scanline / ken burns 缓推 |
-| 数字 hero | 直接显示 | + JS 数字滚动（`requestAnimationFrame` + easeOutQuart） |
-| 流程 / 架构 | 仅文字列 | + SVG path 自绘流程图（每条线 stroke-dashoffset 错峰） |
-| 对比图 | 两段文字 | + SVG 双柱图自绘 + 差值数字滚动 |
-| 转场 | 章节边界硬切 | + clip-path inset 横向擦除转场 |
+| 背景層 | 純色 surface | + SVG turbulence filter 紙紋永不停斜向漂移 |
+| 主導動作 | mask reveal + 印章砸下 | + Canvas 粒子從螢幕外匯聚成 hero 字 |
+| 伴隨動作 | accent 紅條 scaleX | + SVG path stroke-dashoffset 自繪下劃線 / 裝飾花紋 |
+| 持續微動 | accent 光暈呼吸 | + 多層粒子漂移 / scanline / ken burns 緩推 |
+| 數字 hero | 直接顯示 | + JS 數字滾動（`requestAnimationFrame` + easeOutQuart） |
+| 流程 / 架構 | 僅文字列 | + SVG path 自繪流程圖（每條線 stroke-dashoffset 錯峰） |
+| 對比圖 | 兩段文字 | + SVG 雙柱圖自繪 + 差值數字滾動 |
+| 轉場 | 章節邊界硬切 | + clip-path inset 橫向擦除轉場 |
 
-→ 详细工具箱见 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md) Part 2
-"视觉手段全栈工具箱"（CSS / SVG / Canvas / JS 四层）。
+→ 詳細工具箱見 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md) Part 2
+"視覺手段全棧工具箱"（CSS / SVG / Canvas / JS 四層）。
 
-### 实测原则
+### 實測原則
 
-写章节时，**先实现 anchor 同等的地板版本**（按 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
-Part 0 五问选好主导动作），跑起来确认气质对，**再决定要不要加伴随
-动作 / 持续微动**。
+寫章節時，**先實現 anchor 同等的地板版本**（按 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
+Part 0 五問選好主導動作），跑起來確認氣質對，**再決定要不要加伴隨
+動作 / 持續微動**。
 
-**判断标准**：
-- 如果不同 step 的主导动作够多样（PPT 警报通过 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
-  Part 0 原则 7 自检）= 不需要再加持续微动
-- 如果整章主导动作太单一 = 不要靠"加持续微动"补救，**回 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
-  Part 1 五问换主导动作**才是正解（参 Part 5 第 8 条「整章只用一种入场动画」）
+**判斷標準**：
+- 如果不同 step 的主導動作夠多樣（PPT 警報透過 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
+  Part 0 原則 7 自檢）= 不需要再加持續微動
+- 如果整章主導動作太單一 = 不要靠"加持續微動"補救，**回 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
+  Part 1 五問換主導動作**才是正解（參 Part 5 第 8 條「整章只用一種入場動畫」）
 
-## 不在 EXAMPLES 里出现的章节类型
+## 不在 EXAMPLES 裡出現的章節型別
 
-- **数字型 hero**（"+47%"  → "几乎快了一倍"）
-- **对比型**（前后对照 / 双柱图）
-- **链接卡片收尾**
+- **數字型 hero**（"+47%"  → "幾乎快了一倍"）
+- **對比型**（前後對照 / 雙柱圖）
+- **連結卡片收尾**
 
-这些场景的视觉原语已经在 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
-Part 3 视觉工具箱（CSS / SVG / Canvas / JS 全栈）里覆盖了；按 anchor
-的"形"组合即可。
+這些場景的視覺原語已經在 [`../CHAPTER-CRAFT.md`](../CHAPTER-CRAFT.md)
+Part 3 視覺工具箱（CSS / SVG / Canvas / JS 全棧）裡覆蓋了；按 anchor
+的"形"組合即可。

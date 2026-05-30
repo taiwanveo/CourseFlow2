@@ -1,3 +1,5 @@
+/* ══ 步驟長條圖容器 ══ 帶背景與濃色遠角色邊框
+   height 控制長條圖區域體積 */
 .cf-viz-bars {
   margin-top: var(--space-5);
   padding: var(--space-4);
@@ -26,6 +28,7 @@
   align-items: flex-end;
 }
 
+/* ══ 長條顔充填色 ══ 動畫長高，延遲逐槽移入 */
 .cf-viz-bars-fill {
   width: 100%;
   height: var(--h);

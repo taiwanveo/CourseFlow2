@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
-export type ToastType = "success" | "error" | "info";
+export type ToastType = "success" | "error" | "info" | "warning";
 
 export type ToastOptions = {
   /** 長時間 AI／批次任務成功完成時播放 Finished 音效 */
@@ -30,6 +30,10 @@ type ToastContextValue = {
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 const TOAST_DURATION_MS = 10_000;
+const TOAST_DURATIONS: Partial<Record<ToastType, number>> = {
+  warning: 3_000,
+  success: 3_000,
+};
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -47,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       } else if (type === "success" && options?.taskComplete) {
         playFinishedSound();
       }
-      window.setTimeout(() => dismiss(id), TOAST_DURATION_MS);
+      window.setTimeout(() => dismiss(id), TOAST_DURATIONS[type] ?? TOAST_DURATION_MS);
     },
     [dismiss],
   );
@@ -85,7 +89,9 @@ function ToastViewport({
               ? "border-emerald-600/50 bg-emerald-950 text-emerald-100"
               : t.type === "error"
                 ? "border-red-600/50 bg-red-950 text-red-100"
-                : "border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)]"
+                : t.type === "warning"
+                  ? "border-amber-600/50 bg-amber-950 text-amber-100"
+                  : "border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)]"
           }`}
         >
           <p className="flex-1 text-sm leading-relaxed">{t.message}</p>

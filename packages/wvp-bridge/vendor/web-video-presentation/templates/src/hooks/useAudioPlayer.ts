@@ -20,6 +20,10 @@ interface Options {
   /** Has the user started auto playback? (Browsers block autoplay until
    *  the page receives a user gesture; the AutoStartGate flips this.) */
   autoStarted: boolean;
+  /** Playback speed multiplier (1 / 1.25 / 1.5 / 2). Applied to the
+   *  `<audio>` element so both step duration and advance timing shrink
+   *  proportionally. Default 1. */
+  playbackRate?: number;
 }
 
 /**
@@ -45,6 +49,7 @@ export function useAudioPlayer({
   estimateFallbackMs = 1500,
   onAutoAdvance,
   autoStarted,
+  playbackRate = 1,
 }: Options) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   // Latest callback ref so timers don't capture stale closures.
@@ -79,6 +84,7 @@ export function useAudioPlayer({
       const audio = new Audio(src);
       audioRef.current = audio;
       audio.preload = "auto";
+      audio.playbackRate = playbackRate;
 
       audio.addEventListener("ended", () => advanceAfter(trailMs));
       audio.addEventListener("error", () => {
@@ -108,5 +114,5 @@ export function useAudioPlayer({
         audioRef.current = null;
       }
     };
-  }, [src, mode, trailMs, estimateFallbackMs, autoStarted]);
+  }, [src, mode, trailMs, estimateFallbackMs, autoStarted, playbackRate]);
 }

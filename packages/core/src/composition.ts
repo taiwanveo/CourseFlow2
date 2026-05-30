@@ -142,6 +142,17 @@ export interface BgmSettings {
   volume: number;
 }
 
+/**
+ * 章節層級視覺覆寫。
+ * - visualMode "animation" = 預設步進動畫，不覆寫（Player 沿用 per-step visuals）
+ * - visualMode "ai-image" / "upload" = 固定圖片背景（步驟推進只換音訊/字幕，圖不動）
+ */
+export interface ChapterVisual {
+  chapterId: string;
+  visualMode: "animation" | "ai-image" | "upload";
+  background?: StepBackground;
+}
+
 export interface StepTtsConfig {
   stepId: string;
   provider: string;
@@ -158,6 +169,8 @@ export interface CourseComposition {
   visuals: StepVisual[];
   bgm: BgmSettings;
   stepTts?: StepTtsConfig[];
+  /** 章節層級視覺覆寫（ai-image / upload 模式時覆蓋 per-step visuals） */
+  chapterVisuals?: ChapterVisual[];
 }
 
 export function createEmptyComposition(

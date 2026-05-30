@@ -1,27 +1,3 @@
-import { splitNarrationPhrases } from "./narration-phrases.js";
-
-function narrationSnippetInTsx(tsx: string, narration: string): boolean {
-  const t = narration.trim();
-  if (t.length < 4) return true;
-
-  const phrases = splitNarrationPhrases(t, 4);
-  const candidates = new Set<string>();
-  for (const len of [12, 10, 8] as const) {
-    if (t.length >= 4) candidates.add(t.slice(0, len));
-  }
-  for (const phrase of phrases) {
-    if (phrase.length >= 4) {
-      candidates.add(phrase);
-      candidates.add(phrase.slice(0, 12));
-    }
-  }
-
-  for (const snippet of candidates) {
-    if (snippet.length >= 4 && tsx.includes(snippet)) return true;
-  }
-  return false;
-}
-
 /** 是否含與口播綁定的視覺演示（概念圖解／清單／流程） */
 export function hasVisualDemoInSources(tsx: string, css: string): boolean {
   const blob = `${tsx}\n${css}`;
@@ -38,24 +14,22 @@ export function hasVisualDemoInSources(tsx: string, css: string): boolean {
 export function chapterBindsNarrationText(tsx: string, narrations: string[]): boolean {
   if (narrations.length === 0) return false;
 
-  // VisualBlock：口播在 narrations.ts，畫面以 step 分支 + STEP_VISUALS 對齊
+  // 口播句只存在 narrations.ts，不應出現在元件 TSX 裡。
+  // 此函式改為驗證「元件有正確數量的 step 分支」——確保每步口播都有對應畫面。
+  const stepBranches = tsx.match(/if\s*\(\s*step\s*===\s*\d+\s*\)/g)?.length ?? 0;
+  if (stepBranches >= narrations.length) return true;
+
+  // ListRevealGrid / FlowDiagram 以 step prop 驅動，不需要 if(step===N) 分支
+  if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return true;
+
+  // VisualBlock：有 STEP_VISUALS 結構，逐步索引視為已綁定
   if (/VisualBlock/.test(tsx) && /STEP_VISUALS/.test(tsx)) {
     return narrations.every(
       (_, i) => tsx.includes(`step === ${i}`) || tsx.includes(`step={${i}}`),
     );
   }
 
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) {
-    return narrations.some((n) => narrationSnippetInTsx(tsx, n));
-  }
-
-  // Magazine：螢幕主標優先 screenContent，允許與口播不同；只要每步有分支即可
-  if (/MaskReveal/.test(tsx)) {
-    const stepBranches = tsx.match(/if \(step === \d+\)/g)?.length ?? 0;
-    return stepBranches >= narrations.length;
-  }
-
-  return narrations.some((n) => narrationSnippetInTsx(tsx, n));
+  return false;
 }
 
 export function chapterUsesInvalidMaskReveal(tsx: string): boolean {

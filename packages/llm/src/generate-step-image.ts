@@ -6,6 +6,7 @@ export const IMAGE_GENERATION_PROVIDERS: LlmProviderId[] = ["openai", "openroute
 
 const IMAGE_MODELS: Partial<Record<LlmProviderId, string>> = {
   openai: "dall-e-3",
+  // OpenRouter 預設使用 Gemini image model（DALL-E 3 需透過 OpenAI 直接呼叫）
   openrouter: "google/gemini-2.5-flash-image",
 };
 
@@ -34,97 +35,76 @@ function parseDataUrl(dataUrl: string): Uint8Array | null {
   return decodeBase64Image(match[1]);
 }
 
-type OpenRouterImagePart = {
-  image_url?: { url?: string };
-  imageUrl?: { url?: string };
-};
-
-async function generateStepImageOpenRouterOnce(
-  apiKey: string,
-  prompt: string,
-  model: string,
-): Promise<Uint8Array> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://courseflow.local",
-      "X-Title": "CourseFlow",
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "user", content: prompt }],
-      modalities: ["image"],
-      image_config: { aspect_ratio: "16:9" },
-    }),
-  });
-
-  if (!res.ok) {
-    const detail = await res.text();
-    throw new Error(
-      `OpenRouter 生圖失敗 (${res.status})：${detail.slice(0, 400)}`,
-    );
-  }
-
-  const data = (await res.json()) as {
-    choices?: Array<{
-      message?: {
-        images?: OpenRouterImagePart[];
-        content?: unknown;
-      };
-    }>;
-    error?: { message?: string };
-  };
-
-  if (data.error?.message) {
-    throw new Error(data.error.message);
-  }
-
-  const message = data.choices?.[0]?.message;
-  const fromImages =
-    message?.images?.[0]?.image_url?.url ?? message?.images?.[0]?.imageUrl?.url;
-  if (fromImages) {
-    const parsed = parseDataUrl(fromImages);
-    if (parsed) return parsed;
-    if (fromImages.startsWith("http")) {
-      const imageRes = await fetch(fromImages);
-      if (!imageRes.ok) throw new Error("下載 OpenRouter 生成圖片失敗");
-      return new Uint8Array(await imageRes.arrayBuffer());
-    }
-  }
-
-  const content = message?.content;
-  if (Array.isArray(content)) {
-    for (const part of content) {
-      if (typeof part !== "object" || part == null) continue;
-      const url =
-        (part as OpenRouterImagePart).image_url?.url ??
-        (part as OpenRouterImagePart).imageUrl?.url;
-      if (!url) continue;
-      const parsed = parseDataUrl(url);
-      if (parsed) return parsed;
-    }
-  }
-
-  throw new Error("OpenRouter 生圖 API 未回傳圖片");
-}
-
 async function generateStepImageOpenRouter(
   apiKey: string,
   prompt: string,
   model: string,
 ): Promise<Uint8Array> {
-  const attempts = [prompt, `${prompt}\n\nOutput one clear 16:9 illustration image only.`];
-  let lastError: Error | undefined;
-  for (const body of attempts) {
-    try {
-      return await generateStepImageOpenRouterOnce(apiKey, body, model);
-    } catch (e) {
-      lastError = e instanceof Error ? e : new Error(String(e));
+  // OpenRouter 圖像生成透過 /v1/chat/completions + modalities 實現
+  // 不支援 /v1/images/generations（該端點返回 404）
+  const endpoint = "https://openrouter.ai/api/v1/chat/completions";
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://courseflow.app",
+      "X-Title": "CourseFlow",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "user", content: prompt }],
+      modalities: ["image", "text"],
+      image_config: { aspect_ratio: "16:9" },
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    if (errText.includes("<!DOCTYPE") || errText.includes("<html")) {
+      throw new Error("OpenRouter 生圖請求失敗（收到 HTML 回應，請確認模型支援圖像生成）");
     }
+    let errMsg = `OpenRouter 生圖失敗（${res.status}）`;
+    try {
+      const errJson = JSON.parse(errText);
+      errMsg += `：${errJson?.error?.message ?? errText.slice(0, 200)}`;
+    } catch {
+      errMsg += `：${errText.slice(0, 200)}`;
+    }
+    throw new Error(errMsg);
   }
-  throw lastError ?? new Error("OpenRouter 生圖 API 未回傳圖片");
+
+  const data = (await res.json()) as {
+    choices?: Array<{
+      message?: {
+        images?: Array<{ image_url?: { url?: string } }>;
+        content?: string;
+      };
+    }>;
+    data?: Array<{ b64_json?: string; url?: string }>;
+  };
+
+  // OpenRouter image generation 格式: choices[0].message.images[0].image_url.url（base64 data URL）
+  const imageUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (imageUrl) {
+    const parsed = parseDataUrl(imageUrl);
+    if (parsed) return parsed;
+    // URL 格式（非 data URL）
+    const imgRes = await fetch(imageUrl);
+    if (!imgRes.ok) throw new Error("下載 OpenRouter 生成圖片失敗");
+    return new Uint8Array(await imgRes.arrayBuffer());
+  }
+
+  // 舊版相容：OpenAI images/generations 格式 (data[0].b64_json / url)
+  const item = data?.data?.[0];
+  if (item?.b64_json) return decodeBase64Image(item.b64_json);
+  if (item?.url) {
+    const imgRes = await fetch(item.url);
+    if (!imgRes.ok) throw new Error("下載 OpenRouter 生成圖片失敗");
+    return new Uint8Array(await imgRes.arrayBuffer());
+  }
+
+  throw new Error("OpenRouter 生圖 API 未回傳圖片（請確認模型支援圖像生成，並在「設定」頁確認 image model 設定）");
 }
 
 /** 依步驟內容生成 16:9 教學簡報配圖 */

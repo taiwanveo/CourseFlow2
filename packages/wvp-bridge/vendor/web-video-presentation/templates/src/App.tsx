@@ -4,7 +4,7 @@ import "./styles/base.css";
 import "./styles/animations.css";
 import "./styles/print.css"; // PDF export stylesheet (see hooks/usePdfExport.ts)
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { AutoStartGate } from "./components/AutoStartGate";
 import { AutoToggle } from "./components/AutoToggle";
 import { PageNumber } from "./components/PageNumber";
@@ -17,7 +17,7 @@ import { useAutoMode } from "./hooks/useAutoMode";
 import { isRecordingMode, usePauseControl } from "./hooks/usePauseControl";
 import { usePdfExport } from "./hooks/usePdfExport";
 import { usePlaybackRate } from "./hooks/usePlaybackRate";
-import { usePlayControlBridge } from "./hooks/usePlayControlBridge";
+import { notifyCursorToParent, usePlayControlBridge } from "./hooks/usePlayControlBridge";
 import { useStepper } from "./hooks/useStepper";
 import { useSubtitleSettings } from "./hooks/useSubtitleSettings";
 import { CHAPTERS } from "./registry/chapters";
@@ -49,6 +49,11 @@ export default function App() {
     onLast: () => stepper.jumpToChapter(CHAPTERS.length - 1, 9999),
     onStartAuto: () => { setAutoStarted(true); setMode("auto"); },
   });
+
+  // 通知父頁（WvpPlayShell）目前游標位置，讓翻頁按鈕 disabled 狀態正確
+  useEffect(() => {
+    notifyCursorToParent(stepper.globalIndex, stepper.totalGlobal);
+  }, [stepper.globalIndex, stepper.totalGlobal]);
   const subtitles = useSubtitleSettings();
   // Pause / resume orchestration. While `paused` is true, Stage clicks
   // are no-ops AND useAudioPlayer is forced into manual mode (the hook does

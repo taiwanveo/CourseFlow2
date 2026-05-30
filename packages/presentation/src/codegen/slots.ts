@@ -41,6 +41,25 @@ export function screenHeadlineForSlot(
   return core.slice(0, Math.max(8, maxChars)).trim();
 }
 
+/**
+ * 清單格卡片標題：只取第一段關鍵詞，上限 14 字。
+ * 當 screenContents 未提供而 fallback 為 narration 全文時，
+ * 自動萃取第一個片語避免把口說稿搬到畫面上。
+ */
+export function screenLabelForItem(
+  source: string | undefined,
+  fallback: string,
+): string {
+  const MAX = 14;
+  const raw = compactSpaces(stripEllipsis(source ?? ""));
+  if (!raw) return fallback;
+  const parts = splitKeyPointPhrases(raw);
+  // 優先取最短的那段（通常是真正的關鍵詞），不超過 MAX 字
+  const sorted = [...parts].sort((a, b) => a.length - b.length);
+  const best = sorted.find((p) => p.length <= MAX) ?? parts[0] ?? raw;
+  return best.slice(0, MAX).trim();
+}
+
 function truncate(s: string, max: number): string {
   const t = s.trim();
   if (t.length <= max) return t;
@@ -70,7 +89,7 @@ export function parseListRevealSlots(
   const introSub = "";
   const items = narrations.slice(1).map((n, i) => ({
     num: String(i + 1).padStart(2, "0"),
-    title: screenHeadlineForSlot(screenContents[i + 1] || n, `重點 ${i + 1}`, 72),
+    title: screenLabelForItem(screenContents[i + 1] || n, `重點 ${i + 1}`),
     body: "",
   }));
   return { intro, introSub, items };

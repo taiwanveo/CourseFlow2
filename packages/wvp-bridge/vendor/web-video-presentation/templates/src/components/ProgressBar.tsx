@@ -13,8 +13,7 @@ interface Props {
   githubUrl?: string | null;
 }
 
-const DEFAULT_GITHUB_URL =
-  "https://github.com/ConardLi/garden-skills";
+const DEFAULT_GITHUB_URL = null;
 
 /**
  * Hidden-on-hover progress bar, fixed to the bottom of the viewport.

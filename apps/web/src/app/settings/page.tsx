@@ -25,7 +25,15 @@ interface ProviderInfo {
 }
 
 interface ModelEntry { id: string; name: string }
-interface ModelList  { text: ModelEntry[]; image: ModelEntry[] }
+interface ModelRecommendation { id: string; name: string; reason: string }
+interface ModelList  {
+  text: ModelEntry[];
+  image: ModelEntry[];
+  recommendations?: {
+    text: ModelRecommendation[];
+    image: ModelRecommendation[];
+  };
+}
 
 interface ModelPrefs {
   defaultModel: string;
@@ -286,7 +294,66 @@ export default function SettingsPage() {
 
                       {list && (
                         <div className="flex flex-col gap-3">
-                          {/* 預設模型（必填） */}
+                          {/* ── 推薦模型 ─────────────────────────────── */}
+                          {((list.recommendations?.text.length ?? 0) > 0 ||
+                            (list.recommendations?.image.length ?? 0) > 0) && (
+                            <div className="rounded-lg border border-[var(--cf-border)] bg-[var(--cf-surface)] p-3">
+                              <p className="mb-2 text-xs font-medium text-[var(--cf-text2)]">
+                                ✦ 推薦模型（依任務類型）
+                              </p>
+                              <div className="flex flex-col gap-3">
+                                {(list.recommendations?.text.length ?? 0) > 0 && (
+                                  <div>
+                                    <p className="mb-1.5 text-xs text-[var(--cf-text-mute)]">文字生成</p>
+                                    <ul className="flex flex-col gap-1.5">
+                                      {list.recommendations!.text.map((rec, i) => (
+                                        <li key={rec.id} className="flex items-start gap-2 text-xs">
+                                          <span className="mt-0.5 shrink-0 text-[10px] font-bold text-[var(--cf-accent)]">
+                                            #{i + 1}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <button
+                                              type="button"
+                                              className="font-mono text-[var(--cf-text)] hover:text-[var(--cf-accent)] hover:underline text-left"
+                                              onClick={() => updatePref(p.id, "textModel", rec.id)}
+                                            >
+                                              {rec.name}
+                                            </button>
+                                            <p className="text-[var(--cf-text-mute)] leading-relaxed">{rec.reason}</p>
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {(p.id === "openai" || p.id === "openrouter") &&
+                                  (list.recommendations?.image.length ?? 0) > 0 && (
+                                    <div>
+                                      <p className="mb-1.5 text-xs text-[var(--cf-text-mute)]">圖片生成</p>
+                                      <ul className="flex flex-col gap-1.5">
+                                        {list.recommendations!.image.map((rec, i) => (
+                                          <li key={rec.id} className="flex items-start gap-2 text-xs">
+                                            <span className="mt-0.5 shrink-0 text-[10px] font-bold text-[var(--cf-accent)]">
+                                              #{i + 1}
+                                            </span>
+                                            <div className="min-w-0">
+                                              <button
+                                                type="button"
+                                                className="font-mono text-[var(--cf-text)] hover:text-[var(--cf-accent)] hover:underline text-left"
+                                                onClick={() => updatePref(p.id, "imageModel", rec.id)}
+                                              >
+                                                {rec.name}
+                                              </button>
+                                              <p className="text-[var(--cf-text-mute)] leading-relaxed">{rec.reason}</p>
+                                            </div>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                              </div>
+                            </div>
+                          )}
                           <label className="flex flex-col gap-1">
                             <span className="text-xs text-[var(--cf-text-mute)]">
                               預設模型 <span className="text-red-400">*</span>
@@ -305,41 +372,68 @@ export default function SettingsPage() {
                           </label>
 
                           {/* 文字生成模型（選填） */}
-                          <label className="flex flex-col gap-1">
-                            <span className="text-xs text-[var(--cf-text-mute)]">
-                              文字生成模型
-                              <span className="ml-1 opacity-70">— 課程內容、章節、動畫生成（選填）</span>
-                            </span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-xs text-[var(--cf-text-mute)]">
+                                文字生成模型
+                                <span className="ml-1 opacity-70">— 課程內容、章節、動畫生成（選填）</span>
+                              </span>
+                              {prefs.textModel && (
+                                <button
+                                  type="button"
+                                  className="shrink-0 text-xs text-[var(--cf-text-mute)] hover:text-red-400"
+                                  onClick={() => updatePref(p.id, "textModel", "")}
+                                >
+                                  ✕ 清除
+                                </button>
+                              )}
+                            </div>
                             <select
                               className="cf-input"
                               value={prefs.textModel}
                               onChange={(e) => updatePref(p.id, "textModel", e.target.value)}
                             >
-                              <option value="">（使用預設模型）</option>
+                              <option value="">（不選 → 跟隨預設模型）</option>
                               {list.text.map((m) => (
                                 <option key={m.id} value={m.id}>{m.name}</option>
                               ))}
                             </select>
-                          </label>
+                          </div>
 
-                          {/* 圖片生成模型（選填，Gemini 無此選項） */}
-                          {list.image.length > 0 && (
-                            <label className="flex flex-col gap-1">
-                              <span className="text-xs text-[var(--cf-text-mute)]">
-                                圖片生成模型
-                                <span className="ml-1 opacity-70">— AI 配圖生成（選填）</span>
-                              </span>
+                          {/* 圖片生成模型（openai / openrouter 支援；Gemini 不支援） */}
+                          {(p.id === "openai" || p.id === "openrouter") && (
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <span className="text-xs text-[var(--cf-text-mute)]">
+                                  圖片生成模型
+                                  <span className="ml-1 opacity-70">— AI 配圖生成（選填）</span>
+                                </span>
+                                {prefs.imageModel && (
+                                  <button
+                                    type="button"
+                                    className="shrink-0 text-xs text-[var(--cf-text-mute)] hover:text-red-400"
+                                    onClick={() => updatePref(p.id, "imageModel", "")}
+                                  >
+                                    ✕ 清除
+                                  </button>
+                                )}
+                              </div>
                               <select
                                 className="cf-input"
                                 value={prefs.imageModel}
                                 onChange={(e) => updatePref(p.id, "imageModel", e.target.value)}
                               >
-                                <option value="">（使用預設模型）</option>
+                                <option value="">（不選 → 自動使用 openai/dall-e-3）</option>
                                 {list.image.map((m) => (
                                   <option key={m.id} value={m.id}>{m.name}</option>
                                 ))}
                               </select>
-                            </label>
+                              {list.image.length === 0 && (
+                                <p className="text-xs opacity-60 text-[var(--cf-text-mute)]">
+                                  清單中未偵測到圖片生成模型，將自動以 openai/dall-e-3 生圖
+                                </p>
+                              )}
+                            </div>
                           )}
 
                           <Button

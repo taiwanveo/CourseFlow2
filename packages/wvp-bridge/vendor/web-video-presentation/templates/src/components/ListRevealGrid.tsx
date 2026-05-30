@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { MaskReveal } from "./MaskReveal";
 import "./ListRevealGrid.css";
 
@@ -90,21 +91,22 @@ export function ListRevealGrid({
           </MaskReveal>
         ) : null}
         <div className="lr-grid lr-grid-ghost" style={{ ["--lr-cols" as string]: String(cols) }}>
-          {items.map((it) => (
-            <Slot key={it.num} state="ghost" item={it} />
+          {items.map((it, i) => (
+            <Slot key={it.num} state="ghost" item={it} index={i} />
           ))}
         </div>
       </div>
     );
   }
 
+  // step >= 1: cumulative grid reveal — items appear one by one in the grid
   const activeIdx = step - 1;
-  const active = items[activeIdx];
-  if (!active) return null;
+  if (!items[activeIdx]) return null;
 
+  const cols = Math.min(Math.max(items.length, 1), 4);
   return (
     <div
-      className={`lr-scene scene-pad lr-featured cf-enter-${enterAnimationId}`}
+      className={`lr-scene scene-pad lr-list-reveal cf-enter-${enterAnimationId}`}
       data-cf-transition={transitionId}
     >
       <header className="lr-masthead">
@@ -112,7 +114,16 @@ export function ListRevealGrid({
         <span className="lr-kicker">{kicker ?? chapterTitle}</span>
         <span className="lr-rule" />
       </header>
-      <FeaturedCard item={active} />
+      <div className="lr-grid" style={{ ["--lr-cols" as string]: String(cols) }}>
+        {items.map((it, i) => (
+          <Slot
+            key={it.num}
+            state={i < activeIdx ? "past" : i === activeIdx ? "active" : "ghost"}
+            item={it}
+            index={i}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -168,18 +179,21 @@ function FeaturedCard({ item }: { item: ListRevealItem }) {
 function Slot({
   state,
   item,
+  index = 0,
 }: {
   state: "ghost" | "active" | "past";
   item: ListRevealItem;
+  index?: number;
 }) {
   return (
-    <div className={`lr-slot lr-slot-${state}`}>
+    <div
+      className={`lr-slot lr-slot-${state}`}
+      style={{ ["--lr-i" as string]: String(index) } as CSSProperties}
+    >
       <div className="lr-slot-num hero-num">{item.num}</div>
       <div className="lr-slot-content">
         {state !== "ghost" && (
-          <MaskReveal show duration={900}>
-            <div className="lr-slot-title serif-cn">{item.title}</div>
-          </MaskReveal>
+          <div className="lr-slot-title serif-cn">{item.title}</div>
         )}
       </div>
     </div>

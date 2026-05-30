@@ -1,3 +1,6 @@
+/* ══ 左右翻頁按鈕的全螢幕覆蓋容器 ══
+   fixed inset:0，pointer-events:none，z-index:40（最高層可點擊）
+   修改 padding 可調整按鈕距螢幕左右邊緣的距離 */
 .cf-stage-nav {
   position: fixed;
   inset: 0;
@@ -9,6 +12,7 @@
   padding: 0 clamp(10px, 2vw, 24px);
 }
 
+/* ══ 左側或右側翻頁按鈕群 ══ pointer-events:auto 讓按鈕可點擊 */
 .cf-stage-nav-col {
   display: flex;
   flex-direction: row;
@@ -17,6 +21,8 @@
   pointer-events: auto;
 }
 
+/* ══ 圓形翻頁按鈕 ══ 44px，毛玻璃背景
+   修改 width/height 可調整按鈕大小 */
 .cf-stage-nav-btn {
   width: 44px;
   height: 44px;
@@ -48,6 +54,7 @@
   transform: scale(0.96);
 }
 
+/* ══ 禁用狀態 ══ 已到第一頁（左側）或最後一頁（右側）時自動觸發 */
 .cf-stage-nav-btn:disabled {
   opacity: 0.32;
   cursor: not-allowed;

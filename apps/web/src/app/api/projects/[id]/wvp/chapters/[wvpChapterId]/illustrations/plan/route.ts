@@ -6,14 +6,14 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { planChapterIllustrationPrompts } from "@/lib/wvp-craft-illustrations";
+import { planChapterIllustrationPromptEntry } from "@/lib/wvp-craft-illustrations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** Visual Director：產出各步真實生圖提示詞（不生成圖片） */
+/** AI 產生整章生圖提示詞（一章一個 prompt，不生成圖片） */
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
 ) {
   const { id, wvpChapterId } = await params;
@@ -58,13 +58,14 @@ export async function POST(
 
   const wvpSettings = styleGuard.settings;
   const themeId = wvpSettings.themeId ?? project.theme_id ?? "midnight-press";
-  const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
-  const body = (await req.json().catch(() => ({}))) as { stepIndex?: number };
-  const onlyStepIndices =
-    typeof body.stepIndex === "number" && body.stepIndex >= 0 ? [body.stepIndex] : undefined;
+  const styleFragment = await resolveImageStyleFragment(wvpSettings.imageStyle, themeId);
+  const imageStyleId =
+    styleGuard.imageStyleId === "theme-default"
+      ? `theme-default:${themeId}`
+      : styleGuard.imageStyleId;
 
   try {
-    const state = await planChapterIllustrationPrompts(
+    const entry = await planChapterIllustrationPromptEntry(
       supabase,
       user.id,
       id,
@@ -72,11 +73,10 @@ export async function POST(
       craft,
       composition,
       themeId,
-      styleGuard.imageStyle.id,
+      imageStyleId,
       styleFragment,
-      onlyStepIndices,
     );
-    return NextResponse.json({ ok: true, ...state });
+    return NextResponse.json({ ok: true, wvpChapterId, chapterIllustration: entry });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

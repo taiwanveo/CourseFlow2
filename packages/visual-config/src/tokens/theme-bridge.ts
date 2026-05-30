@@ -22,7 +22,6 @@ export interface DesignTokens {
 const PKG_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const WVP_THEMES = join(
   PKG_ROOT,
-  "..",
   "wvp-bridge",
   "vendor",
   "web-video-presentation",

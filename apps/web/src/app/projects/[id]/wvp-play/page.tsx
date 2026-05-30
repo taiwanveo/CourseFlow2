@@ -62,7 +62,9 @@ export default async function WvpPlayPage({
 
   const base = wvpEmbedBasePath(id);
   const query = new URLSearchParams();
-  query.set("start", "1");
+  // chapter=0&step=0 強制 stepper 從第一頁開始，覆蓋 localStorage 的舊游標
+  query.set("chapter", "0");
+  query.set("step", "0");
   query.set("cf_project", id);
   query.set("external_controls", "1");
   if (q.auto === "1") query.set("auto", "1");

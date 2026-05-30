@@ -12,6 +12,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>;
 export async function loadProjectComposition(
   supabase: Supabase,
   projectId: string,
+  opts?: { forceFresh?: boolean },
 ): Promise<CourseComposition | null> {
   const { data: project } = await supabase
     .from("projects")
@@ -21,7 +22,7 @@ export async function loadProjectComposition(
   if (!project) return null;
 
   const snap = project.composition_snapshot as CourseComposition | null;
-  if (snap?.steps?.length) {
+  if (!opts?.forceFresh && snap?.steps?.length) {
     if (!snap.meta.themeId && project.theme_id) {
       snap.meta.themeId = project.theme_id;
     }

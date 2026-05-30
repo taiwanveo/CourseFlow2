@@ -1,5 +1,5 @@
 import type { TtsCredentials, TtsProvider, TtsProviderId, TtsVoice, TtsModel, ProjectLanguage, TtsSynthesizeOptions } from "./types.js";
-import { edgeTtsVisibleForLanguage, EDGE_TTS_ZH_TW_VOICES, OPENAI_TTS_MODELS, OPENROUTER_TTS_MODELS } from "./types.js";
+import { edgeTtsVisibleForLanguage, EDGE_TTS_ZH_TW_VOICES, OPENAI_TTS_MODELS, OPENROUTER_TTS_MODELS, getTtsVoicesForModel } from "./types.js";
 import { edgeTtsProvider } from "./edge-tts.js";
 import {
   openAiTtsProvider,

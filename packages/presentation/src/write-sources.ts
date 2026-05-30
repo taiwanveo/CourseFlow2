@@ -50,6 +50,19 @@ export function normalizeChapterTsx(tsx: string, componentName: string): string 
   return out;
 }
 
+/**
+ * 自動修復 LLM 常見的 JSX 語法錯誤，確保寫入磁碟的 TSX 可以通過 esbuild。
+ *
+ * 已知模式：
+ *   url={{expr}}  →  url={expr}   （雙花括號屬性值；LLM 把物件語法誤套到非 style 屬性）
+ */
+export function sanitizeChapterTsx(tsx: string): string {
+  // 修復：非 style 屬性的雙花括號 prop={{ expr }} → prop={ expr }
+  // 匹配：word={{ 到對應的 }} — 用貪婪替換處理巢狀括號不完整的情況
+  // 只修 style= 以外的屬性（style={{ }} 是合法的 React 物件語法）
+  return tsx.replace(/\b(?!style=)(\w+=)\{\{([^}]*(?:\}[^}][^}]*)*)\}\}/g, "$1{$2}");
+}
+
 export function validateChapterTsx(
   tsx: string,
   stepCount: number,
@@ -69,10 +82,21 @@ export function validateChapterTsx(
   if (narrations.length > 0 && !chapterBindsNarrationText(normalized, narrations)) {
     return false;
   }
+  // LLM 常犯：把整段 narration 口播句複製到 JSX 字串裡（如 title="..." body="..."）。
+  // narration 句子超過 20 字且逐字出現在 TSX，視為錯誤——口播只屬於 narrations.ts。
+  for (const narration of narrations) {
+    if (narration.length > 20 && normalized.includes(narration)) return false;
+  }
   for (let i = 0; i < stepCount; i++) {
     if (!normalized.includes(`step === ${i}`)) return false;
   }
+  // 禁止多餘的步驟：step === stepCount 或更高代表 unreachable 分支，
+  // 正確內容可能被放到永遠到達不了的 step 裡，導致畫面顯示錯誤
+  if (normalized.includes(`step === ${stepCount}`)) return false;
   if (normalized.length <= 200) return false;
+  // 快速捕捉 LLM 常犯的 JSX 屬性雙花括號語法錯誤，如 url={{stepImageUrl(0)}}
+  // 合法的雙花括號只出現在 style={{ ... }} 物件字面量，其他屬性不應有此語法
+  if (/\b(?!style\b)\w+=\{\{/.test(normalized)) return false;
   // TypeScript compile-check：由呼叫端注入的 checker（通常用 ts.transpileModule）
   if (syntaxChecker && !syntaxChecker(normalized)) return false;
   return true;
@@ -85,7 +109,7 @@ export async function writeChapterSourcesRaw(
   const chapterDir = join(presentationDir, "src", "chapters", input.folderName);
   await mkdir(chapterDir, { recursive: true });
 
-  const tsx = normalizeChapterTsx(input.chapterTsx, input.componentName);
+  const tsx = sanitizeChapterTsx(normalizeChapterTsx(input.chapterTsx, input.componentName));
 
   const narrationsTs = `import type { Narration } from "../../registry/types";
 
@@ -120,7 +144,7 @@ export async function repairPresentationChapterImports(
     const componentName = tsxFile.replace(/\.tsx$/, "");
     const path = join(dir, tsxFile);
     const raw = await readFile(path, "utf8");
-    const normalized = normalizeChapterTsx(raw, componentName);
+    const normalized = sanitizeChapterTsx(normalizeChapterTsx(raw, componentName));
     if (normalized !== raw) {
       await writeFile(path, normalized, "utf8");
       fixed += 1;

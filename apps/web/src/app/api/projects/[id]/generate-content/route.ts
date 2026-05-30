@@ -8,23 +8,17 @@ import {
 } from "@courseflow/core";
 import type { PhaseLocks } from "@courseflow/core";
 import { decryptApiKey } from "@/lib/crypto";
-import { generateOutline, generateScripts } from "@courseflow/llm";
-import type { LlmProviderId } from "@courseflow/llm";
-import {
-  buildScreenContentUserPrompt,
-  SCREEN_CONTENT_SYSTEM_PROMPT,
-} from "@courseflow/llm";
+import { generateCourse } from "@courseflow/llm";
+import type { LlmProviderId, GeneratedCourse } from "@courseflow/llm";
 import {
   createCompositionFromArticle,
   expandListStepsInGeneratedChapters,
-  mergeScripts,
 } from "@courseflow/composition";
 import type { GeneratedChapterInput } from "@courseflow/composition";
 import { saveComposition } from "@/lib/project-composition";
 import { defaultSubtitleForStep, defaultVisualForStep } from "@courseflow/db";
 import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 import type { CourseComposition } from "@courseflow/core";
-import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 
 const TW_TERM_MAP: Array<[RegExp, string]> = [
   [/編程/g, "程式設計"],
@@ -232,113 +226,6 @@ function shouldRewriteScreenContent(current: string): boolean {
   );
 }
 
-function needsHardValidationRetry(screenContent: string): boolean {
-  const normalized = normalizeExistingScreenContent(screenContent);
-  return (
-    looksIncompleteClause(normalized) ||
-    looksLikeScriptFragments(normalized) ||
-    hasMainlandTerms(normalized) ||
-    isNarrativeLead(normalized) ||
-    normalized
-      .split(/[、／|｜]/)
-      .map((s) => s.trim())
-      .some((s) => isWeakFragment(s))
-  );
-}
-
-async function generateScreenContentByLlm(opts: {
-  provider: LlmProviderId;
-  apiKey: string;
-  model?: string;
-  language: string;
-  steps: Array<{ stepId: string; script: string; currentScreenContent: string }>;
-}): Promise<Map<string, string>> {
-  if (opts.steps.length === 0) return new Map();
-  const system = SCREEN_CONTENT_SYSTEM_PROMPT;
-  const user = buildScreenContentUserPrompt(opts.language, opts.steps);
-
-  const obj = await generateChapterPlan({
-    provider: opts.provider,
-    apiKey: opts.apiKey,
-    model: opts.model,
-    system,
-    user,
-  });
-
-  const items = (obj.items as Array<{ stepId?: string; screenContent?: string }>) ?? [];
-  const out = new Map<string, string>();
-  for (const item of items) {
-    const id = String(item.stepId ?? "").trim();
-    const screen = normalizeExistingScreenContent(String(item.screenContent ?? ""));
-    if (!id || !screen) continue;
-    out.set(id, screen);
-  }
-  return out;
-}
-
-async function normalizeGeneratedScreenContent(
-  composition: CourseComposition,
-  llm: { provider: LlmProviderId; apiKey: string; model?: string },
-  language: string,
-): Promise<CourseComposition> {
-  const contentSteps = composition.steps.filter((s) => (s.stepKind ?? "content") !== "chapter");
-  const firstPass = await generateScreenContentByLlm({
-    provider: llm.provider,
-    apiKey: llm.apiKey,
-    model: llm.model,
-    language,
-    steps: contentSteps.map((s) => ({
-      stepId: s.id,
-      script: s.script ?? "",
-      currentScreenContent: s.screenContent ?? "",
-    })),
-  });
-
-  const retryTargets = contentSteps
-    .map((step) => {
-      const candidate = firstPass.get(step.id) ?? step.screenContent ?? "";
-      return {
-        stepId: step.id,
-        script: step.script ?? "",
-        currentScreenContent: candidate,
-        invalid: shouldRewriteScreenContent(candidate) || needsHardValidationRetry(candidate),
-      };
-    })
-    .filter((x) => x.invalid)
-    .map(({ stepId, script, currentScreenContent }) => ({ stepId, script, currentScreenContent }));
-
-  const secondPass =
-    retryTargets.length > 0
-      ? await generateScreenContentByLlm({
-          provider: llm.provider,
-          apiKey: llm.apiKey,
-          model: llm.model,
-          language,
-          steps: retryTargets,
-        })
-      : new Map<string, string>();
-
-  return {
-    ...composition,
-    steps: composition.steps.map((step) => {
-      if ((step.stepKind ?? "content") === "chapter") return step;
-      const current = normalizeExistingScreenContent(step.screenContent);
-      const llmCandidate = secondPass.get(step.id) ?? firstPass.get(step.id) ?? current;
-      let nextScreen = normalizeExistingScreenContent(llmCandidate);
-      if (shouldRewriteScreenContent(nextScreen) || needsHardValidationRetry(nextScreen)) {
-        nextScreen = keyPointsFromScript(step.script || current);
-      }
-      if (shouldRewriteScreenContent(nextScreen) || needsHardValidationRetry(nextScreen)) {
-        nextScreen = normalizeTwTerms(nextScreen)
-          .replace(/\.\.\.|…/g, "")
-          .replace(/(的|來|即可透過|可以透過|可以通過)$/g, "")
-          .trim();
-      }
-      return { ...step, screenContent: nextScreen || "重點整理" };
-    }),
-  };
-}
-
 function normalizeGeneratedScriptsToTw(composition: CourseComposition): CourseComposition {
   return {
     ...composition,
@@ -416,12 +303,27 @@ export async function POST(
       apiKey: decryptApiKey(encryptedKey),
       model: textModel,
     };
-    const outline = await generateOutline(creds, articleText, language);
+
+    // 兩步驟生成：Call 1 生成 Markdown 文稿，Call 2 轉為課程 JSON（script 優先）
+    const { outline: course, article: generatedArticle }: GeneratedCourse =
+      await generateCourse(creds, articleText, language);
+
+    // 若為提示詞模式（input 被 LLM 展開為文稿），儲存生成的文稿供使用者檢視
+    if (generatedArticle !== articleText) {
+      await supabase
+        .from("projects")
+        .update({ article: generatedArticle })
+        .eq("id", id);
+    }
+
     const chaptersForComposition: GeneratedChapterInput[] =
       expandListStepsInGeneratedChapters(
-        outline.chapters.map((ch) => ({
+        course.chapters.map((ch) => ({
           title: ch.title,
+          wvpChapterId: ch.wvpChapterId,
           sortOrder: ch.sortOrder,
+          chapterKind: ch.chapterKind as GeneratedChapterInput["chapterKind"],
+          chapterScript: ch.chapterScript,
           steps: ch.steps.map((st) => ({
             screenContent: st.screenContent,
             infoPool: st.infoPool ?? [],
@@ -430,30 +332,12 @@ export async function POST(
           })),
         })),
       );
+
     let composition = createCompositionFromArticle(language, chaptersForComposition);
-    const scriptMap = await generateScripts(
-      creds,
-      composition.steps
-        .filter((s) => (s.stepKind ?? "content") !== "chapter")
-        .map((s) => ({
-          id: s.id,
-          screenContent: s.screenContent,
-          infoPool: s.infoPool,
-        })),
-      {
-        language,
-        summary: outline.summary,
-        articleExcerpt: articleText,
-      },
-    );
-    composition = mergeScripts(composition, scriptMap);
+    // normalizeGeneratedScriptsToTw 仍執行（台灣用詞正規化），不需第三次 LLM
     composition = normalizeGeneratedScriptsToTw(composition);
-    composition = await normalizeGeneratedScreenContent(
-      composition,
-      { provider, apiKey: creds.apiKey, model: textModel },
-      language,
-    );
     composition = ensureChapterDividerSteps(composition);
+
     for (const step of composition.steps) {
       if (!composition.subtitles.some((x) => x.stepId === step.id)) {
         composition.subtitles.push(defaultSubtitleForStep(step.id));
@@ -491,9 +375,10 @@ export async function POST(
 
     return NextResponse.json({
       ok: true,
-      summary: outline.summary,
+      summary: course.summary,
       chapterCount: composition.chapters.length,
       stepCount: composition.steps.length,
+      generatedArticle: generatedArticle !== articleText ? generatedArticle : undefined,
     });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });

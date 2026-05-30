@@ -8,15 +8,19 @@
  * pointer is over the .stage-frame / .stage-fitter, with asymmetric
  * transitions — 200ms fade-in, 600ms fade-out.
  *
- * z-index 11 = same plane as the AutoToggle / below SubtitleBar.
+ * z-index 13 = above SubtitleBar (z 12) so the locator is never covered.
  * Subtle theme color via `--text-mute` token with a hard fallback so
  * un-themed previews still see it.
  * ───────────────────────────────────────────────────────────────────── */
+
+/* ══ 右下角頁碼指示器 ══ 格式：章節.步驟（如 2.3），hover 舞台時才浮現
+   position: fixed right 24px bottom 24px
+   修改 font-size 可調整頁碼大小，right/bottom 可調整位置 */
 .pn {
   position: fixed;
   right: 24px;
   bottom: 24px;
-  z-index: 11;
+  z-index: 13;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
   font-size: 16px;
   font-weight: 500;

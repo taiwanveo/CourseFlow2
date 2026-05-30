@@ -322,8 +322,7 @@ export async function syncPresentationIllustrations(
           decision?.shouldIllustrate ??
           (isDivider ? false : wvpStepNeedsIllustration(kind, stepIndex, narrations.length)));
       const source = state?.imageSource ?? "ai";
-      // 使用者已手動選擇「動畫」作為視覺來源，不需要生成 AI 圖片
-      if (state?.imageSource === "animation") continue;
+      // 步驟層級：imageSource 僅有 "ai" | "upload"，章節配圖另由 chapterIllustration 處理
       if (!shouldIllustrate) continue;
       if (decisionAllowsAi === false && !hasStudioImage) continue;
 

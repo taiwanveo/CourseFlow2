@@ -1,5 +1,6 @@
 import type { WvpDevMode } from "@courseflow/core";
 
+/** @deprecated 已由章節層級配圖（ChapterIllustration）取代，請勿新增使用 */
 export interface WvpAssetRef {
   wvpChapterId?: string;
   step?: number;
@@ -32,6 +33,7 @@ export interface WvpSettings {
   /** 已完成第 1 章試執行（可預覽） */
   anchorChapterTrialCompleted?: boolean;
   anchorProfile?: WvpAnchorProfile;
+  /** @deprecated 已由章節層級配圖（ChapterIllustration）取代 */
   assets?: WvpAssetRef[];
   imageStyle?: WvpImageStyleSelection | null;
 }

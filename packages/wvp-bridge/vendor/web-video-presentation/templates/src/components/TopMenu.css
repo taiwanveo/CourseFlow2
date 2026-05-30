@@ -7,6 +7,10 @@
  *
  * z-index 13 sits above SubtitleBar (12) and the AutoToggle (11).
  * ───────────────────────────────────────────────────────────────────── */
+
+/* ══ 頂部控制列感應區 ══
+   頁面頂部 5vh 透明熱區，hover 才顯示工具列
+   z-index: 13，在字幕列上方 */
 .tm-hover {
   position: fixed;
   top: 0;
@@ -18,6 +22,8 @@
   pointer-events: auto;
 }
 
+/* ══ 工具列浮板 ══
+   居中顯示，RESTART / PAUSE / AUTO SECTION / AUTO ALL / 速度 / PDF 等按鈕橫排 */
 .tm-bar {
   position: absolute;
   top: 0;
@@ -46,6 +52,8 @@
   transition: opacity 200ms ease, transform 200ms cubic-bezier(0.19, 1, 0.22, 1);
 }
 
+/* ══ 工具列每個按鈕共用樣式 ══ mono 字體大寫，11px
+   修改 font-size 可調整按鈕字型大小 */
 .tm-btn {
   display: inline-flex;
   align-items: center;
@@ -93,6 +101,7 @@
   color: #4ade80;
 }
 
+/* ══ 按鈕之間的垂直分隔線 ══ */
 .tm-sep {
   width: 1px;
   height: 18px;

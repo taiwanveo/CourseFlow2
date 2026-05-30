@@ -7,8 +7,18 @@ import {
   buildScriptUserPrompt,
   parseOutlineJson,
   parseScriptsJson,
+  MARKDOWN_TO_COURSE_SYSTEM_PROMPT,
+  buildMarkdownToCourseUserPrompt,
+  parseUnifiedCourseJson,
 } from "./prompts.js";
 import type { GeneratedOutline } from "./types.js";
+import { generateTeachingArticle } from "./generate-article.js";
+
+export interface GeneratedCourse {
+  outline: GeneratedOutline;
+  /** Call 1 生成的 Markdown 教學文稿（提示詞模式時為 AI 自動撰寫）。 */
+  article: string;
+}
 
 const DEFAULT_MODELS: Record<LlmCredentials["provider"], string> = {
   openai: "gpt-4o-mini",
@@ -88,6 +98,34 @@ export async function generateScripts(
 }
 
 /**
+ * 兩步驟課程生成：
+ * 1. 請求 LLM 生成 H1/H2/H3 階層 Markdown 教學文稿（提示詞模式）或直接使用傳入的文稿（文稿模式）
+ * 2. 將 Markdown 轉換為課程 JSON，每步驟「先寫 script → 再從 script 提煉 screenContent」
+ *
+ * @returns GeneratedCourse 包含 outline 和中間文稿（article）
+ */
+export async function generateCourse(
+  creds: LlmCredentials,
+  input: string,
+  language: string,
+): Promise<GeneratedCourse> {
+  // Step 1：若為提示詞（< 300 字）則先生成 Markdown 教學文稿；否則直接使用傳入內容
+  const article = input.trim().length < 300
+    ? await generateTeachingArticle(creds, input, language)
+    : input;
+
+  // Step 2：將 Markdown 文稿轉換為課程 JSON（script 先於 screenContent）
+  const raw = await chatJson(
+    creds,
+    MARKDOWN_TO_COURSE_SYSTEM_PROMPT,
+    buildMarkdownToCourseUserPrompt(article, language),
+    0.35,
+  );
+  const outline = parseUnifiedCourseJson(raw);
+  return { outline, article };
+}
+
+/**
  * @deprecated v2 使用 @courseflow/craft-agent 章節程式生成，不再產 Konva 佈局 JSON。
  */
 export async function generateVisualDraft(
@@ -107,3 +145,4 @@ export {
 } from "./generate-article.js";
 export { generateStepImage, buildStepImagePrompt, IMAGE_GENERATION_PROVIDERS } from "./generate-step-image.js";
 export type { StepImageDirectorHints } from "./generate-step-image.js";
+export { generateChapterImage, buildChapterImagePrompt } from "./generate-chapter-image.js";

@@ -1,5 +1,5 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
-import { chapterComponentName } from "../chapter-types.js";
+import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import { buildCodegenStepImageBlock, buildCodegenStepAnimationBlock } from "../step-image-codegen.js";
 import { assetsForChapter, assetForStep } from "../hook-slots.js";
 import { parseListRevealSlots } from "../slots.js";
@@ -40,12 +40,15 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
       const hasAnim = animIndices.has(wvpStep);
       const checkpoint = assetForStep(chapterAssets, wvpStep);
       let visualLine: string;
+      const hasStepImage = wvpStep in (input.stepImageExtensions ?? {});
       if (hasAnim) {
         visualLine = `    animationUrl: hasStepAnimation(${wvpStep}) ? stepAnimationUrl(${wvpStep}) : undefined,\n`;
       } else if (checkpoint?.url?.trim()) {
         visualLine = `    imageUrl: "${escapeTsString(checkpoint.url.trim())}",\n`;
-      } else {
+      } else if (hasStepImage) {
         visualLine = `    imageUrl: stepImageUrl(${wvpStep}),\n`;
+      } else {
+        visualLine = ``;
       }
       return `  {
     num: ${JSON.stringify(it.num)},
@@ -85,7 +88,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
   return (
     <ListRevealGrid
       step={step}
-      chapterTitle={${JSON.stringify(input.title)}}
+      chapterTitle={${JSON.stringify(deriveChapterKicker(input.wvpChapterId))}}
       introTitle={${JSON.stringify(intro)}}
       introSub={${JSON.stringify(introSub)}}
       items={[...ITEMS]}

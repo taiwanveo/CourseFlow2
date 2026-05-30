@@ -20,6 +20,12 @@ export function buildVisualDirectorSystemPrompt(theme: DesignTokens): string {
 - 字型風格：${theme.font.label}
 - 風格關鍵字：${theme.moods.join("、") || "通用"}
 - 模式：${theme.darkMode ? "深色" : "淺色"}
+- 主色調：${theme.colors.primary}
+- 輔色：${theme.colors.secondary}
+- 強調色：${theme.colors.accent}
+- 背景色：${theme.colors.surface}
+- 文字色：${theme.colors.text}
+所有 imagePromptEn / animationPromptEn 建議的視覺元素，配色應與上述主題 token 保持一致。
 
 【recommendedOutput 決策】
 - ai-image：適合情境插圖、概念隱喻、人物互動、風險警示等「單張輔助圖」

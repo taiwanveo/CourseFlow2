@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import {
   WVP_PHASE_ORDER,
   canAccessWvpPhase,
@@ -46,8 +47,11 @@ export function WvpPhaseNav({
   const router = useRouter();
   const { toast } = useToast();
   const isPlayPage = current === "play";
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const lockPhase = async (phase: WvpPhaseId) => {
+    setPendingAction(`lock-${phase}`);
+    try {
     if (!isPlayPage && phase === current && onBeforeLock) {
       await onBeforeLock();
     }
@@ -64,9 +68,14 @@ export function WvpPhaseNav({
     onLocksChange(data.wvp_phase_locks);
     const n = PHASES.find((p) => p.id === phase)?.label ?? phase;
     toast(`${n} 已鎖定`, "success");
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   const unlockPhase = async (phase: WvpPhaseId) => {
+    setPendingAction(`unlock-${phase}`);
+    try {
     const res = await fetch(`/api/projects/${projectId}/wvp/phases/${phase}/lock`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -80,6 +89,9 @@ export function WvpPhaseNav({
     onLocksChange(data.wvp_phase_locks);
     router.refresh();
     toast("已解除鎖定", "info");
+    } finally {
+      setPendingAction(null);
+    }
   };
 
   return (
@@ -121,17 +133,25 @@ export function WvpPhaseNav({
                   <button
                     type="button"
                     onClick={() => unlockPhase(p.id)}
-                    className="w-full rounded border border-amber-600/80 px-2 py-1 text-[11px] text-amber-400 hover:bg-amber-950/40"
+                    disabled={pendingAction === `unlock-${p.id}`}
+                    className={cn(
+                      "w-full rounded border border-amber-600/80 px-2 py-1 text-[11px] text-amber-400 hover:bg-amber-950/40 disabled:cursor-wait",
+                      pendingAction === `unlock-${p.id}` && "animate-pulse",
+                    )}
                   >
-                    解除鎖定
+                    {pendingAction === `unlock-${p.id}` ? "處理中…" : "解除鎖定"}
                   </button>
                 ) : showLock ? (
                   <button
                     type="button"
                     onClick={() => lockPhase(p.id)}
-                    className="w-full rounded bg-[var(--accent)] px-2 py-1 text-[11px] font-medium text-black hover:opacity-90"
+                    disabled={pendingAction === `lock-${p.id}`}
+                    className={cn(
+                      "w-full rounded bg-[var(--accent)] px-2 py-1 text-[11px] font-medium text-black hover:opacity-90 disabled:cursor-wait",
+                      pendingAction === `lock-${p.id}` && "animate-pulse opacity-70",
+                    )}
                   >
-                    鎖定
+                    {pendingAction === `lock-${p.id}` ? "處理中…" : "鎖定"}
                   </button>
                 ) : (
                   <span className="invisible px-2 py-1 text-[11px]" aria-hidden>
@@ -181,6 +201,16 @@ export function WvpPhaseBottomActions({
 }) {
   const locked = locks[phase];
   const next = NEXT_PHASE[phase];
+  const [unlocking, setUnlocking] = useState(false);
+
+  const handleUnlock = async () => {
+    setUnlocking(true);
+    try {
+      await onUnlock();
+    } finally {
+      setUnlocking(false);
+    }
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -198,11 +228,14 @@ export function WvpPhaseBottomActions({
         <>
           <button
             type="button"
-            onClick={onUnlock}
-            className="rounded border border-amber-600 px-4 py-2 text-sm text-amber-400 hover:bg-amber-950/30"
+            onClick={handleUnlock}
+            disabled={unlocking}
+            className={cn(
+              "rounded border border-amber-600 px-4 py-2 text-sm text-amber-400 hover:bg-amber-950/30 disabled:cursor-wait",
+              unlocking && "animate-pulse opacity-70",
+            )}
           >
-            解除鎖定
-            {phase === "content" ? "（將連鎖解鎖後續階段）" : ""}
+            {unlocking ? "處理中…" : `解除鎖定${phase === "content" ? "（將連鎖解鎖後續階段）" : ""}`}
           </button>
           {next ? (
             <Link href={PHASES.find((p) => p.id === next.id)!.href(projectId)} className="cf-btn cf-btn-primary">

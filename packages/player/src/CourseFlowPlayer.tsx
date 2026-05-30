@@ -91,6 +91,35 @@ function IconPlay() {
   );
 }
 
+function IconManualMode({ manual }: { manual?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      {manual ? (
+        /* 手動模式：手形圖示 */
+        <path
+          d="M9 11V6a1.5 1.5 0 0 1 3 0v5m0 0V5a1.5 1.5 0 0 1 3 0v6m0 0a1.5 1.5 0 0 1 3 0v2c0 3.314-2.686 6-6 6H11A5 5 0 0 1 6 14v-3a1.5 1.5 0 0 1 3 0v3"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : (
+        /* 自動模式：循環箭頭圖示 */
+        <>
+          <path
+            d="M4 12a8 8 0 0 1 14.93-4M20 12a8 8 0 0 1-14.93 4"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+          <path d="M18 4l1.5 4-4-1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M6 20l-1.5-4 4 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 function IconCaptions({ off }: { off?: boolean }) {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -126,6 +155,7 @@ export function CourseFlowPlayer({
   const ordered = useMemo(() => getOrderedSteps(composition), [composition]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
   const [statusShown, setStatusShown] = useState(true);
   const [subtitlesInternal, setSubtitlesInternal] = useState(true);
   const subtitlesOn = subtitlesEnabledProp ?? subtitlesInternal;
@@ -137,10 +167,17 @@ export function CourseFlowPlayer({
   const scriptStartedAtRef = useRef(0);
   const goNextRef = useRef<(() => void) | null>(null);
   const scheduleScriptAdvanceRef = useRef<((ms: number) => void) | null>(null);
+  // ref 供 useLayoutEffect callback 讀取最新值（不觸發 re-run）
+  const manualModeRef = useRef(manualMode);
+  manualModeRef.current = manualMode;
   const scale = useStageScale();
 
   const step = ordered[index];
   const visual = composition.visuals.find((v) => v.stepId === step?.id);
+  // 章節層級配圖：若本章有固定圖片（ai-image / upload），覆寫步驟背景
+  const chapterVisual = composition.chapterVisuals?.find(
+    (cv) => cv.chapterId === step?.chapterId && cv.visualMode !== "animation",
+  );
   const audio = composition.audio.find((a) => a.stepId === step?.id);
   const subtitle = composition.subtitles.find((s) => s.stepId === step?.id);
   const subStyle = resolveSubtitleStyle(subtitle?.style);
@@ -203,6 +240,10 @@ export function CourseFlowPlayer({
     setPaused((p) => !p);
   }, []);
 
+  const toggleManualMode = useCallback(() => {
+    setManualMode((m) => !m);
+  }, []);
+
   goNextRef.current = goNext;
   scheduleScriptAdvanceRef.current = scheduleScriptAdvance;
 
@@ -211,6 +252,9 @@ export function CourseFlowPlayer({
       if (e.code === "Space") {
         e.preventDefault();
         togglePaused();
+      } else if (e.code === "KeyM") {
+        e.preventDefault();
+        toggleManualMode();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         goPrev();
@@ -221,7 +265,7 @@ export function CourseFlowPlayer({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [goPrev, goNext, togglePaused]);
+  }, [goPrev, goNext, togglePaused, toggleManualMode]);
 
   useLayoutEffect(() => {
     if (!step || paused) return;
@@ -237,14 +281,18 @@ export function CourseFlowPlayer({
       el.src = audio.publicUrl;
       el.currentTime = 0;
       onEnded = () => {
-        if (!cancelled) goNextRef.current?.();
+        // 手動模式：音訊播畢後不自動推進
+        if (!cancelled && !manualModeRef.current) goNextRef.current?.();
       };
       el.addEventListener("ended", onEnded);
       el.play().catch(() => {
-        if (!cancelled) scheduleScriptAdvanceRef.current?.(noAudioAdvanceMs());
+        if (!cancelled && !manualModeRef.current)
+          scheduleScriptAdvanceRef.current?.(noAudioAdvanceMs());
       });
     } else {
-      scheduleScriptAdvanceRef.current?.(noAudioAdvanceMs());
+      // 手動模式：無音訊時也不自動推進
+      if (!manualModeRef.current)
+        scheduleScriptAdvanceRef.current?.(noAudioAdvanceMs());
     }
 
     return () => {
@@ -308,17 +356,23 @@ export function CourseFlowPlayer({
     }
   }, [composition.bgm, paused]);
 
-  const statusText = paused ? "已暫停" : "自動播放中";
+  const statusText = manualMode
+    ? paused
+      ? "手動·已暫停"
+      : "手動模式"
+    : paused
+      ? "已暫停"
+      : "自動播放中";
 
   useEffect(() => {
     setStatusShown(true);
     const id = window.setTimeout(() => setStatusShown(false), 3000);
     return () => window.clearTimeout(id);
-  }, [paused]);
+  }, [paused, manualMode]);
 
   if (!step) return null;
 
-  const bg = visual?.background;
+  const bg = chapterVisual?.background ?? visual?.background;
   const frameStyle: React.CSSProperties = {
     transform: `scale(${scale})`,
     ...(bg?.type === "image" && bg.publicUrl
@@ -397,6 +451,16 @@ export function CourseFlowPlayer({
           title={paused ? "繼續播放（空白鍵）" : "暫停（空白鍵）"}
         >
           {paused ? <IconPlay /> : <IconPause />}
+        </button>
+        <button
+          type="button"
+          className={cnPlayerControlBtn(!manualMode)}
+          onClick={toggleManualMode}
+          aria-pressed={manualMode}
+          aria-label={manualMode ? "切換自動播放" : "切換手動模式"}
+          title={manualMode ? "自動播放（M）" : "手動模式（M）"}
+        >
+          <IconManualMode manual={manualMode} />
         </button>
         <button
           type="button"

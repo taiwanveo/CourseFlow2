@@ -39,11 +39,13 @@ export function ContentPhaseClient({
   );
   const [llmProvider, setLlmProvider] = useState<LlmProviderId>("openrouter");
   const [selectedFileName, setSelectedFileName] = useState("");
-  const [articlePrompt, setArticlePrompt] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [generatingArticle, setGeneratingArticle] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | null>(null);
+  const [lastEditedField, setLastEditedField] = useState<"screen" | "narration" | null>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
   const [wvpSettings, setWvpSettings] = useState<WvpSettings>(initialWvpSettings);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chapterWvpIds = useMemo(() => wvpChapterIdMap(composition), [composition]);
@@ -53,6 +55,9 @@ export function ContentPhaseClient({
   }, [defaultProvider]);
 
   const selectedStep = composition.steps.find((s) => s.id === selectedStepId);
+  const selectedChapter = selectedStep
+    ? composition.chapters.find((c) => c.id === selectedStep.chapterId) ?? null
+    : null;
 
   const save = useCallback(async () => {
     setSaving(true);
@@ -82,11 +87,35 @@ export function ContentPhaseClient({
         toast((await wvpRes.json()).error ?? "章節配圖儲存失敗", "error");
         return;
       }
-      toast("文稿與章節配圖已儲存", "success");
+      // 自動儲存不彈通知，狀態顯示在面板標題旁
     } finally {
       setSaving(false);
     }
   }, [projectId, composition, wvpSettings, initialThemeId, toast]);
+
+  // 用 ref 保存最新的 save，避免 auto-save effect 拿到舊 closure
+  const saveRef = useRef(save);
+  useEffect(() => { saveRef.current = save; }, [save]);
+
+  // 自動儲存：composition 變動後 1.5 秒觸發
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    if (locked) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    setSaveStatus("saving");
+    autoSaveTimer.current = setTimeout(() => {
+      saveRef.current().then(() => {
+        setSaveStatus("saved");
+        window.setTimeout(() => setSaveStatus(null), 2000);
+      });
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [composition, locked]);
 
   const uploadFile = async (file: File) => {
     setUploading(true);
@@ -117,41 +146,13 @@ export function ContentPhaseClient({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const generateArticle = async () => {
-    if (!providers.length) {
-      toast("請先在設定頁填寫 LLM API Key", "error");
-      return;
-    }
-    if (!articlePrompt.trim()) {
-      toast("請輸入生成提示詞", "error");
-      return;
-    }
-    setGeneratingArticle(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/generate-article`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: llmProvider, prompt: articlePrompt }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast(data.error ?? "生成教學內容失敗", "error");
-        return;
-      }
-      setArticleText(data.text ?? "");
-      toast(`教學內容已生成（${data.length ?? 0} 字）`, "success", { taskComplete: true });
-    } finally {
-      setGeneratingArticle(false);
-    }
-  };
-
   const generate = async () => {
     if (!providers.length) {
       toast("請先在設定頁填寫 LLM API Key", "error");
       return;
     }
     if (!articleText.trim()) {
-      toast("請先在文字框貼上內容，或選擇檔案匯入", "error");
+      toast("請輸入提示詞或貼上教學文稿", "error");
       return;
     }
     setGenerating(true);
@@ -168,6 +169,10 @@ export function ContentPhaseClient({
       }
       const proj = await fetch(`/api/projects/${projectId}`).then((r) => r.json());
       setComposition(proj.composition);
+      // 若為提示詞模式，伺服器回傳 AI 自動展開的教學文稿，填回 textarea 供使用者檢視
+      if (data.generatedArticle) {
+        setArticleText(data.generatedArticle);
+      }
       toast(`AI 產生完成：${data.stepCount} 個步驟`, "success", { taskComplete: true });
     } finally {
       setGenerating(false);
@@ -200,55 +205,35 @@ export function ContentPhaseClient({
         onBeforeLock={save}
       />
       {!locked ? (
-        <section className="cf-card cf-card-padded space-y-6">
+        <section className="cf-card cf-card-padded space-y-4">
           <div>
-            <h2 className="cf-section-title">生成教學內容</h2>
+            <h2 className="cf-section-title">生成大綱與口播稿</h2>
             <p className="mt-1 text-sm text-zinc-500">
-              請先在下方輸入提示詞，由AI生成教材內容，生成完畢後會自動填入「教學內容」。
+              輸入提示詞、貼上教學文稿，或上傳檔案，AI 將一次生成結構大綱、螢幕文字與口播稿。
             </p>
-            選擇AI提供者：
-            {providers.length > 0 ? (
-                <select
-                  value={llmProvider}
-                  onChange={(e) => setLlmProvider(e.target.value as LlmProviderId)}
-                  className="cf-select w-auto"
-                >
-                  {providers.map((p) => (
-                    <option key={p} value={p}>
-                      {labels[p]}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            <h2 className="cf-section-title">提示詞：</h2>
-            <div className="mt-3 space-y-3">
-            <textarea
-              value={articlePrompt}
-              onChange={(e) => setArticlePrompt(e.target.value)}
-              rows={4}
-              placeholder={`例如：幫我生成大約2000字以內的「AI Agent與Harness Engineering」的課程教材：\n教材名稱：AI Agent 與 Harness Engineering 入門\n大綱：一、什麼是 AI Agent？ 二、什麼是 Harness Engineering？ 三、如何做 Harness Engineering？`}
-              className="mt-3 w-full rounded border border-[var(--border)] bg-black/30 p-3 text-sm"
-            />
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={generateArticle}
-                disabled={generatingArticle || !providers.length}
-                className="cf-btn cf-btn-primary"
-              >
-                {generatingArticle ? "生成中…" : "生成教學內容"}
-              </button>
-            </div>
           </div>
-          <div>
-          <h2 className="cf-section-title">教學內容：</h2>
-          <div className="mt-3 space-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-zinc-400">AI 提供者：</span>
+            {providers.length > 0 ? (
+              <select
+                value={llmProvider}
+                onChange={(e) => setLlmProvider(e.target.value as LlmProviderId)}
+                className="cf-select w-auto"
+              >
+                {providers.map((p) => (
+                  <option key={p} value={p}>
+                    {labels[p]}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+          </div>
+          <div className="space-y-3">
             <textarea
               value={articleText}
               onChange={(e) => setArticleText(e.target.value)}
               rows={8}
-              placeholder="貼上 txt / md / html 文字，或上傳檔案自動剖析…"
+              placeholder={`兩種用法皆可：\n\n① 提示詞（短指令，< 300 字）\n   例：幫我生成「Vibe Coding 入門」課程，包含：什麼是 Vibe Coding、核心優勢、適合對象\n   → AI 自動產生具 Markdown 階層的教學文稿，再轉成大綱與口播稿\n\n② 教學文稿（建議使用 Markdown 格式，解析效果最佳）\n   # 課程標題\n   ## 前言\n   （前言段落內容…）\n   ## 章節一\n   （內容段落…）\n   ## 結語\n   （收尾段落…）\n   → AI 依標題階層切分章節與步驟，口播稿完整保留每段內容\n\n也可點「上傳檔案」自動剖析 docx / pdf（建議原始文件本身有標題結構）。`}
               className="w-full rounded border border-[var(--border)] bg-black/30 p-3 text-sm"
             />
             <div className="flex flex-wrap items-center gap-3">
@@ -271,7 +256,7 @@ export function ContentPhaseClient({
                     <span>剖析中…</span>
                   </span>
                 ) : (
-                  "選擇檔案"
+                  "上傳檔案"
                 )}
               </button>
               {selectedFileName ? (
@@ -281,20 +266,26 @@ export function ContentPhaseClient({
               )}
             </div>
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               type="button"
               onClick={generate}
               disabled={generating || !providers.length}
               className="cf-btn cf-btn-primary"
             >
-              {generating ? "大綱與口播稿產生中…" : "產生大綱與口播稿"}
+              {generating ? (
+                <span className="inline-flex items-center gap-2">
+                  <LottieMark variant="loading" size={16} ariaLabel="生成中" />
+                  <span>生成中…</span>
+                </span>
+              ) : (
+                "生成大綱與口播稿"
+              )}
             </button>
-          </div>
           </div>
         </section>
       ) : null}
-      <div className="grid min-h-[420px] grid-cols-1 gap-4 sm:grid-cols-[minmax(0,320px)_minmax(0,1fr)] sm:items-stretch sm:gap-5">
+      <div className="grid min-h-[420px] grid-cols-1 gap-4 sm:grid-cols-[minmax(0,320px)_minmax(0,1fr)] sm:items-start sm:gap-5">
         <aside
           className={
             locked
@@ -312,25 +303,57 @@ export function ContentPhaseClient({
             fillHeight
             projectId={projectId}
             chapterWvpIds={chapterWvpIds}
-            assets={wvpSettings.assets ?? []}
-            onAssetsChange={(assets) => setWvpSettings((s) => ({ ...s, assets }))}
-            assetsLocked={locked}
           />
         </aside>
-        <section className="flex min-h-0 min-w-0 flex-col">
-          <h2 className="mb-1.5 shrink-0 text-sm font-medium text-zinc-300">步驟編輯</h2>
+        <section className="sticky top-4 flex min-w-0 flex-col">
+          <div className="mb-1.5 flex shrink-0 items-baseline gap-2">
+            <h2 className="text-sm font-medium text-zinc-300">步驟編輯</h2>
+          </div>
           {selectedStep ? (
-            <div className="cf-card cf-card-padded flex min-h-0 flex-1 flex-col gap-2.5 text-sm">
+            <div className="cf-card cf-card-padded flex flex-col gap-2.5 text-sm">
               {selectedStep.stepKind === "chapter" ? (
-                <p className="shrink-0 rounded border border-amber-600/40 bg-amber-950/30 px-2.5 py-2 text-xs text-amber-200/90">
-                  此為「章節分隔頁」，會作為該章 WVP 的第 1 步（含口播與打包）；標題與左側章節名稱同步。
-                </p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <p className="w-fit rounded border border-amber-600/40 bg-amber-950/30 px-1.5 py-0.5 text-[8px] text-amber-200/90">章節分隔頁</p>
+                  <span className="text-[10px] text-zinc-500">版面樣式</span>
+                  <select
+                    disabled={locked}
+                    value={selectedChapter?.chapterKind ?? ""}
+                    onChange={(e) => {
+                      const kind = e.target.value as import("@courseflow/core").WvpChapterKind | "";
+                      setComposition({
+                        ...composition,
+                        chapters: composition.chapters.map((c) =>
+                          c.id === selectedChapter?.id
+                            ? { ...c, chapterKind: kind || undefined }
+                            : c,
+                        ),
+                      });
+                    }}
+                    className="cf-select w-[16.67%] py-0 text-[11px]"
+                  >
+                    <option value="">自動</option>
+                    <option value="magazine">雜誌</option>
+                    <option value="list-reveal">清單</option>
+                    <option value="flow">流程</option>
+                    <option value="hook">多圖</option>
+                  </select>
+                </div>
               ) : null}
-              <label className="block shrink-0 text-[11px] text-zinc-500">螢幕內容</label>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <label className="text-[11px] text-zinc-500">螢幕內容</label>
+                {lastEditedField === "screen" && saveStatus && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                    saveStatus === "saving"
+                      ? "bg-orange-700/80 text-orange-100"
+                      : "bg-emerald-700/80 text-emerald-100"
+                  }`}>{saveStatus === "saving" ? "儲存中" : "已儲存"}</span>
+                )}
+              </div>
               <textarea
-                disabled={locked || selectedStep.stepKind === "chapter"}
+                disabled={locked}
                 value={selectedStep.screenContent}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setLastEditedField("screen");
                   setComposition({
                     ...composition,
                     steps: composition.steps.map((s) =>
@@ -338,27 +361,39 @@ export function ContentPhaseClient({
                         ? { ...s, screenContent: e.target.value }
                         : s,
                     ),
-                  })
-                }
-                className="min-h-0 flex-1 resize-none rounded border border-[var(--border)] bg-black/30 p-2.5 text-sm leading-relaxed"
+                  });
+                }}
+                rows={3}
+                className="resize-y rounded border border-[var(--border)] bg-black/30 p-2.5 text-sm leading-relaxed"
               />
-              <label className="block shrink-0 text-[11px] text-zinc-500">口播稿</label>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <label className="text-[11px] text-zinc-500">口播稿</label>
+                {lastEditedField === "narration" && saveStatus && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+                    saveStatus === "saving"
+                      ? "bg-orange-700/80 text-orange-100"
+                      : "bg-emerald-700/80 text-emerald-100"
+                  }`}>{saveStatus === "saving" ? "儲存中" : "已儲存"}</span>
+                )}
+              </div>
               <textarea
-                disabled={locked || selectedStep.stepKind === "chapter"}
+                disabled={locked}
                 value={selectedStep.script}
-                onChange={(e) =>
+                onChange={(e) => {
+                  setLastEditedField("narration");
                   setComposition({
                     ...composition,
                     steps: composition.steps.map((s) =>
                       s.id === selectedStep.id ? { ...s, script: e.target.value } : s,
                     ),
-                  })
-                }
-                className="min-h-0 flex-1 resize-none rounded border border-[var(--border)] bg-black/30 p-2.5 text-sm leading-relaxed"
+                  });
+                }}
+                rows={5}
+                className="resize-y rounded border border-[var(--border)] bg-black/30 p-2.5 text-sm leading-relaxed"
               />
             </div>
           ) : (
-            <div className="cf-card cf-card-padded flex min-h-0 flex-1 items-center justify-center">
+            <div className="cf-card cf-card-padded flex items-center justify-center py-12">
               <p className="text-sm text-zinc-500">請從左側大綱選擇一個步驟</p>
             </div>
           )}
@@ -369,7 +404,7 @@ export function ContentPhaseClient({
         phase="content"
         locks={locks}
         saving={saving}
-        onSave={!locked ? save : undefined}
+        onSave={undefined}
         onUnlock={unlockPhase}
       />
     </div>

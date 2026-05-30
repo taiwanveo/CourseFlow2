@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import { getOrderedSteps } from "@courseflow/core";
 import type { TtsModel, TtsVoice } from "@courseflow/tts/types";
-import { edgeTtsVisibleForLanguage, formatVoiceLabel } from "@courseflow/tts/types";
+import { edgeTtsVisibleForLanguage, formatVoiceLabel, getTtsVoicesForModel } from "@courseflow/tts/types";
 import { PhaseBottomActions, ProjectPhaseNav } from "@/components/ProjectPhaseNav";
 import { useToast } from "@/components/Toast";
 import {
@@ -67,6 +67,7 @@ export function AudioPhaseClient({
   const [models, setModels] = useState<Partial<Record<string, TtsModel[]>>>(initialModels);
   const [configuredProviders, setConfiguredProviders] = useState<string[]>(initialProviders);
   const [voicesLoading, setVoicesLoading] = useState(initialVoices.length === 0);
+  const [modelsLoading, setModelsLoading] = useState(false);
   const [batchProvider, setBatchProvider] = useState(initialDefaults.provider);
   const [batchVoiceId, setBatchVoiceId] = useState(initialDefaults.voiceId);
   const [batchModel, setBatchModel] = useState(initialDefaults.model);
@@ -102,6 +103,46 @@ export function AudioPhaseClient({
   const modelsForProvider = useCallback(
     (provider: string) => models[provider] ?? [],
     [models],
+  );
+
+  /** 根據選定模型計算對應語音清單（若有已知對應則使用，否則 fallback 到 provider 語音） */
+  const voicesForModel = useCallback(
+    (provider: string, modelId: string): TtsVoice[] => {
+      if (!modelId || !providerNeedsModel(provider)) {
+        return voicesForProvider(provider);
+      }
+      const perModel = getTtsVoicesForModel(modelId, provider as Parameters<typeof getTtsVoicesForModel>[1]);
+      // 若 per-model 語音清單與 provider 語音完全相同（都是 OPENAI_TTS_VOICES 映射），
+      // 且 provider 本身有更多語音（如邊境語音），優先保留 provider 清單。
+      if (perModel.length > 0) return perModel;
+      return voicesForProvider(provider);
+    },
+    [voicesForProvider],
+  );
+
+  /** 動態抓取指定 provider 的 TTS 模型清單 */
+  const fetchModelsForProvider = useCallback(
+    async (provider: string) => {
+      if (!providerNeedsModel(provider)) return;
+      setModelsLoading(true);
+      try {
+        const res = await fetch(`/api/tts/models?provider=${encodeURIComponent(provider)}`);
+        const data = await res.json();
+        if (!res.ok) {
+          toast(data.error ?? "無法載入模型列表", "warning");
+          return;
+        }
+        const fetched = (data.models ?? []) as TtsModel[];
+        if (fetched.length > 0) {
+          setModels((prev) => ({ ...prev, [provider]: fetched }));
+        }
+      } catch {
+        toast("無法連線取得模型列表", "warning");
+      } finally {
+        setModelsLoading(false);
+      }
+    },
+    [toast],
   );
 
   useEffect(() => {
@@ -145,8 +186,13 @@ export function AudioPhaseClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 僅在缺少伺服器預載資料時補抓
   }, [language, initialVoices.length]);
 
-  const batchVoices = voicesForProvider(batchProvider);
   const batchModels = modelsForProvider(batchProvider);
+  const batchVoices = voicesForModel(batchProvider, batchModel);
+
+  // provider 切換時：重新動態拉取 TTS 模型清單
+  useEffect(() => {
+    void fetchModelsForProvider(batchProvider);
+  }, [batchProvider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (availableProviders.length === 0) return;
@@ -159,7 +205,7 @@ export function AudioPhaseClient({
     if (!batchVoices.some((voice) => voice.id === batchVoiceId)) {
       setBatchVoiceId(batchVoices[0]?.id ?? "");
     }
-  }, [batchProvider, batchVoices, batchVoiceId]);
+  }, [batchProvider, batchModel, batchVoices, batchVoiceId]);
 
   useEffect(() => {
     if (!providerNeedsModel(batchProvider)) return;
@@ -178,8 +224,8 @@ export function AudioPhaseClient({
     ? getStepTtsConfig(composition, step.id, stepDefaults)
     : null;
 
-  const stepVoices = voicesForProvider(stepTts?.provider ?? batchProvider);
   const stepModels = modelsForProvider(stepTts?.provider ?? batchProvider);
+  const stepVoices = voicesForModel(stepTts?.provider ?? batchProvider, stepTts?.model ?? "");
 
   const updateStepTts = (patch: Partial<NonNullable<typeof stepTts>>) => {
     if (!step || !stepTts) return;
@@ -439,15 +485,27 @@ export function AudioPhaseClient({
               模型
               <select
                 value={batchModel}
-                onChange={(event) => setBatchModel(event.target.value)}
-                disabled={locked || batchModels.length === 0}
+                onChange={(event) => {
+                  const modelId = event.target.value;
+                  setBatchModel(modelId);
+                  // 切換模型時重算語音，並選第一個
+                  const nextVoices = voicesForModel(batchProvider, modelId);
+                  if (nextVoices.length > 0 && !nextVoices.some((v) => v.id === batchVoiceId)) {
+                    setBatchVoiceId(nextVoices[0]!.id);
+                  }
+                }}
+                disabled={locked || modelsLoading || batchModels.length === 0}
                 className="cf-select mt-1 w-auto min-w-[160px]"
               >
-                {batchModels.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.name}
-                  </option>
-                ))}
+                {modelsLoading ? (
+                  <option value="">載入中…</option>
+                ) : (
+                  batchModels.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name}
+                    </option>
+                  ))
+                )}
               </select>
             </label>
           ) : null}
@@ -513,13 +571,15 @@ export function AudioPhaseClient({
                     value={stepTts.provider}
                     onChange={(event) => {
                       const provider = event.target.value;
-                      const nextVoices = voicesForProvider(provider);
                       const nextModels = modelsForProvider(provider);
+                      const firstModel = providerNeedsModel(provider) ? nextModels[0]?.id ?? "" : undefined;
+                      const nextVoices = voicesForModel(provider, firstModel ?? "");
                       updateStepTts({
                         provider,
                         voiceId: nextVoices[0]?.id ?? "",
-                        model: providerNeedsModel(provider) ? nextModels[0]?.id : undefined,
+                        model: firstModel,
                       });
+                      void fetchModelsForProvider(provider);
                     }}
                     disabled={locked}
                     className="cf-select mt-1 w-auto min-w-[140px]"
@@ -537,8 +597,15 @@ export function AudioPhaseClient({
                     模型
                     <select
                       value={stepTts.model ?? ""}
-                      onChange={(event) => updateStepTts({ model: event.target.value })}
-                      disabled={locked || stepModels.length === 0}
+                      onChange={(event) => {
+                        const modelId = event.target.value;
+                        const nextVoices = voicesForModel(stepTts.provider, modelId);
+                        updateStepTts({
+                          model: modelId,
+                          voiceId: nextVoices[0]?.id ?? stepTts.voiceId,
+                        });
+                      }}
+                      disabled={locked || modelsLoading || stepModels.length === 0}
                       className="cf-select mt-1 w-auto min-w-[160px]"
                     >
                       {stepModels.map((model) => (

@@ -12,7 +12,7 @@ import type { ImageStyleCatalogEntry } from "@/data/image-style-catalog";
 import { catalogEntryToSelection } from "@/lib/image-style";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
-import { CraftIllustrationStudio } from "@/components/CraftIllustrationStudio";
+import { CraftChapterIllustration } from "@/components/CraftChapterIllustration";
 import {
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
@@ -230,7 +230,6 @@ export function CraftPhaseClient({
   const firstChapterWvpId = chapters[0]?.wvp_chapter_id ?? null;
   const canTrialChapter1 =
     hasSelectedTheme &&
-    hasImageStyle &&
     chapters.length > 0 &&
     !!firstChapterWvpId &&
     providers.length > 0 &&
@@ -284,8 +283,9 @@ export function CraftPhaseClient({
     void refreshWvp();
   }, [refreshWvp]);
 
-  const saveWvpSettings = useCallback(async () => {
-    if (!selectedThemeId) {
+  const saveWvpSettings = useCallback(async (overrideThemeId?: string) => {
+    const themeToSave = overrideThemeId ?? selectedThemeId;
+    if (!themeToSave) {
       throw new Error("請先選擇簡報主題");
     }
     setSavingTheme(true);
@@ -294,8 +294,8 @@ export function CraftPhaseClient({
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          wvpSettings: { ...settings, devMode: "sequential" as const },
-          themeId: selectedThemeId,
+          wvpSettings: { ...settings, themeId: themeToSave, devMode: "sequential" as const },
+          themeId: themeToSave,
         }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "儲存失敗");
@@ -389,14 +389,31 @@ export function CraftPhaseClient({
     }
   };
 
+  const clearImageStyle = async () => {
+    const next: WvpSettings = { ...settings, imageStyle: null };
+    setSettings(next);
+    setSavingImageStyle(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/wvp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wvpSettings: { ...next, devMode: "sequential" as const },
+          themeId: next.themeId ?? initialThemeId,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "儲存失敗");
+      toast("已清除生圖風格，將改用簡報主題配色生圖", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "清除風格失敗", "error");
+    } finally {
+      setSavingImageStyle(false);
+    }
+  };
+
   const batchCraftAll = async (onlyMissing: boolean) => {
     if (!defaultProvider) {
       toast("請先在設定頁填寫 LLM API Key", "error");
-      return;
-    }
-    if (!hasImageStyle) {
-      toast("請先選擇生圖風格主題", "error");
-      setStylePickerOpen(true);
       return;
     }
     if (chapters.length === 0) {
@@ -444,11 +461,6 @@ export function CraftPhaseClient({
       toast("請先在設定頁填寫 LLM API Key", "error");
       return;
     }
-    if (!hasImageStyle) {
-      toast("請先選擇生圖風格主題", "error");
-      setStylePickerOpen(true);
-      return;
-    }
     setBusy(`gen-${wvpChapterId}`);
     try {
       const res = await fetch(
@@ -481,11 +493,6 @@ export function CraftPhaseClient({
     }
     if (!hasSelectedTheme) {
       toast("請先選擇並儲存簡報主題", "error");
-      return;
-    }
-    if (!hasImageStyle) {
-      toast("請先選擇生圖風格主題", "error");
-      setStylePickerOpen(true);
       return;
     }
     if (
@@ -580,37 +587,30 @@ export function CraftPhaseClient({
                   className="cf-select mt-1 w-full text-sm md:w-1/2"
                   disabled={locks.craft}
                   value={selectedThemeId}
-                  onChange={(e) =>
-                    setSettings((s) => ({ ...s, themeId: e.target.value || null }))
-                  }
+                  onChange={(e) => {
+                    const newId = e.target.value || null;
+                    setSettings((s) => ({ ...s, themeId: newId }));
+                    if (newId && !locks.craft) {
+                      saveWvpSettings(newId).then(() => {
+                        toast("主題已儲存", "success");
+                      }).catch((err) => {
+                        toast(err instanceof Error ? err.message : "儲存主題失敗", "error");
+                      });
+                    }
+                  }}
                 >
                   <option value="">選擇主題</option>
                   {themes.map((t) => (
                     <option key={t.id} value={t.id}>
-                      {t.nameZh}
+                      {t.nameZh}{savingTheme && selectedThemeId === t.id ? " …" : ""}
                     </option>
                   ))}
                 </select>
               </label>
               {!hasSelectedTheme ? (
-                <p className="text-[11px] text-amber-500/90">請先選擇簡報主題，才能儲存</p>
-              ) : null}
-              {!locks.craft ? (
-                <button
-                  type="button"
-                  className="cf-btn cf-btn-secondary cf-btn-sm w-full md:w-1/2"
-                  disabled={savingTheme || !hasSelectedTheme}
-                  onClick={async () => {
-                    try {
-                      await saveWvpSettings();
-                      toast("主題已儲存", "success");
-                    } catch (e) {
-                      toast(e instanceof Error ? e.message : "儲存主題失敗", "error");
-                    }
-                  }}
-                >
-                  {savingTheme ? "儲存中…" : "儲存主題"}
-                </button>
+                <p className="text-[11px] text-amber-500/90">請先選擇簡報主題</p>
+              ) : savingTheme ? (
+                <p className="text-[11px] text-zinc-500">儲存中…</p>
               ) : null}
             </div>
 
@@ -665,8 +665,8 @@ export function CraftPhaseClient({
 
               <CraftWorkflowStep
                 step={2}
-                title="一鍵從「文稿內容」匯入口播稿，並使用AI產生章節畫面程式"
-                hint="請先選擇生圖風格。下方「AI 配圖工作室」可先確認生圖提示詞再逐張或批次生圖；「開始執行」僅匯入口播並產生章節畫面程式（不再自動生圖）。"
+                title="AI 視覺動效產生"
+                hint="按「開始執行」會自動完成所有章節的口播匯入與 AI 視覺程式產生，全程無需手動逐章操作。下方章節列表的「匯入口播」與「AI 畫面」按鈕僅供修改文稿後重新同步個別章節使用。"
               >
                 <div className="w-full space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
@@ -679,11 +679,20 @@ export function CraftPhaseClient({
                       {savingImageStyle ? "儲存中…" : "選擇生圖風格主題"}
                     </button>
                     {hasImageStyle ? (
-                      <span className="text-xs text-emerald-400/90">
+                      <span className="flex items-center gap-1.5 text-xs text-emerald-400/90">
                         已選：{settings.imageStyle?.titleZh}
+                        <button
+                          type="button"
+                          disabled={!!busy || locks.craft || savingImageStyle}
+                          onClick={() => void clearImageStyle()}
+                          className="text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
+                          title="清除風格，改用簡報主題配色"
+                        >
+                          ✕
+                        </button>
                       </span>
                     ) : (
-                      <span className="text-xs text-amber-500/90">尚未選擇（必選）</span>
+                      <span className="text-xs text-zinc-500/80">尚未選擇（可選，預設跟隨主題配色）</span>
                     )}
                   </div>
                   {hasImageStyle ? (
@@ -741,7 +750,6 @@ export function CraftPhaseClient({
                     !providers.length ||
                     !anchorOk ||
                     !anchorTrialDone ||
-                    !hasImageStyle ||
                     !hasSelectedTheme
                   }
                   onClick={() => batchCraftAll(false)}
@@ -755,7 +763,6 @@ export function CraftPhaseClient({
                     !!busy ||
                     chapters.length === 0 ||
                     !providers.length ||
-                    !hasImageStyle ||
                     !anchorOk ||
                     !anchorTrialDone
                   }
@@ -773,7 +780,10 @@ export function CraftPhaseClient({
             <div>
               <h3 className="text-sm font-medium text-zinc-300">章節列表</h3>
               {chapters.length > 0 ? (
-                <p className="mt-0.5 text-[11px] text-zinc-500">每章可單獨匯入口播或產生畫面</p>
+                <p className="mt-0.5 text-[11px] text-zinc-500">
+                  正常使用上方「開始執行」即可，無需手動逐章操作。
+                  若修改了某章文稿，可用「匯入口播」重新同步口播內容，再用「AI 畫面」重新產生該章視覺。
+                </p>
               ) : null}
             </div>
           {!providers.length && chapters.length > 0 ? (
@@ -820,7 +830,7 @@ export function CraftPhaseClient({
                       <>
                         <button
                           type="button"
-                          title="從文稿匯入口播"
+                          title="從文稿重新匯入本章口播內容（文稿有修改時用）"
                           className="cf-btn cf-btn-secondary shrink-0 basis-1/4 px-1 py-1 text-center text-[10px] leading-tight"
                           disabled={!!busy}
                           onClick={() => syncChapter(ch.wvp_chapter_id)}
@@ -829,9 +839,9 @@ export function CraftPhaseClient({
                         </button>
                         <button
                           type="button"
-                          title="AI 產生章節畫面程式"
+                          title="用 AI 重新產生本章視覺動效程式（口播已匯入後才有效果）"
                           className="cf-btn cf-btn-secondary shrink-0 basis-1/4 px-1 py-1 text-center text-[10px] leading-tight"
-                          disabled={!!busy || !providers.length || !hasImageStyle}
+                          disabled={!!busy || !providers.length}
                           onClick={() => generateChapter(ch.wvp_chapter_id)}
                         >
                           {isGenerating ? "…" : "AI 畫面"}
@@ -843,17 +853,20 @@ export function CraftPhaseClient({
               })}
             </div>
           )}
-          {selectedWvpId && chapters.length > 0 ? (
-            <CraftIllustrationStudio
-              projectId={projectId}
-              wvpChapterId={selectedWvpId}
-              chapterTitle={
-                chapters.find((c) => c.wvp_chapter_id === selectedWvpId)?.title ?? "本章"
-              }
-              disabled={locks.craft}
-              hasImageStyle={hasImageStyle}
-              onOpenStylePicker={() => setStylePickerOpen(true)}
-            />
+          {chapters.length > 0 ? (
+            <div className="space-y-3">
+              <h3 className="text-xs font-medium text-zinc-400">章節配圖</h3>
+              {chapters.map((ch) => (
+                <CraftChapterIllustration
+                  key={ch.wvp_chapter_id}
+                  projectId={projectId}
+                  wvpChapterId={ch.wvp_chapter_id}
+                  chapterTitle={ch.title}
+                  disabled={locks.craft}
+                  onOpenStylePicker={() => setStylePickerOpen(true)}
+                />
+              ))}
+            </div>
           ) : null}
 
           {chapters.length > 0 ? (

@@ -3,7 +3,7 @@
  * 對應 skills/asian-slide-design/SKILL.md 硬性規則。
  */
 
-/* 預設內文左對齊；標題類可個別置中 */
+/* 内文預設左對齊；標題類可個別置中 */
 .scene-pad,
 .lr-scene,
 .vf-scene {
@@ -22,13 +22,32 @@
   text-overflow: clip;
 }
 
-/* 放大全站字級對比 */
+/* ══ 全局字型尺度覆寫 ══
+   調整此處 token 可同步調整所有內文小點的字型大小 */
 :root {
-  --t-h1: clamp(64px, 5.5vw, 96px);
-  --t-h2: clamp(44px, 4vw, 68px);
-  --t-body: clamp(20px, 1.35vw, 26px);
-  --t-lead: clamp(22px, 1.6vw, 30px);
-  --t-caption: clamp(14px, 1vw, 18px);
+  --t-h1:      clamp(80px, 6.5vw, 120px);
+  --t-h2:      clamp(56px, 5vw, 88px);
+  --t-body:    clamp(24px, 1.8vw, 32px);
+  --t-lead:    clamp(28px, 2vw, 36px);
+  --t-caption: clamp(15px, 1.1vw, 20px);
+}
+
+/* ── 字型大小基準繼承
+   使用 :where() 保持零優先級 — LLM 生成的 class 選擇器可自然覆蓋。
+   目的：確保未加 class 的 h1/h2/p 至少取得 token 大小。
+   場景元素如需更大字，以 class 覆蓋即可；禁止往小寫。 ── */
+:where(.scene-pad, .lr-scene, .vf-scene) h1 {
+  font-size: var(--t-h1);
+  line-height: 1.05;
+}
+:where(.scene-pad, .lr-scene, .vf-scene) h2 {
+  font-size: var(--t-h2);
+  line-height: 1.1;
+}
+:where(.scene-pad, .lr-scene, .vf-scene) p,
+:where(.scene-pad, .lr-scene, .vf-scene) li {
+  font-size: var(--t-body);
+  line-height: 1.55;
 }
 
 /* 禁止標題下裝飾底線（AI 風） */
@@ -64,12 +83,16 @@ h3::after,
   display: none !important;
 }
 
+/* ══ 清單格標題 ══ 固定 40px，確保多欄時文字不溢出 */
 .lr-slot-title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
+  font-size: 40px;
 }
 
+/* ══ 清單格內文 ══ */
 .lr-slot-body {
   font-size: var(--t-body);
+  line-height: 1.6;
+}
   line-height: 1.6;
 }
 

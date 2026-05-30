@@ -1,3 +1,4 @@
+/* ══ 口播文字段落容器 ══ 出現在幻燈片主體內，逐步顯示每行文字 */
 .cf-narration-beat {
   display: flex;
   flex-direction: column;
@@ -6,9 +7,12 @@
   margin-top: var(--space-5);
 }
 
+/* ══ 每一行口播文字 ══
+   font-size: 63px（stage 縮放 ×0.48 後視覺約 30px）
+   修改 font-size 可調整口播文字大小 */
 .cf-narration-beat-line {
   margin: 0;
-  font-size: clamp(1.15rem, 2.2vw, 1.65rem);
+  font-size: 63px;
   line-height: 1.45;
   opacity: 0;
   animation: cf-beat-line-in 0.55s ease forwards;

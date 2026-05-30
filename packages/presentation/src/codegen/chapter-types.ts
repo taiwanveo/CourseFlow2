@@ -24,3 +24,15 @@ export function chapterComponentName(wvpChapterId: string): string {
   const parts = wvpChapterId.split("-").filter(Boolean);
   return parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join("");
 }
+
+/**
+ * 從 wvpChapterId 產生可讀的章節 kicker 標籤（顯示在畫面左上角）。
+ * "chapter-04" → "ch. 04"  (CSS text-transform: uppercase → "CH. 04")
+ * "chapter-1"  → "ch. 01"
+ * 其他格式      → 原值前 20 字
+ */
+export function deriveChapterKicker(wvpChapterId: string): string {
+  const m = wvpChapterId.match(/(\d+)$/);
+  if (m && m[1]) return `ch. ${m[1].padStart(2, "0")}`;
+  return wvpChapterId.slice(0, 20);
+}

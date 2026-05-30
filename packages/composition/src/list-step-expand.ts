@@ -55,7 +55,8 @@ function listIntroFromText(text: string, items: string[]): string {
 }
 
 export function expandListItemsInStep(step: GeneratedChapterInput["steps"][number]): GeneratedChapterInput["steps"] {
-  const blob = `${step.screenContent}\n${step.script ?? ""}`;
+  // 只用 screenContent 偵測清單；script 是口播稿，不納入清單展開邏輯
+  const blob = step.screenContent;
   const items = detectListItems(blob);
   if (!items || items.length < 2) return [step];
 

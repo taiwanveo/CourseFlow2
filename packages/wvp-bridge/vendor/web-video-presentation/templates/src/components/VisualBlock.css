@@ -1,3 +1,4 @@
+/* ══ VisualBlock 版型根容器 ══ 縦向置中內容 */
 .vf-block {
   display: flex;
   flex-direction: column;
@@ -5,9 +6,12 @@
   height: 100%;
   color: var(--text);
 }
+/* ══ 標題區域 ══ 包裹標題文字，下方距 24px */
 .vf-headline {
   margin-bottom: var(--space-5);
 }
+/* ══ 標題文字 ══ font-size: var(--t-h2)（預設 80px）
+   修改 font-size 可調整標題大小 */
 .vf-headline-text {
   font-size: var(--t-h2);
 }

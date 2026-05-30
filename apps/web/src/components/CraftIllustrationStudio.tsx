@@ -117,11 +117,6 @@ export function CraftIllustrationStudio({
   };
 
   const planPrompts = async (stepIndex?: number) => {
-    if (!hasImageStyle) {
-      toast("請先選擇生圖風格主題", "error");
-      onOpenStylePicker?.();
-      return;
-    }
     if (typeof stepIndex === "number") {
       setPlanningStep(stepIndex);
     } else {
@@ -328,8 +323,7 @@ export function CraftIllustrationStudio({
                   ) : null}
                   {step.status === "generating" || busyStep === step.stepIndex ? (
                     <span className="ml-2 text-amber-400/90">生圖中…</span>
-                  ) : null}
-                  {step.status === "done" || step.imageWritten ? (
+                  ) : (step.status === "done" || step.imageWritten) ? (
                     <span className="ml-2 text-emerald-400/90">已完成</span>
                   ) : null}
                   {step.status === "failed" ? (

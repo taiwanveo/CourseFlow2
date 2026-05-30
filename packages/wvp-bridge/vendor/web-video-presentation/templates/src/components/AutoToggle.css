@@ -1,3 +1,5 @@
+/* ══ 右上角播放模式感應區 ══
+   固定在右上角，160px × 60px 透明熱區，hover 才顯示按鈕 */
 .at-hover {
   position: fixed;
   top: 0;

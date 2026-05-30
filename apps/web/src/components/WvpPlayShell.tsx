@@ -68,10 +68,12 @@ function IconLast() {
 function RoundNavBtn({
   label,
   onClick,
+  disabled,
   children,
 }: {
   label: string;
   onClick: () => void;
+  disabled?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -80,7 +82,8 @@ function RoundNavBtn({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-600/70 bg-zinc-950/80 text-zinc-100 shadow-[0_4px_24px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:border-zinc-400/90 hover:bg-zinc-800/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+      disabled={disabled}
+      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-zinc-600/70 bg-zinc-950/80 text-zinc-100 shadow-[0_4px_24px_rgba(0,0,0,0.45)] backdrop-blur-md transition hover:border-zinc-400/90 hover:bg-zinc-800/90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400 disabled:cursor-not-allowed disabled:opacity-30"
     >
       {children}
     </button>
@@ -105,9 +108,32 @@ export function WvpPlayShell({
   const router = useRouter();
   const { toast } = useToast();
   const [approving, setApproving] = useState(false);
+  const [isFirst, setIsFirst] = useState(true);
+  const [isLast, setIsLast] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
 
   const send = useCallback((action: string) => {
     postToIframe(iframeRef.current, action);
+  }, []);
+
+  // Listen for cursor updates from the iframe to enable/disable nav buttons.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string; globalIndex?: number; totalGlobal?: number };
+      if (data?.type !== "cf-cursor") return;
+      const { globalIndex = 0, totalGlobal = 1 } = data;
+      setIsFirst(globalIndex === 0);
+      setIsLast(globalIndex >= totalGlobal - 1);
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
   useEffect(() => {
@@ -157,48 +183,86 @@ export function WvpPlayShell({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      <header className="flex h-9 shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-1">
-        <span className="text-xs text-zinc-500">
-          {projectTitle} — {anchorPreview ? "第1章試跑預覽" : "預覽"}
-        </span>
-        <div className="flex gap-2">
-          {anchorPreview ? (
+  // Header content shared between fullscreen and normal modes
+  const headerContent = (
+    <>
+      <span className="text-xs text-zinc-500">
+        {projectTitle} — {anchorPreview ? "第1章試跑預覽" : "預覽"}
+      </span>
+      <div className="flex gap-2">
+        {anchorPreview ? (
+          <Link
+            href={`/projects/${projectId}/craft`}
+            className="cf-btn cf-btn-sm cf-btn-secondary"
+          >
+            返回「視覺動效」階段
+          </Link>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="cf-btn cf-btn-sm cf-btn-secondary"
+              onClick={() => {
+                const el = document.documentElement;
+                if (!document.fullscreenElement) {
+                  void el.requestFullscreen();
+                } else {
+                  void document.exitFullscreen();
+                }
+              }}
+            >
+              全螢幕
+            </button>
             <Link
-              href={`/projects/${projectId}/craft`}
+              href={`/projects/${projectId}/wvp-play?auto=1`}
               className="cf-btn cf-btn-sm cf-btn-secondary"
             >
-              返回「視覺動效」階段
+              自動播放
             </Link>
-          ) : (
-            <>
-              <Link
-                href={`/projects/${projectId}/wvp-play?auto=1`}
-                className="cf-btn cf-btn-sm cf-btn-secondary"
-              >
-                自動播放
-              </Link>
-              <Link
-                href={`/projects/${projectId}/publish`}
-                className="cf-btn cf-btn-sm cf-btn-secondary"
-              >
-                返回「預覽匯出」階段
-              </Link>
-            </>
-          )}
+            <Link
+              href={`/projects/${projectId}/publish`}
+              className="cf-btn cf-btn-sm cf-btn-secondary"
+            >
+              返回「預覽匯出」階段
+            </Link>
+          </>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+      {isFullscreen ? (
+        /* Fullscreen: 16px 透明感應條固定在頂端（h-4），header 用 absolute top-0
+           錨定到 viewport 頂部，-translate-y-full 將其完整推出畫面（y=-36px）。
+           group-hover 時 translate-y-0 讓 header 滑入顯示。 */
+        <div className="group/hdr pointer-events-none fixed inset-x-0 top-0 z-20 h-4">
+          <div className="pointer-events-auto absolute inset-0" />
+          <header className="pointer-events-auto absolute inset-x-0 top-0 flex h-9 -translate-y-full items-center justify-between border-b border-zinc-800 bg-zinc-950/90 px-3 py-1 backdrop-blur-sm transition-transform duration-300 group-hover/hdr:translate-y-0 focus-within:translate-y-0">
+            {headerContent}
+          </header>
         </div>
-      </header>
-      <div className="relative flex min-h-0 flex-1 items-stretch">
+      ) : (
+        <header className="flex h-9 shrink-0 items-center justify-between border-b border-zinc-800 px-3 py-1">
+          {headerContent}
+        </header>
+      )}
+      <div className={`relative flex min-h-0 items-stretch ${isFullscreen ? "flex-1" : "flex-1"}`}>
+        {/* Left nav — in fullscreen: hidden until hover at left edge */}
         <nav
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3"
+          className={
+            isFullscreen
+              ? "pointer-events-none absolute inset-y-0 left-0 z-10 flex w-24 items-center pl-3 opacity-0 transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100"
+              : "pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3"
+          }
           aria-label="簡報換頁（左）"
         >
           <div className="pointer-events-auto flex items-center gap-2">
-            <RoundNavBtn label="第一頁" onClick={() => send("first")}>
+            <RoundNavBtn label="第一頁" onClick={() => send("first")} disabled={isFirst}>
               <IconFirst />
             </RoundNavBtn>
-            <RoundNavBtn label="前一頁" onClick={() => send("prev")}>
+            <RoundNavBtn label="前一頁" onClick={() => send("prev")} disabled={isFirst}>
               <IconPrev />
             </RoundNavBtn>
           </div>
@@ -210,15 +274,20 @@ export function WvpPlayShell({
           className="h-full min-w-0 flex-1 border-0 bg-black"
           allow="autoplay"
         />
+        {/* Right nav — in fullscreen: hidden until hover at right edge */}
         <nav
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center pr-3"
+          className={
+            isFullscreen
+              ? "pointer-events-none absolute inset-y-0 right-0 z-10 flex w-24 items-center justify-end pr-3 opacity-0 transition-opacity duration-300 hover:opacity-100 focus-within:opacity-100"
+              : "pointer-events-none absolute inset-y-0 right-0 z-10 flex items-center pr-3"
+          }
           aria-label="簡報換頁（右）"
         >
           <div className="pointer-events-auto flex items-center gap-2">
-            <RoundNavBtn label="後一頁" onClick={() => send("next")}>
+            <RoundNavBtn label="後一頁" onClick={() => send("next")} disabled={isLast}>
               <IconNext />
             </RoundNavBtn>
-            <RoundNavBtn label="最後一頁" onClick={() => send("last")}>
+            <RoundNavBtn label="最後一頁" onClick={() => send("last")} disabled={isLast}>
               <IconLast />
             </RoundNavBtn>
           </div>

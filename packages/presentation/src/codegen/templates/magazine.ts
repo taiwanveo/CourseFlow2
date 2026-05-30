@@ -120,7 +120,14 @@ function stepScene(
   const kicker =
     rawKicker.replace(/\s+/g, "") === headline.replace(/\s+/g, "") ? stepLabel : rawKicker;
   const figure = figureBlock(prefix, wvpChapterId, step, checkpointUrl, figureAlt);
-  const bodyBlock = bodyLines(phrases, phrases[0] ?? headline, `${prefix}-body`);
+  // 當 screenContent 已明確設定時，口播稿只作為音訊用途，不應出現在畫面上。
+  // 只有在沒有 screenContent 時才以口播片語填充 body 區塊（降級模式）。
+  const bodyBlock = screenContent.trim()
+    ? ""
+    : bodyLines(phrases, phrases[0] ?? headline, `${prefix}-body`);
+  const narrationFallback = screenContent.trim()
+    ? ""
+    : `              <p className="${prefix}-body asd-body-line">${escapeTsString(truncate(narration, 160))}</p>`;
 
   if (layout === "cover") {
     return `
@@ -165,7 +172,7 @@ function stepScene(
               </MaskReveal>
             </h2>
             <div className="${prefix}-body">
-${bodyBlock || `              <p className="${prefix}-body asd-body-line">${escapeTsString(truncate(narration, 160))}</p>`}
+${bodyBlock || narrationFallback}
             </div>
           </div>
           ${figure}
@@ -194,7 +201,7 @@ ${bodyBlock || `              <p className="${prefix}-body asd-body-line">${esca
               </MaskReveal>
             </h2>
             <div className="${prefix}-body">
-${bodyBlock || `              <p className="${prefix}-body asd-body-line">${escapeTsString(truncate(narration, 160))}</p>`}
+${bodyBlock || narrationFallback}
             </div>
           </div>
         </div>
@@ -215,7 +222,7 @@ ${bodyBlock || `              <p className="${prefix}-body asd-body-line">${esca
               </MaskReveal>
             </div>
             <div className="${prefix}-body">
-${bodyBlock || `              <p className="${prefix}-body asd-body-line">${escapeTsString(truncate(narration, 160))}</p>`}
+${bodyBlock || narrationFallback}
             </div>
           </div>
           ${figure}

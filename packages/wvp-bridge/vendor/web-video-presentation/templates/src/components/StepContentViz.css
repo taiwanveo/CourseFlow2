@@ -1,3 +1,4 @@
+/* ══ 步驟內容視覺化容器 ══ 可切換長條圖模式或清單模式 */
 .cf-content-viz {
   margin-top: var(--space-5);
 }
@@ -8,6 +9,7 @@
   opacity: 0.9;
 }
 
+/* ══ 長條圖模式 ══ 帶背景 + accent 邊框 */
 .cf-content-viz--bars {
   padding: var(--space-4);
   border: var(--rule-weight, 1px) solid color-mix(in srgb, var(--accent) 30%, transparent);
@@ -49,6 +51,7 @@
   max-width: 5.5rem;
 }
 
+/* ══ 項目清單模式 ══ 每項有小點 + 文字，逐項從左滞入 */
 .cf-content-viz--list {
   list-style: none;
   padding: 0;
@@ -58,6 +61,7 @@
   gap: var(--space-3);
 }
 
+/* ══ 清單項目 ══ 逐項淡入動画，延遲造成連續出現效果 */
 .cf-content-viz-list-item {
   display: flex;
   align-items: flex-start;

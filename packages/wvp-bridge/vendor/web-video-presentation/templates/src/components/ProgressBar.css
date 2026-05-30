@@ -1,3 +1,6 @@
+/* ══ 底部進度條感應區 ══
+   固定在螢幕底部，60px 高透明熱區，hover 才顯示進度條浮板
+   修改 height 可調整底部葲慰區範圍大小 */
 .pb-hover {
   position: fixed;
   bottom: 0;
@@ -44,8 +47,8 @@
   transform: translateY(0);
 }
 
+/* ══ 章節按鈕 ══ mono 字體，含序號 + 章節名稱，點擊可跳轉 */
 .pb-chapter {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -62,15 +65,18 @@
 .pb-chapter:hover {
   color: var(--text);
 }
+/* ══ 當前章節高亮 ══ accent 色邊框 */
 .pb-active {
   color: var(--text);
   border-color: var(--accent);
 }
+/* ══ 章節序號 ══ 如 "01"，accent 強調色 */
 .pb-num {
   color: var(--accent);
   font-weight: 600;
 }
 
+/* ══ 步驟小點列 ══ 在當前章節按鈕內顯示，每點代表一個步驟，點擊可跳轉 */
 .pb-pips {
   flex-shrink: 0;
   display: flex;

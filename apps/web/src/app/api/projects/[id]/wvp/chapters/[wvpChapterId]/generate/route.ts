@@ -88,6 +88,7 @@ export async function POST(
         ? wvpSettings.anchorProfile
         : undefined,
     assets: wvpSettings.assets,
+    userId: user.id,
   });
 
   let materialized = false;

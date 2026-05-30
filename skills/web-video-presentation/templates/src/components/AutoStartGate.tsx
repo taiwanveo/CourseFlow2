@@ -23,12 +23,12 @@ export function AutoStartGate({ visible, onStart }: Props) {
       tabIndex={0}
     >
       <div className="auto-gate-card">
-        <div className="auto-gate-kicker">AUTO PLAYBACK</div>
-        <div className="auto-gate-title">Press SPACE to start</div>
+        <div className="auto-gate-kicker">自動播放模式</div>
+        <div className="auto-gate-title">按空白鍵開始</div>
         <div className="auto-gate-sub">
-          Audio plays per step and advances automatically.
+          每個步驟將自動播放音訊並自動切換。
           <br />
-          Press <kbd>M</kbd> any time to switch modes.
+          隨時按 <kbd>M</kbd> 切換播放模式。
         </div>
       </div>
     </div>

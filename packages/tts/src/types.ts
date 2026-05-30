@@ -78,15 +78,67 @@ export const OPENAI_TTS_MODELS: TtsModel[] = [
   { id: "tts-1-hd", name: "TTS-1 HD", provider: "openai" },
 ];
 
+/** GPT-4o Mini TTS / GPT-4o Audio 擴展語音集（新增 ash / ballad / coral / sage / verse） */
+export const OPENAI_TTS_VOICES_EXTENDED: TtsVoice[] = [
+  { id: "alloy",   name: "Alloy",   language: "multi", gender: "neutral", provider: "openai" },
+  { id: "ash",     name: "Ash",     language: "multi", gender: "male",    provider: "openai" },
+  { id: "ballad",  name: "Ballad",  language: "multi", gender: "male",    provider: "openai" },
+  { id: "coral",   name: "Coral",   language: "multi", gender: "female",  provider: "openai" },
+  { id: "echo",    name: "Echo",    language: "multi", gender: "male",    provider: "openai" },
+  { id: "fable",   name: "Fable",   language: "multi", gender: "male",    provider: "openai" },
+  { id: "nova",    name: "Nova",    language: "multi", gender: "female",  provider: "openai" },
+  { id: "onyx",    name: "Onyx",    language: "multi", gender: "male",    provider: "openai" },
+  { id: "sage",    name: "Sage",    language: "multi", gender: "female",  provider: "openai" },
+  { id: "shimmer", name: "Shimmer", language: "multi", gender: "female",  provider: "openai" },
+  { id: "verse",   name: "Verse",   language: "multi", gender: "male",    provider: "openai" },
+];
+
+/**
+ * 根據模型 ID 決定可用語音清單。
+ * 自動將 provider 欄位套入返回的 TtsVoice 陣列。
+ */
+export function getTtsVoicesForModel(modelId: string, provider: TtsProviderId): TtsVoice[] {
+  const id = modelId.toLowerCase();
+
+  // Classic TTS-1 family — tts-1 / tts-1-hd，不含 audio / gpt-4o
+  if (/(\/|^)(tts-1|tts-1-hd)(-|$)/.test(id)) {
+    return OPENAI_TTS_VOICES.map((v) => ({ ...v, provider }));
+  }
+
+  // GPT Audio 家族：gpt-4o-audio / gpt-4o-mini-audio / gpt-audio / gpt-4.1-audio / o1-audio
+  if (
+    id.includes("gpt-4o") ||
+    id.includes("gpt-4.1") ||
+    id.includes("gpt-audio") ||
+    (id.includes("o1") && id.includes("audio"))
+  ) {
+    return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));
+  }
+
+  // GPT-4o Mini TTS 或含有 tts 的 OpenAI 模型 — 擴展語音集
+  if (id.includes("tts") && (id.includes("openai") || provider === "openai")) {
+    return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));
+  }
+
+  // OpenRouter 上其他含 tts 的未知模型 — 預設擴展語音集
+  if (id.includes("tts")) {
+    return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));
+  }
+
+  // 預設：provider 本身的舊語音集
+  return OPENAI_TTS_VOICES.map((v) => ({ ...v, provider }));
+}
+
+// 已知確認在 OpenRouter 上存在且為真實 TTS 的模型（用於 API 找不到時的候補）
+// 注意：只列入已驗證的模型，未驗證的請透過動態 API 發現
+export const OPENROUTER_KNOWN_TTS_MODEL_IDS: readonly string[] = [
+  "openai/gpt-4o-mini-tts-2025-12-15",
+];
+
 export const OPENROUTER_TTS_MODELS: TtsModel[] = [
   {
     id: "openai/gpt-4o-mini-tts-2025-12-15",
     name: "GPT-4o Mini TTS",
-    provider: "openrouter",
-  },
-  {
-    id: "mistralai/voxtral-mini-tts-2603",
-    name: "Voxtral Mini TTS",
     provider: "openrouter",
   },
 ];

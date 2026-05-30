@@ -12,6 +12,9 @@
  * z-index 12 sits above the .stage-frame (z 0) and the ::after / ::before
  * stage overlays (z 1) but below modal gates like AutoStartGate.
  * ───────────────────────────────────────────────────────────────────── */
+
+/* ══ 字幕背景條 ══ 固定在螢幕底部，黑色半透明背景，高 8vh
+   修改 height / background 可調整字幕列高度與透明度 */
 .sub-bar {
   position: fixed;
   left: 0;
@@ -19,7 +22,7 @@
   bottom: 0;
   height: 8vh;
   min-height: 56px;
-  z-index: 12;
+  z-index: 9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -31,11 +34,14 @@
   animation: sub-fade-in 280ms cubic-bezier(0.19, 1, 0.22, 1);
 }
 
+/* ══ 字幕文字本體 ══
+   font-size：clamp(18px, 3.2vh, 32px)，視覺最小 18px、最大 32px
+   修改 font-size 可調整字幕字型大小 */
 .sub-bar-text {
   color: #f4f4f5;
   font-family: var(--font-display-cn, ui-sans-serif, system-ui, sans-serif);
   font-weight: 500;
-  font-size: clamp(10px, 1vw, 16px);
+  font-size: clamp(18px, 3.2vh, 32px);
   line-height: 1.35;
   letter-spacing: 0.01em;
   text-align: center;

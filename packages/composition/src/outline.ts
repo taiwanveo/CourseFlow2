@@ -12,6 +12,11 @@ export interface GeneratedChapterInput {
   sortOrder: number;
   chapterKind?: WvpChapterKind;
   children?: GeneratedChapterInput[];
+  /**
+   * 章節分隔頁的口播稿（對應資料結構中的 {章節N標題口播稿}）。
+   * 若存在，則在章節第 0 個位置自動預建章節分隔頁步驟，避免 ensureChapterDividerSteps 再覆寫。
+   */
+  chapterScript?: string;
   steps: {
     screenContent: string;
     infoPool: string[];
@@ -37,11 +42,30 @@ export function flattenGeneratedChapters(
         sortOrder: ch.sortOrder ?? ci,
         chapterKind: ch.chapterKind,
       });
+
+      let stepSortOffset = 0;
+
+      // 若提供了 chapterScript，自動在 sortOrder=0 預建章節分隔頁步驟
+      // ensureChapterDividerSteps 會偵測到已存在分隔頁而不再增加
+      if (ch.chapterScript?.trim()) {
+        outSteps.push({
+          id: randomUUID(),
+          chapterId,
+          sortOrder: 0,
+          stepKind: "chapter",
+          script: ch.chapterScript.trim(),
+          screenContent: ch.title,
+          infoPool: [`章節：${ch.title}`],
+          estimatedSeconds: Math.max(4, Math.round(ch.chapterScript.trim().length / 4)),
+        });
+        stepSortOffset = 1;
+      }
+
       ch.steps.forEach((st, si) => {
         outSteps.push({
           id: randomUUID(),
           chapterId,
-          sortOrder: si,
+          sortOrder: si + stepSortOffset,
           script: st.script ?? "",
           screenContent: st.screenContent,
           infoPool: st.infoPool ?? [],

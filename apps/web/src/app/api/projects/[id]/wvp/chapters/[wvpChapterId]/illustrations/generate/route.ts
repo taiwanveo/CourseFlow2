@@ -5,29 +5,14 @@ import { assertWvpPhaseEditable } from "@courseflow/core";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { generateChapterIllustrationSteps } from "@/lib/wvp-craft-illustrations";
+import { generateChapterIllustrationImageEntry } from "@/lib/wvp-craft-illustrations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-function readSteps(craft: { checklist_result?: unknown }) {
-  const cr = craft.checklist_result as {
-    stepIllustrations?: {
-      stepIndex: number;
-      status: string;
-      confirmedAt?: string | null;
-      promptForApi?: string;
-      needsImage?: boolean;
-      imageSource?: "ai" | "upload";
-      batchSelected?: boolean;
-    }[];
-  } | null;
-  return cr?.stepIllustrations ?? [];
-}
-
-/** 依已確認提示詞生圖（單步或本章全部已確認步驟） */
+/** 依已確認提示詞為整章生一張圖片 */
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
 ) {
   const { id, wvpChapterId } = await params;
@@ -39,7 +24,7 @@ export async function POST(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("wvp_settings, wvp_phase_locks, phase_locks")
+    .select("theme_id, wvp_settings, wvp_phase_locks, phase_locks")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
@@ -65,53 +50,22 @@ export async function POST(
     .single();
   if (!craft) return NextResponse.json({ error: "章節不存在" }, { status: 404 });
 
-  const body = (await req.json().catch(() => ({}))) as {
-    stepIndex?: number;
-    allConfirmed?: boolean;
-  };
-
-  const stored = readSteps(craft);
-  let indices: number[] = [];
-  if (typeof body.stepIndex === "number") {
-    indices = [body.stepIndex];
-  } else if (body.allConfirmed) {
-    indices = stored
-      .filter(
-        (s) =>
-          s.needsImage !== false &&
-          (s.imageSource ?? "ai") === "ai" &&
-          s.batchSelected !== false &&
-          s.status !== "skip" &&
-          s.promptForApi?.trim() &&
-          (s.confirmedAt || s.status === "prompt-ready" || s.status === "done"),
-      )
-      .map((s) => s.stepIndex);
-  } else {
-    return NextResponse.json({ error: "請指定 stepIndex 或 allConfirmed" }, { status: 400 });
-  }
-
-  if (indices.length === 0) {
-    return NextResponse.json({ error: "沒有可生圖的步驟（請先確認提示詞）" }, { status: 400 });
-  }
-
-  const styleFragment = resolveImageStyleFragment(styleGuard.settings.imageStyle);
+  const themeId = styleGuard.settings.themeId ?? project.theme_id ?? "midnight-press";
+  const styleFragment = await resolveImageStyleFragment(styleGuard.settings.imageStyle, themeId);
+  const imageStyleId =
+    styleGuard.imageStyleId === "theme-default"
+      ? `theme-default:${themeId}`
+      : styleGuard.imageStyleId;
 
   try {
-    const { steps, generated } = await generateChapterIllustrationSteps(
+    const entry = await generateChapterIllustrationImageEntry(
       supabase,
       user.id,
       id,
       craft,
-      indices,
-      { styleFragment, imageStyleId: styleGuard.imageStyle.id },
+      { styleFragment, imageStyleId },
     );
-    return NextResponse.json({
-      ok: true,
-      wvpChapterId,
-      steps,
-      generated,
-      requested: indices.length,
-    });
+    return NextResponse.json({ ok: true, wvpChapterId, chapterIllustration: entry });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }

@@ -36,7 +36,7 @@ export default async function ContentPage({
     <AppShell
       width="wide"
       title={`${project.title} — 文稿內容`}
-      description="第一階段：生成教學內容（或匯入教學文件）、AI產生大綱與口播稿。"
+      description="第一階段：輸入提示詞或教學文稿，AI 一次生成結構大綱與口播稿。"
       breadcrumb={[
         { label: "我的專案", href: "/dashboard" },
         { label: project.title },

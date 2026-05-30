@@ -37,9 +37,11 @@ SVG 內嵌（畫面理解型）：
   - 流程：<circle/> + <line/> 依 step 加 .lit class 點亮節點
   - 對比：<rect/> 左右各 50%，step 觸發 .highlight
   - 架構圖：<text/> + <path/> 標籤依層次出現
-主題 token（必須用 var() 引用，禁止硬編碼 HEX / RGB）：
-  var(--color-shell)  var(--color-surface)  var(--color-accent)
-  var(--font-display-en)  var(--font-display-cn)  var(--font-body)
+主題 token（必須用 var() 引用，禁止硬編碼 HEX / RGB 或固定 px 字級）：
+  顏色：var(--color-shell)  var(--color-surface)  var(--color-accent)
+  字型：var(--font-display-en)  var(--font-display-cn)  var(--font-body)
+  字級（標題/內文/說明 必須使用，不可自行寫比 token 更小的值）：
+    var(--t-h1)  var(--t-h2)  var(--t-body)  var(--t-lead)  var(--t-caption)
 
 ━━━ 現成元件（有圖片或適合時使用） ━━━
 - chapterKind=list-reveal → <ListRevealGrid step={step} items={...} introTitle introSub chapterTitle />
@@ -55,9 +57,19 @@ SVG 內嵌（畫面理解型）：
 - 禁止：MaskReveal title= prop
 
 ━━━ 排版硬規則 ━━━
-- 標題大字 clamp(2.75rem, 4.5vw, 5rem)，內文左對齊 18–22px
-- TSX 內須含各步口播前 12 字（雙源：畫面 + 口播同步）
-- 禁止純文字步（每步至少一個帶動畫 class 的元素或 SVG/Canvas 節點）`);
+- 標題大字必須用 **var(--t-h1)**（= clamp(80px, 6.5vw, 120px) design-px，≥80px hero 準則）
+  副標用 **var(--t-h2)**（= clamp(56px, 5vw, 88px)），如需超大 hero 可用 calc(var(--t-h1) * 1.3) 放大
+  內文/條列用 **var(--t-body)**（= clamp(24px, 1.8vw, 32px)），禁止寫 < 24px 的 prose 字級
+  圖說用 **var(--t-caption)**（= clamp(15px, 1.1vw, 20px)）
+  **禁止自行硬寫 font-size 覆蓋 token（如 font-size: 1.2rem / 18px 之類）**
+- 禁止純文字步（每步至少一個帶動畫 class 的元素或 SVG/Canvas 節點）
+
+━━━ 畫面文字 vs 口播文字（最容易犯的錯） ━━━
+- narrations 是「聲音口播稿」，只出現在 SubtitleBar；**禁止把 narration 句子複製到任何 JSX 字串、props 或 ITEMS 裡**
+- 每步的畫面標題／關鍵句必須用 user prompt 提供的「畫面短語」（screenContents），**不得自行造句，不得用 narration 句子替代**
+- 如果沒有提供 screenContents，才可自行精煉（≤15 字關鍵句，不是照抄 narration）
+- **ListRevealGrid 的 ITEMS title 每條必須 ≤12 字的畫面關鍵詞**（如「新手學習者」、「創意產業從業者」），禁止把 narration 分段或片語填入 title
+- **chapterTitle prop 必須是可讀展示標籤**（如 "ch. 04"），禁止傳入章節 ID 字串（如 "chapter-04"）`)
 
 export function buildChapterCraftUserPrompt(ctx: {
   wvpChapterId: string;
@@ -121,7 +133,7 @@ export function buildChapterSourceUserPrompt(ctx: {
 
   const screenBlock =
     ctx.screenContents && ctx.screenContents.length > 0
-      ? `\n每步畫面短語（animation 必須呼應這些文字）：\n${ctx.screenContents.map((s, i) => `  step ${i}: ${s}`).join("\n")}`
+      ? `\n\n【硬規則】每步畫面文字已由「文稿內容」鎖定，必須照字使用，禁止用 narration 句子替代：\n${ctx.screenContents.map((s, i) => `  step ${i} 畫面文字: "${s}"`).join("\n")}\n以上是各步 JSX 裡標題/title/關鍵句的唯一合法來源。`
       : "";
 
   const tokenBlock =
@@ -139,7 +151,7 @@ export function buildChapterSourceUserPrompt(ctx: {
 章節標題：${ctx.title}
 步驟數：${ctx.narrations.length}
 
-narrations（NarrationBeat 的 phrases 必須是對應步口播的原文拆句，不可改寫）：
+narrations（每步一句「聲音口播稿」，系統自動顯示於 SubtitleBar字幕欄；禁止把這些文字複製到元件的 JSX 或 props 內）：
 ${narrLines}${screenBlock}${tokenBlock}
 
 本章文稿摘錄：

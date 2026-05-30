@@ -14,7 +14,7 @@ import type { LlmProviderId } from "@courseflow/llm";
 import { getOrderedSteps } from "@courseflow/core";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { loadProjectComposition } from "@/lib/project-composition";
-import { listConfiguredLlmProviders } from "@/lib/llm-provider";
+import { listConfiguredLlmProviders, resolveEffectiveImageModel } from "@/lib/llm-provider";
 import { parseWvpSettings } from "@/lib/wvp-settings";
 
 export async function POST(
@@ -81,16 +81,22 @@ export async function POST(
 
   const { data: keyRow } = await supabase
     .from("user_api_keys")
-    .select("encrypted_key")
+    .select("encrypted_key, default_model, image_model")
     .eq("user_id", user.id)
     .eq("provider", provider)
     .maybeSingle();
   if (!keyRow?.encrypted_key) {
     return NextResponse.json({ error: `找不到 ${provider} API Key` }, { status: 400 });
   }
+  const resolvedImageModel = resolveEffectiveImageModel(
+    provider,
+    (keyRow as { image_model?: string | null }).image_model,
+    (keyRow as { default_model?: string | null }).default_model,
+  );
 
   const wvpSettings = parseWvpSettings(project.wvp_settings);
-  const styleFragment = resolveImageStyleFragment(wvpSettings.imageStyle);
+  const themeId = wvpSettings.themeId ?? "midnight-press";
+  const styleFragment = await resolveImageStyleFragment(wvpSettings.imageStyle, themeId);
 
   const prompt =
     body.prompt?.trim() ||
@@ -103,7 +109,7 @@ export async function POST(
 
   try {
     const buffer = await generateStepImage(
-      { provider, apiKey: decryptApiKey(keyRow.encrypted_key) },
+      { provider, apiKey: decryptApiKey(keyRow.encrypted_key), model: resolvedImageModel },
       prompt,
     );
 
