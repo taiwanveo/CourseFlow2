@@ -23,6 +23,12 @@ import { useSubtitleSettings } from "./hooks/useSubtitleSettings";
 import { CHAPTERS } from "./registry/chapters";
 
 /**
+ * 成品播放器的根組件。
+ *
+ * 這個檔案不決定單一版型的排版細節，但它決定整個 presentation 如何載入章節、字幕、音訊、自動播放與 PDF 匯出。
+ * 若你在找「模板最終怎麼把各章節接起來」，這裡是主入口。
+ */
+/**
  * Estimate spoken duration of a Chinese narration string. Native pace
  * ≈ 4 char/s → 250ms per char. Used as Auto-mode fallback ONLY when the
  * audio file is missing / fails / the narration is empty. When audio plays
@@ -34,6 +40,7 @@ function estimateMs(text: string): number {
 }
 
 export default function App() {
+  // CHAPTERS 是 codegen 後的總章節註冊表；每個章節 Component 就是成品模板的一個實例。
   const stepper = useStepper(CHAPTERS);
   const ch = CHAPTERS[stepper.cursor.chapter]!;
   const Cmp = ch.Component;
@@ -42,19 +49,22 @@ export default function App() {
   const { mode, setMode, cycleMode, autoStarted, setAutoStarted } =
     useAutoMode();
 
+  const subtitles = useSubtitleSettings();
+
   usePlayControlBridge({
     onFirst: () => stepper.jumpToChapter(0, 0),
     onPrev: stepper.prev,
     onNext: stepper.next,
     onLast: () => stepper.jumpToChapter(CHAPTERS.length - 1, 9999),
     onStartAuto: () => { setAutoStarted(true); setMode("auto"); },
+    onSubsOn: () => subtitles.setEnabled(true),
+    onSubsOff: () => subtitles.setEnabled(false),
   });
 
   // 通知父頁（WvpPlayShell）目前游標位置，讓翻頁按鈕 disabled 狀態正確
   useEffect(() => {
     notifyCursorToParent(stepper.globalIndex, stepper.totalGlobal);
   }, [stepper.globalIndex, stepper.totalGlobal]);
-  const subtitles = useSubtitleSettings();
   // Pause / resume orchestration. While `paused` is true, Stage clicks
   // are no-ops AND useAudioPlayer is forced into manual mode (the hook does
   // the work — usePauseControl just flips mode via setMode).

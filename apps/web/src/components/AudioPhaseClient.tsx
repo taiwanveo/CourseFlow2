@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Mp3Encoder } from "lamejs";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import { getOrderedSteps } from "@courseflow/core";
@@ -35,6 +36,86 @@ function pickDefaultTtsSelection(
     voiceId: preferredVoices[0]?.id ?? "",
     model: models[preferred]?.[0]?.id ?? "",
   };
+}
+
+type RecordingSession = {
+  context: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  processor: ScriptProcessorNode;
+  sink: GainNode;
+  stream: MediaStream;
+  chunks: Float32Array[];
+  sampleRate: number;
+  totalSamples: number;
+};
+
+function mergeFloat32Chunks(chunks: Float32Array[], totalSamples: number): Float32Array {
+  const merged = new Float32Array(totalSamples);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return merged;
+}
+
+function normalizeRecordingError(error: unknown): string {
+  if (error instanceof DOMException) {
+    if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
+      return "找不到可用的麥克風裝置。請確認電腦已接上麥克風，並且目前瀏覽器或遠端環境有提供音訊輸入裝置。若你現在是在共享瀏覽器或遠端桌面中操作，也可能是該環境本身沒有麥克風可用。";
+    }
+    if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+      return "瀏覽器尚未取得麥克風權限。請允許此網站使用麥克風後再試一次。";
+    }
+    if (error.name === "NotReadableError" || error.name === "TrackStartError") {
+      return "麥克風目前無法讀取，可能正被其他程式占用。請關閉其他錄音或通話軟體後再試一次。";
+    }
+    if (error.name === "OverconstrainedError" || error.name === "ConstraintNotSatisfiedError") {
+      return "目前裝置的音訊錄音條件不相容，請改用其他麥克風或直接上傳已錄好的音檔。";
+    }
+    return error.message || "無法啟用麥克風錄音";
+  }
+  if (error instanceof Error) {
+    if (error.message.includes("Requested device not found")) {
+      return "找不到可用的麥克風裝置。請確認電腦已接上麥克風，並且目前瀏覽器或遠端環境有提供音訊輸入裝置。若你現在是在共享瀏覽器或遠端桌面中操作，也可能是該環境本身沒有麥克風可用。";
+    }
+    return error.message;
+  }
+  return "無法啟用麥克風錄音";
+}
+
+function float32ToInt16(input: Float32Array): Int16Array {
+  const out = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    const sample = Math.max(-1, Math.min(1, input[i] ?? 0));
+    out[i] = sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff);
+  }
+  return out;
+}
+
+function encodeMp3(samples: Float32Array, sampleRate: number): Uint8Array {
+  const encoder = new Mp3Encoder(1, sampleRate, 128);
+  const pcm = float32ToInt16(samples);
+  const chunkSize = 1152;
+  const parts: Uint8Array[] = [];
+
+  for (let offset = 0; offset < pcm.length; offset += chunkSize) {
+    const chunk = pcm.subarray(offset, offset + chunkSize);
+    const encoded = encoder.encodeBuffer(chunk);
+    if (encoded.length > 0) parts.push(new Uint8Array(encoded));
+  }
+
+  const flushed = encoder.flush();
+  if (flushed.length > 0) parts.push(new Uint8Array(flushed));
+
+  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
+  const merged = new Uint8Array(totalLength);
+  let cursor = 0;
+  for (const part of parts) {
+    merged.set(part, cursor);
+    cursor += part.length;
+  }
+  return merged;
 }
 
 export function AudioPhaseClient({
@@ -74,10 +155,19 @@ export function AudioPhaseClient({
   const [stepIndex, setStepIndex] = useState(0);
   const [batchSynthesizing, setBatchSynthesizing] = useState(false);
   const [stepSynthesizing, setStepSynthesizing] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingBusy, setRecordingBusy] = useState(false);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedDurationMs, setRecordedDurationMs] = useState(0);
+  const [recordedPreviewUrl, setRecordedPreviewUrl] = useState<string | null>(null);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [recordingSaving, setRecordingSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const locked = locks.audio;
+  const recordingRef = useRef<RecordingSession | null>(null);
+  const audioUploadInputRef = useRef<HTMLInputElement>(null);
 
   const audioGate = useMemo(() => evaluateWvpAudioBuildGate(composition), [composition]);
 
@@ -233,10 +323,69 @@ export function AudioPhaseClient({
     setComposition(next);
   };
 
+  const clearUnsavedRecording = useCallback(() => {
+    setRecordedBlob(null);
+    setRecordedDurationMs(0);
+    setRecordingError(null);
+  }, []);
+
+  useEffect(() => {
+    clearUnsavedRecording();
+  }, [step?.id, clearUnsavedRecording]);
+
+  useEffect(() => {
+    if (!recordedBlob) {
+      setRecordedPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+
+    const nextUrl = URL.createObjectURL(recordedBlob);
+    setRecordedPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return nextUrl;
+    });
+
+    return () => URL.revokeObjectURL(nextUrl);
+  }, [recordedBlob]);
+
+  useEffect(() => {
+    return () => {
+      const active = recordingRef.current;
+      if (!active) return;
+      active.processor.disconnect();
+      active.source.disconnect();
+      active.sink.disconnect();
+      active.stream.getTracks().forEach((track) => track.stop());
+      void active.context.close();
+      recordingRef.current = null;
+    };
+  }, []);
+
   const refreshComposition = useCallback(async () => {
     const proj = await fetch(`/api/projects/${projectId}`).then((response) => response.json());
     if (proj.composition) setComposition(proj.composition);
   }, [projectId]);
+
+  const uploadAudioAsset = useCallback(
+    async (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("kind", "audio");
+      const res = await fetch(`/api/projects/${projectId}/upload-asset`, {
+        method: "POST",
+        body: form,
+      });
+      const data = (await res.json()) as { error?: string; storagePath?: string; publicUrl?: string };
+      if (!res.ok || !data.storagePath || !data.publicUrl) {
+        throw new Error(data.error ?? "音檔上傳失敗");
+      }
+      return { storagePath: data.storagePath, publicUrl: data.publicUrl };
+    },
+    [projectId],
+  );
 
   const pollJobRun = useCallback(
     async (jobRunId: string, onDone: () => void, attempt = 0) => {
@@ -360,6 +509,54 @@ export function AudioPhaseClient({
     }
   };
 
+  const handleRecordedFilePick = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !step) return;
+
+    if (!file.type.startsWith("audio/")) {
+      setRecordingError("請選擇音訊檔案，例如 mp3、wav、m4a 或 webm。");
+      return;
+    }
+
+    setRecordingSaving(true);
+    setRecordingError(null);
+
+    try {
+      const uploaded = await uploadAudioAsset(file);
+      const nextEntry = {
+        stepId: step.id,
+        storagePath: uploaded.storagePath,
+        publicUrl: uploaded.publicUrl,
+        durationMs: recordedDurationMs > 0 ? recordedDurationMs : (step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000),
+      };
+      const nextComposition = {
+        ...composition,
+        audio: [...composition.audio.filter((item) => item.stepId !== step.id), nextEntry],
+      };
+
+      const res = await fetch(`/api/projects/${projectId}/composition`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: "audio", composition: nextComposition }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? "儲存音檔失敗");
+      }
+
+      setComposition(nextComposition);
+      clearUnsavedRecording();
+      toast("音檔已上傳並套用到此步驟", "success", { taskComplete: true });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "音檔上傳失敗";
+      setRecordingError(message);
+      toast(message, "error");
+    } finally {
+      setRecordingSaving(false);
+    }
+  };
+
   const synthesizeCurrentStep = async () => {
     if (!step || !stepTts) return;
     if (!stepTts.voiceId) {
@@ -392,6 +589,137 @@ export function AudioPhaseClient({
       );
     } catch {
       setStepSynthesizing(false);
+    }
+  };
+
+  const startRecording = async () => {
+    if (locked) return;
+    if (typeof window === "undefined") return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setRecordingError("目前瀏覽器不支援麥克風錄音。請使用最新版 Chrome 或 Edge。");
+      return;
+    }
+
+    setRecordingBusy(true);
+    setRecordingError(null);
+    clearUnsavedRecording();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const context = new window.AudioContext();
+      await context.resume();
+
+      const source = context.createMediaStreamSource(stream);
+      const processor = context.createScriptProcessor(4096, 1, 1);
+      const sink = context.createGain();
+      sink.gain.value = 0;
+
+      const session: RecordingSession = {
+        context,
+        source,
+        processor,
+        sink,
+        stream,
+        chunks: [],
+        sampleRate: context.sampleRate,
+        totalSamples: 0,
+      };
+
+      processor.onaudioprocess = (event) => {
+        const input = event.inputBuffer.getChannelData(0);
+        const copied = new Float32Array(input.length);
+        copied.set(input);
+        session.chunks.push(copied);
+        session.totalSamples += copied.length;
+      };
+
+      source.connect(processor);
+      processor.connect(sink);
+      sink.connect(context.destination);
+
+      recordingRef.current = session;
+      setRecording(true);
+    } catch (error) {
+      setRecordingError(normalizeRecordingError(error));
+    } finally {
+      setRecordingBusy(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    const session = recordingRef.current;
+    if (!session) return;
+
+    setRecordingBusy(true);
+    setRecording(false);
+    recordingRef.current = null;
+
+    try {
+      session.processor.disconnect();
+      session.source.disconnect();
+      session.sink.disconnect();
+      session.stream.getTracks().forEach((track) => track.stop());
+      await session.context.close();
+
+      if (session.totalSamples <= 0) {
+        setRecordingError("沒有錄到聲音，請再試一次。");
+        return;
+      }
+
+      const merged = mergeFloat32Chunks(session.chunks, session.totalSamples);
+      const mp3Bytes = encodeMp3(merged, session.sampleRate);
+      if (mp3Bytes.length === 0) {
+        setRecordingError("錄音轉檔失敗，請再試一次。");
+        return;
+      }
+
+      setRecordedBlob(new Blob([mp3Bytes.buffer.slice(0)], { type: "audio/mpeg" }));
+      setRecordedDurationMs(Math.max(1, Math.round((session.totalSamples / session.sampleRate) * 1000)));
+      toast("錄音完成，可先試聽再存檔", "success");
+    } catch (error) {
+      setRecordingError(error instanceof Error ? error.message : "停止錄音失敗");
+    } finally {
+      setRecordingBusy(false);
+    }
+  };
+
+  const saveRecordedAudio = async () => {
+    if (!step || !recordedBlob) return;
+
+    setRecordingSaving(true);
+    setRecordingError(null);
+    try {
+      const file = new File([recordedBlob], `${step.id}.mp3`, { type: "audio/mpeg" });
+      const uploaded = await uploadAudioAsset(file);
+      const nextEntry = {
+        stepId: step.id,
+        storagePath: uploaded.storagePath,
+        publicUrl: uploaded.publicUrl,
+        durationMs: recordedDurationMs,
+      };
+      const nextComposition = {
+        ...composition,
+        audio: [...composition.audio.filter((item) => item.stepId !== step.id), nextEntry],
+      };
+
+      const res = await fetch(`/api/projects/${projectId}/composition`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phase: "audio", composition: nextComposition }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error ?? "儲存錄音失敗");
+      }
+
+      setComposition(nextComposition);
+      clearUnsavedRecording();
+      toast("錄音已存檔並套用到此步驟", "success", { taskComplete: true });
+    } catch (error) {
+      setRecordingError(error instanceof Error ? error.message : "錄音存檔失敗");
+      toast(error instanceof Error ? error.message : "錄音存檔失敗", "error");
+    } finally {
+      setRecordingSaving(false);
     }
   };
 
@@ -543,25 +871,6 @@ export function AudioPhaseClient({
             <p className="mt-1 text-xs text-zinc-500">可為每個步驟指定不同語音並單獨合成。</p>
           </div>
 
-          <label className="block text-xs text-zinc-500">
-            步驟
-            <select
-              value={stepIndex}
-              onChange={(event) => setStepIndex(Number(event.target.value))}
-              className="cf-select mt-1 w-full"
-            >
-              {orderedSteps.map((item, index) => {
-                const hasAudio = composition.audio.some((audio) => audio.stepId === item.id);
-                return (
-                  <option key={item.id} value={index}>
-                    {hasAudio ? "✓ " : ""}
-                    {item.screenContent.slice(0, 50) || `步驟 ${index + 1}`}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-
           {step && stepTts ? (
             <>
               <div className="flex flex-wrap items-end gap-3">
@@ -646,6 +955,118 @@ export function AudioPhaseClient({
                 <span className="text-xs text-zinc-500">
                   {stepAudio ? "已有語音檔" : "尚未合成"}
                 </span>
+              </div>
+            </>
+          ) : null}
+
+          <label className="block text-xs text-zinc-500">
+            步驟
+            <select
+              value={stepIndex}
+              onChange={(event) => setStepIndex(Number(event.target.value))}
+              className="cf-select mt-1 w-full"
+            >
+              {orderedSteps.map((item, index) => {
+                const hasAudio = composition.audio.some((audio) => audio.stepId === item.id);
+                return (
+                  <option key={item.id} value={index}>
+                    {hasAudio ? "✓ " : ""}
+                    {item.screenContent.slice(0, 50) || `步驟 ${index + 1}`}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+
+          {step && stepTts ? (
+            <>
+              <div className="space-y-2 rounded-lg border border-zinc-800 bg-black/20 p-3">
+                <div className="text-xs text-zinc-500">目前步驟口播稿</div>
+                <textarea
+                  value={step.script}
+                  readOnly
+                  rows={5}
+                  className="w-full rounded border border-zinc-800 bg-black/30 p-3 text-sm text-zinc-200"
+                />
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-zinc-800 bg-black/20 p-3">
+                <div>
+                  <div className="text-sm text-zinc-100">真人配音錄音</div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    使用瀏覽器麥克風錄下這一步的口播。存檔後會覆蓋此步驟目前的語音檔。
+                  </p>
+                  <input
+                    ref={audioUploadInputRef}
+                    type="file"
+                    accept="audio/*,.mp3,.wav,.m4a,.webm,.ogg"
+                    className="hidden"
+                    onChange={(event) => void handleRecordedFilePick(event)}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={locked || recordingBusy || recordingSaving || recording}
+                    onClick={() => void startRecording()}
+                    className="cf-btn cf-btn-secondary"
+                  >
+                    {recordingBusy && !recording ? "啟動中…" : "開始錄音"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked || recordingBusy || !recording}
+                    onClick={() => void stopRecording()}
+                    className="cf-btn cf-btn-primary"
+                  >
+                    {recordingBusy && recording ? "停止中…" : "停止錄音"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked || recording || recordingBusy || (!recordedBlob && !recordingError)}
+                    onClick={clearUnsavedRecording}
+                    className="cf-btn cf-btn-secondary"
+                  >
+                    重新錄製
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked || recording || recordingBusy || recordingSaving || !recordedBlob}
+                    onClick={() => void saveRecordedAudio()}
+                    className="cf-btn cf-btn-primary"
+                  >
+                    {recordingSaving ? "存檔中…" : "錄音存檔"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked || recording || recordingBusy || recordingSaving}
+                    onClick={() => audioUploadInputRef.current?.click()}
+                    className="cf-btn cf-btn-secondary"
+                  >
+                    上傳已錄音檔
+                  </button>
+                  <span className="text-xs text-zinc-500">
+                    {recording
+                      ? "錄音中…"
+                      : recordedBlob
+                        ? `已錄製 ${Math.max(1, Math.round(recordedDurationMs / 1000))} 秒，可試聽或存檔`
+                        : "尚未錄音"}
+                  </span>
+                </div>
+
+                {recordingError ? (
+                  <p className="text-xs text-rose-400">{recordingError}</p>
+                ) : null}
+
+                {recordedPreviewUrl ? (
+                  <div className="space-y-1">
+                    <div className="text-xs text-zinc-500">未存檔錄音預覽</div>
+                    <audio controls src={recordedPreviewUrl} className="w-full" preload="none">
+                      您的瀏覽器不支援 audio 播放。
+                    </audio>
+                  </div>
+                ) : null}
               </div>
 
               {stepAudio?.publicUrl ? (

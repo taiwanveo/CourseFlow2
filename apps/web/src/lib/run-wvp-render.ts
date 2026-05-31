@@ -1,3 +1,15 @@
+/**
+ * Web 行程內的 WVP MP4 匯出協調器。
+ *
+ * 這條路徑主要服務兩類場景：
+ * 1. 本機開發沒有啟 Worker，但仍要直接匯出 MP4。
+ * 2. 正式環境在特定條件下需要 inline fallback。
+ *
+ * 這個模組不自己 build WVP，也不自己維護 job queue；它的責任是：
+ * - 準備一份可錄製的 dist
+ * - 呼叫底層 Playwright 錄製器
+ * - 把成品 MP4 上傳回 Storage
+ */
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -10,6 +22,16 @@ import {
 } from "@/lib/wvp-dist-storage";
 import { hasBuiltPresentation, presentationDistDir } from "@/lib/wvp-workdir";
 
+/**
+ * 執行單次 WVP MP4 匯出。
+ *
+ * 流程重點：
+ * 1. 優先使用本機已 build 的 dist，避免不必要的 Storage 往返。
+ * 2. 若本機沒有 dist，就嘗試從 Storage 還原既有快取。
+ * 3. 交給 `@courseflow/presentation/record` 進行實際錄製。
+ * 4. 驗證輸出大小，避免把空檔或失敗檔誤判為成功。
+ * 5. 上傳最終 MP4 到 Storage，供 render job / 前端下載。
+ */
 export async function runWvpMp4Export(payload: {
   projectId: string;
   userId: string;
@@ -24,10 +46,12 @@ export async function runWvpMp4Export(payload: {
   try {
     payload.onProgress?.(10);
 
+    // 先吃本機 dist，可避免重複下載，也能讓本機開發的迭代速度最快。
     if (await hasBuiltPresentation(payload.projectId)) {
       const localDist = presentationDistDir(payload.projectId);
       const { cp } = await import("node:fs/promises");
       await cp(localDist, distDir, { recursive: true });
+    // 若本機沒有 dist，才回退到 Storage 快取。
     } else if (await hasWvpDistInStorage(supabase, payload.userId, payload.projectId)) {
       await downloadWvpDistFromStorage(
         supabase,
@@ -41,6 +65,7 @@ export async function runWvpMp4Export(payload: {
 
     payload.onProgress?.(25);
     const outLocal = join(workDir, "output.mp4");
+    // 錄製器刻意走子路徑 import，避免把 Playwright 重型依賴帶進主入口打包面。
     const { recordWvpPresentation } = await import("@courseflow/presentation/record");
     await recordWvpPresentation({
       distDir,
@@ -50,6 +75,7 @@ export async function runWvpMp4Export(payload: {
 
     const fileBuf = await readFile(outLocal);
     if (fileBuf.length < 4096) {
+      // 4KB 不是影片品質門檻，而是實務上的失敗保護線，避免空檔被當成成功輸出。
       throw new Error(`錄製輸出過小（${fileBuf.length} bytes）`);
     }
 

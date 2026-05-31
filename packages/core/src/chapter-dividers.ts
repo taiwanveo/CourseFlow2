@@ -56,7 +56,13 @@ export function syncChapterDividerTitles(composition: CourseComposition): Course
   const steps = composition.steps.map((step) => {
     if (step.stepKind !== "chapter") return step;
     const title = chapterById.get(step.chapterId)?.title ?? step.screenContent;
-    return { ...step, screenContent: title, script: title };
+    // 章節分隔頁的 screenContent 應永遠跟章節標題同步，但 script 不一定只是標題：
+    // coldopen / outro 等章節可能有完整口播稿，不能在每次 normalize 時被洗回標題。
+    const nextScript =
+      !step.script.trim() || step.script.trim() === step.screenContent.trim()
+        ? title
+        : step.script;
+    return { ...step, screenContent: title, script: nextScript };
   });
 
   const visuals = composition.visuals.map((visual) => {

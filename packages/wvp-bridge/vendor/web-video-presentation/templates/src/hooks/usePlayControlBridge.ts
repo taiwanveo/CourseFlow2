@@ -15,6 +15,8 @@ type BridgeOpts = {
   onNext: () => void;
   onLast: () => void;
   onStartAuto?: () => void;
+  onSubsOn?: () => void;
+  onSubsOff?: () => void;
 };
 
 /** CourseFlow 預覽外殼（iframe 父頁）與鍵盤轉發 */
@@ -39,6 +41,12 @@ export function usePlayControlBridge(opts: BridgeOpts) {
         case "start-auto":
           opts.onStartAuto?.();
           break;
+        case "subs-on":
+          opts.onSubsOn?.();
+          break;
+        case "subs-off":
+          opts.onSubsOff?.();
+          break;
         case "space": {
           const gateOpen = document.querySelector(".auto-gate");
           if (gateOpen && opts.onStartAuto) opts.onStartAuto();
@@ -57,5 +65,7 @@ export function usePlayControlBridge(opts: BridgeOpts) {
     opts.onNext,
     opts.onLast,
     opts.onStartAuto,
+    opts.onSubsOn,
+    opts.onSubsOff,
   ]);
 }

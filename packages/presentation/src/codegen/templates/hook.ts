@@ -8,6 +8,12 @@ import {
 } from "../hook-slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
+/**
+ * Hook 開場多圖版型的 codegen。
+ *
+ * 這裡決定 hook 章節會有幾張 slide、是否包含 close scene、以及 takeover 標題內容。
+ * 真正的圖片網格尺寸、主標大小、收束 quote 樣式則在 HookImageStrip.css。
+ */
 export function generateHookSources(
   input: ChapterCodegenInput,
   opts?: { includeClose?: boolean },
@@ -65,6 +71,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
 }
 `;
 
+  // hook 版型實際可調樣式集中在 vendor CSS，這裡僅讓每章掛入同一套樣式表。
   const css = `/* ${componentName} — hook 使用 HookImageStrip 全域樣式 */\n`;
 
   return {

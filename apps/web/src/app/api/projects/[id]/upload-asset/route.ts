@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 
-const ALLOWED_KINDS = new Set(["image", "background", "bgm"]);
+const ALLOWED_KINDS = new Set(["image", "background", "bgm", "audio"]);
 
 export async function POST(
   req: NextRequest,

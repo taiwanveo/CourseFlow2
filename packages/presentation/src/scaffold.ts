@@ -2,6 +2,13 @@ import { access, cp, mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { themeTokensPath, WVP_TEMPLATES_DIR } from "./vendor-paths.js";
 
+/**
+ * WVP 成品專案腳手架建立器。
+ *
+ * 這個檔案負責把 vendor template 複製到 `data/presentations/<id>/presentation`，
+ * 也就是最終可 `vite build` / `vite preview` / 錄製 MP4 的成品工程。
+ * 若未來你想調整「一個新 presentation 專案會帶哪些基礎檔案」，從這裡開始看。
+ */
 const PRESENTATION_PACKAGE_JSON = {
   name: "courseflow-wvp-presentation",
   private: true,
@@ -56,6 +63,11 @@ export interface ScaffoldResult {
 
 /**
  * 將 WVP Vite 模板複製到 targetDir（不跑 npm create vite，由 build 階段 install）。
+ *
+ * 重要維護提示：
+ * - `src/styles/tokens.css` 來自 theme，控制全域色彩 / 字體 / token。
+ * - `src/components/*.css` 是各版型真正可調字級、間距、位置的地方。
+ * - `src/chapters/*` 則是 codegen 產生的每章成品。
  */
 export async function scaffoldPresentation(
   targetDir: string,
@@ -74,6 +86,7 @@ export async function scaffoldPresentation(
   await mkdir(targetDir, { recursive: true });
 
   const t = WVP_TEMPLATES_DIR;
+  // 這些目錄就是新 presentation 專案的骨架。若要新增全專案共用模板檔，通常從這裡掛入。
   const dirs = [
     "src/styles",
     "src/hooks",
@@ -113,6 +126,8 @@ export async function scaffoldPresentation(
     await copyFile(join(t, "src/hooks", hook), join(targetDir, "src/hooks", hook));
   }
 
+  // 這批 component / css 檔是 CourseFlow 各種版型真正會引用的模板素材。
+  // 之後若你要調整標題大小、卡片留白、圖片框位置，通常會改這裡被複製出去的 CSS。
   const componentFiles = [
     "Stage.tsx",
     "MaskReveal.tsx",

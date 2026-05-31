@@ -82,7 +82,7 @@
 }
 /* ══ 封面局天大標 ══
    有圖版：96px（視覺約 46px），無圖版：110px（視覺約 67px）
-   修改 font-size 可調整封面標題大小 */
+  修改 font-size / line-height / max-width 可調整封面標題大小、行距、換行寬度 */
 .lr-intro-h {
   text-align: center;
   line-height: 1.2;
@@ -96,7 +96,8 @@
   display: none;
 }
 
-/* No-image intro: big centered title, ghost grid hidden */
+/* No-image intro: big centered title, ghost grid hidden
+   若你想調整「沒有圖片時」的大標尺寸，直接改這個 110px。 */
 .lr-intro:not(.lr-intro--has-figure) .lr-intro-h {
   font-size: 110px;
 }
@@ -216,6 +217,7 @@
   max-width: 1680px;
 }
 
+/* 揭示步驟主標題：這是 list-reveal step>=1 時最常調的標題字級。 */
 .lr-featured-title {
   margin: 0;
   font-size: 120px;
@@ -225,7 +227,8 @@
   white-space: normal;
 }
 
-/* No-image: centre-stage, much bigger; shift content up so title aligns with stage centre */
+/* No-image: centre-stage, much bigger; shift content up so title aligns with stage centre
+  160px 是「無圖時」主標放大的第二個入口。 */
 .lr-featured-card:not(.lr-featured-card--has-visual) {
   padding-bottom: 128px;
 }
@@ -305,10 +308,12 @@
   font-size: calc(var(--t-display-2) * 0.75 - 6px);
   line-height: 1;
 }
+/* 清單卡片標題：項目標題過大或過小時改這裡。 */
 .lr-slot-title {
   font-size: 40px;
   line-height: 1.15;
 }
+/* 清單卡片內文：改這裡可調整項目描述字級與行距。 */
 .lr-slot-body {
   font-size: var(--t-body);
   color: var(--text-2);

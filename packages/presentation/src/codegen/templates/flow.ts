@@ -5,6 +5,12 @@ import { parseFlowSlots } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 
+/**
+ * 流程圖版型（flow）的 codegen。
+ *
+ * 這個檔案負責把章節拆成 `intro + nodes`，再餵給 FlowDiagram。
+ * 版面比例、導言字級、右側圖片框高度等視覺旋鈕，主要在 FlowDiagram.css。
+ */
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
@@ -30,6 +36,7 @@ const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as cons
 ${stepImageBlock}
 
 function stepImage(step: number) {
+  // 流程圖的右側圖像來源優先序：當步 checkpoint → 章節 fallback → step image。
   const exact = CHECKPOINT_ASSETS.find((a) => a.step === step);
   const fallback = step === 0 ? CHECKPOINT_ASSETS.find((a) => a.step === 0) : CHECKPOINT_ASSETS[0];
   const hit = exact ?? fallback;
@@ -58,6 +65,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
 }
 `;
 
+  // flow 版型的主要樣式也集中在 vendor CSS，這裡只保留掛鉤。
   const css = `/* ${componentName} — flow 使用 FlowDiagram 全域樣式 */\n`;
 
   return {

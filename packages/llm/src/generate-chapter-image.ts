@@ -1,6 +1,12 @@
 import OpenAI from "openai";
 import type { LlmCredentials, LlmProviderId } from "./types.js";
 
+/**
+ * 整章封面圖 / 背景圖的 AI 生圖模組。
+ *
+ * 與 step image 的差異在於：這裡代表整章主旨，通常會長時間作為背景存在，
+ * 因此 prompt 更重視「整章統攝感」與「可當背景疊字」。
+ */
 /** 支援圖像生成的提供者（依 API Key 設定） */
 export const IMAGE_GENERATION_PROVIDERS: LlmProviderId[] = ["openai", "openrouter"];
 
@@ -108,6 +114,7 @@ function styleUsesChinese(styleFragment: string): boolean {
 /**
  * 為整個章節建構生圖提示詞。
  * 接受章節標題 + 所有步驟摘要，生成一張代表整章主旨的 16:9 圖片。
+ * 若未來你要調整「章節背景圖是否允許文字」「更偏封面還是更偏說明圖」，改這個函式。
  */
 export function buildChapterImagePrompt(params: {
   courseTopic: string;
@@ -173,7 +180,10 @@ export function buildChapterImagePrompt(params: {
     .join("\n");
 }
 
-/** 依章節整體內容生成 16:9 教學章節配圖 */
+/**
+ * 真正發出章節生圖 API 請求的執行器。
+ * Prompt 內容來自 `buildChapterImagePrompt()`；這個函式本身只負責 provider 差異與圖片下載。
+ */
 export async function generateChapterImage(
   creds: LlmCredentials,
   prompt: string,

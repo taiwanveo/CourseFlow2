@@ -65,6 +65,18 @@ function IconLast() {
   );
 }
 
+function IconCaptions({ off }: { off?: boolean }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M7 14h4M13 14h4M7 10h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      {off ? (
+        <path d="M4 4l16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      ) : null}
+    </svg>
+  );
+}
+
 function RoundNavBtn({
   label,
   onClick,
@@ -111,6 +123,7 @@ export function WvpPlayShell({
   const [isFirst, setIsFirst] = useState(true);
   const [isLast, setIsLast] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [subsOn, setSubsOn] = useState(true);
 
   // Track fullscreen state
   useEffect(() => {
@@ -199,6 +212,22 @@ export function WvpPlayShell({
           </Link>
         ) : (
           <>
+            <button
+              type="button"
+              className={`cf-btn cf-btn-sm ${
+                subsOn ? "cf-btn-secondary" : "cf-btn-secondary opacity-50"
+              }`}
+              onClick={() => {
+                const next = !subsOn;
+                setSubsOn(next);
+                postToIframe(iframeRef.current, next ? "subs-on" : "subs-off");
+              }}
+              aria-pressed={subsOn}
+              aria-label={subsOn ? "關閉字幕" : "開啟字幕"}
+              title={subsOn ? "關閉字幕" : "開啟字幕"}
+            >
+              <IconCaptions off={!subsOn} />
+            </button>
             <button
               type="button"
               className="cf-btn cf-btn-sm cf-btn-secondary"

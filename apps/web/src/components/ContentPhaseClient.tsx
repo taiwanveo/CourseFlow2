@@ -207,7 +207,24 @@ export function ContentPhaseClient({
       {!locked ? (
         <section className="cf-card cf-card-padded space-y-4">
           <div>
-            <h2 className="cf-section-title">生成大綱與口播稿</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="cf-section-title">生成大綱與口播稿</h2>
+              <span className="ml-[1.5em] text-xs text-zinc-500 shrink-0">載入範例：</span>
+              <button
+                type="button"
+                className="cf-btn cf-btn-secondary cf-btn-sm"
+                onClick={() => setArticleText(`請幫我生成「（教學主題）」的教學內容，目標學員是「（教學主題）」的初學者，請用輕鬆但專業的口吻撰寫，所需字數大約1500字左右，以結構化文件格式撰寫，教學內容需包含：\n前言：。\n一、：。\n二、：。\n三、：。\n四、：。\n五、：。\n六、：。\n結語：。`)}
+              >
+                提示詞範例
+              </button>
+              <button
+                type="button"
+                className="cf-btn cf-btn-secondary cf-btn-sm"
+                onClick={() => setArticleText(`#課程標題\n\n#前言\n##前言內容\n\n#標題一\n##標題一內容\n#步驟1-1\n##步驟1-1內容\n#步驟1-2\n##步驟1-2內容\n\n#標題二\n##標題二內容\n#步驟2-1\n##步驟2-1內容\n\n#標題三\n##標題三內容\n#步驟3-1\n##步驟3-1內容\n#步驟3-2\n##步驟3-2內容\n#步驟3-3\n##步驟3-3內容\n\n#結語\n##結語內容`)}
+              >
+                教學內容格式範例
+              </button>
+            </div>
             <p className="mt-1 text-sm text-zinc-500">
               輸入提示詞、貼上教學文稿，或上傳檔案，AI 將一次生成結構大綱、螢幕文字與口播稿。
             </p>

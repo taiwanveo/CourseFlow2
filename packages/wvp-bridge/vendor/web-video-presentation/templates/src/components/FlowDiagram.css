@@ -9,7 +9,8 @@
 
 /* ══ 左文右圖分割佈局 ══
    左欄 1.1fr(文字)，右欄 0.9fr(圖片)
-   無圖時自動切成單欄置中局 */
+  無圖時自動切成單欄置中局
+  若要調整文字區 / 圖片區比例，改 `grid-template-columns`。 */
 .cf-flow-split {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
@@ -66,7 +67,8 @@
   letter-spacing: 0.12em;
 }
 
-/* ══ 導言大段落文字 ══ 可修改 font-size 調整導言大小 */
+/* ══ 導言大段落文字 ══
+  可修改 font-size / line-height / max-width 調整導言大小、密度與換行寬度。 */
 .cf-flow-intro {
   margin: 0;
   font-size: clamp(2.0rem, 3.6vw, 3.8rem);
@@ -122,6 +124,7 @@
   max-width: min(720px, 100%);
 }
 
+/* 流程節點細節說明文字：若覺得每步說明太擠或太稀，可調這裡。 */
 .cf-flow-detail {
   margin: 0;
   font-size: clamp(1.2rem, 2.2vw, 1.65rem);

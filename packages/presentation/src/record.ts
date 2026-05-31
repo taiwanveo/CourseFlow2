@@ -1,9 +1,24 @@
+/**
+ * 將已 build 完成的 WVP dist 錄製成 MP4。
+ *
+ * 這不是一般的檔案轉檔器，而是「把一份互動式前端簡報在瀏覽器中播放完，再把播放過程錄下來」。
+ * 因此它的依賴不只是 ffmpeg，還包含：
+ * - 可被載入的靜態站
+ * - 能自動開始播放的前端狀態
+ * - Playwright Chromium 錄屏
+ * - 最後把 webm 轉成 mp4 的 ffmpeg
+ */
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
 import { detectWvpEmbedPrefix, startStaticServer } from "./static-server.js";
 
+/**
+ * 執行外部命令並在失敗時帶出 stderr。
+ *
+ * 這裡主要服務 ffmpeg，刻意保留最小包裝，避免把錄製錯誤吞掉。
+ */
 function runCmd(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { shell: true, stdio: ["ignore", "pipe", "pipe"] });
@@ -19,6 +34,11 @@ function runCmd(cmd: string, args: string[]): Promise<void> {
   });
 }
 
+/**
+ * 將 Playwright 產出的 webm 轉成較通用的 mp4。
+ *
+ * 這不是強制成功的步驟；若 ffmpeg 不存在，呼叫端會得到 `false` 並決定如何報錯。
+ */
 async function convertWebmToMp4(webmPath: string, mp4Path: string): Promise<boolean> {
   try {
     await runCmd("ffmpeg", [
@@ -48,7 +68,14 @@ export interface RecordWvpOptions {
 }
 
 /**
- * 對已 build 的 WVP dist 啟動靜態站 + Playwright ?auto=1 錄屏。
+ * 對已 build 的 WVP dist 啟動靜態站並執行瀏覽器錄屏。
+ *
+ * 成功條件不是「頁面能開」，而是：
+ * 1. `#root` 成功載入。
+ * 2. 自動播放有被啟動。
+ * 3. 前端最終把 `document.documentElement.dataset.cfPresentationDone` 設成 `1`。
+ * 4. Playwright 真的產生錄屏檔。
+ * 5. 錄屏檔可被轉成 mp4。
  */
 export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<void> {
   const maxMs = opts.maxDurationMs ?? 45 * 60 * 1000;
@@ -63,6 +90,7 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
 
   opts.onProgress?.(45);
 
+  // 固定輸出 1920x1080，確保預覽與最終影片尺寸一致，避免播放器自動縮放造成畫面差異。
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
@@ -78,6 +106,7 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
     await page.waitForSelector("#root", { state: "attached", timeout: 30_000 });
     await page.waitForTimeout(500);
 
+    // 前端可能用自訂 gate 控制自動播放；若 gate 不存在，就回退到送出 Space 觸發播放。
     const gate = page.locator(".auto-gate");
     if (await gate.isVisible().catch(() => false)) {
       await gate.click();
@@ -125,6 +154,7 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
     await browser.close();
     await closeServer();
 
+    // Playwright 理論上會提供 page.video().path()；若沒有，就退回直接掃錄影目錄。
     let webmPath: string | null = null;
     if (pageVideo) {
       webmPath = await pageVideo.path();

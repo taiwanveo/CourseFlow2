@@ -25,7 +25,8 @@
   background: var(--accent);
 }
 
-/* ══ 圖片格 3 欄網格 ══ 各格為 16:9 號位圖框 */
+/* ══ 圖片格 3 欄網格 ══ 各格為 16:9 號位圖框
+  想改成 2 欄 / 4 欄或改格距，從這裡下手。 */
 .hk-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -56,7 +57,8 @@
   align-self: end;
 }
 
-/* ══ 單圖全寬展示區 ══ 单彜圖片次局属，寬 78% */
+/* ══ 單圖全寬展示區 ══ 單圖場景預設寬 78%
+  想讓主圖更滿版或更保守，改 `.hk-solo-frame` 的 `width`。 */
 .hk-solo-frame {
   width: 78%;
   margin: 0 auto;
@@ -185,6 +187,7 @@
     transform: scaleX(1);
   }
 }
+/* takeover 主標：hook 版型最常調的標題大小入口。 */
 .hk-hero {
   margin: 0;
   font-size: var(--t-display-1);
@@ -200,6 +203,7 @@
   position: relative;
   display: inline-block;
 }
+/* close scene 引言：若收尾字太大/太小，改這裡。 */
 .hk-quote {
   margin: 0;
   font-size: var(--t-display-2);

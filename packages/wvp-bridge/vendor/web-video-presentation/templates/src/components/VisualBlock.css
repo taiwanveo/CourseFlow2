@@ -6,12 +6,13 @@
   height: 100%;
   color: var(--text);
 }
-/* ══ 標題區域 ══ 包裹標題文字，下方距 24px */
+/* ══ 標題區域 ══ 包裹標題文字，下方距 24px
+   想拉開標題與圖表 / 表格距離，可調 `margin-bottom`。 */
 .vf-headline {
   margin-bottom: var(--space-5);
 }
 /* ══ 標題文字 ══ font-size: var(--t-h2)（預設 80px）
-   修改 font-size 可調整標題大小 */
+   修改 font-size 可調整標題大小；若想全域同步，改 base.css 的 `--t-h2` */
 .vf-headline-text {
   font-size: var(--t-h2);
 }

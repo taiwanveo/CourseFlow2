@@ -3,6 +3,12 @@ import { chapterComponentName } from "../chapter-types.js";
 import type { StepVisualEntry } from "../step-visuals.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
+/**
+ * Visual Mix / VisualBlock 版型 codegen。
+ *
+ * 這一型不是手寫 JSX 佈局，而是把 stepVisual config 丟給 `VisualBlock` 去渲染。
+ * 所以標題大小主要看 VisualBlock.css，這個檔案則只決定每一步吃哪份 config。
+ */
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
@@ -81,6 +87,7 @@ ${stepBranches}
   justify-content: flex-start;
   padding-top: var(--space-8);
 }
+/* 這裡只管 visual-mix 內標題區對齊；真正字級在 VisualBlock.css。 */
 .vf-headline {
   flex-shrink: 0;
   text-align: center;

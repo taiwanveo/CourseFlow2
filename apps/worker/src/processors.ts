@@ -1,3 +1,15 @@
+/**
+ * Worker 任務處理總入口。
+ *
+ * 這個檔案是背景任務執行面的中樞，負責：
+ * 1. 從資料庫讀取任務需要的輸入資料。
+ * 2. 協調 TTS / HyperFrames / WVP render 等具體執行器。
+ * 3. 將進度、成功、失敗狀態回寫 `job_runs` / `render_jobs`。
+ * 4. 將結果資產上傳到 Storage。
+ *
+ * 檔案目前保留 `@ts-nocheck`，代表這裡仍有待進一步型別收斂的歷史包袱；
+ * 但它仍然是正式環境最重要的執行面之一，因此需要清楚的流程註解協助維護。
+ */
 // @ts-nocheck
 import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -15,6 +27,11 @@ import { parseBuffer } from "music-metadata";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supabase = ReturnType<typeof createServiceClient> & { from: (t: string) => any };
 
+/**
+ * 下載單一 Storage 資產到 Worker 的本機工作目錄。
+ *
+ * Worker 的渲染器多半只能處理本地檔案，因此所有音訊 / 圖像素材都要先落地。
+ */
 async function downloadStorageAsset(
   supabase: Supabase,
   storagePath: string,
@@ -28,6 +45,11 @@ async function downloadStorageAsset(
   writeFileSync(destPath, Buffer.from(await data.arrayBuffer()));
 }
 
+/**
+ * 將 composition 內引用到的音訊、圖片、背景圖、BGM 全部同步到本機工作區。
+ *
+ * 這是傳統 HyperFrames render 路徑的前置步驟；若素材沒有先落地，後面的編譯與渲染器就無法正確解析。
+ */
 async function downloadCompositionAssets(
   supabase: Supabase,
   composition: CourseComposition,
@@ -72,6 +94,16 @@ async function downloadCompositionAssets(
   }
 }
 
+/**
+ * 執行背景 TTS 任務，並把結果回寫到 `projects.composition_snapshot.audio`。
+ *
+ * 這裡同時負責：
+ * - 根據 provider 讀取並解密使用者 API key
+ * - 為每個目標 step 產生 mp3
+ * - 上傳至 Storage
+ * - 回寫 public URL 與 duration
+ * - 更新 `job_runs` 狀態
+ */
 export async function processSynthesizeAudio(payload: {
   projectId: string;
   userId: string;
@@ -83,6 +115,10 @@ export async function processSynthesizeAudio(payload: {
 }) {
   const supabase = createServiceClient() as Supabase;
 
+  /**
+   * 若這次任務是從 `job_runs` 觸發，將結果狀態同步回資料庫；
+   * 沒有 `jobRunId` 時，代表這次執行可能來自其他內部流程，可安全略過。
+   */
   const markJob = async (status: "completed" | "failed", errorMessage?: string) => {
     if (!payload.jobRunId) return;
     await supabase
@@ -125,6 +161,7 @@ export async function processSynthesizeAudio(payload: {
     : composition.steps;
 
   for (const step of targetSteps) {
+    // 空腳本不做 TTS，避免產生無意義靜音檔。
     if (!step.script.trim()) continue;
 
     const buf = await synthesizeSpeech(
@@ -144,6 +181,7 @@ export async function processSynthesizeAudio(payload: {
       .getPublicUrl(path);
     let durationMs = step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000;
     try {
+      // 先用真實音訊 metadata，抓不到時才退回估算值。
       const meta = await parseBuffer(buf, { mimeType: "audio/mpeg" });
       durationMs = Math.round((meta.format.duration ?? 3) * 1000);
     } catch {
@@ -171,6 +209,15 @@ export async function processSynthesizeAudio(payload: {
   }
 }
 
+/**
+ * 執行影片 render 任務。
+ *
+ * 目前同時支援兩條渲染路徑：
+ * 1. `pipeline === "wvp"`：播放已 build 的 WVP dist 並錄製成 MP4。
+ * 2. 其餘情況：傳統 HyperFrames render 流程。
+ *
+ * 無論走哪一條，這個函式都負責統一更新 `render_jobs` 的 processing / completed / failed 狀態。
+ */
 export async function processRender(payload: {
   projectId: string;
   userId: string;
@@ -186,6 +233,7 @@ export async function processRender(payload: {
       update: (v: unknown) => { eq: (a: string, b: string) => Promise<unknown> };
     };
     try {
+      // 先把狀態切到 processing，避免前端長時間看到 queued 而誤判任務未開始。
       await jobs
         .update({ status: "processing", progress: 5, error_message: null })
         .eq("id", payload.renderJobId);
@@ -218,10 +266,12 @@ export async function processRender(payload: {
     update: (v: unknown) => { eq: (a: string, b: string) => Promise<unknown> };
   };
 
+  /** 將渲染進度寫回資料庫，供前端輪詢或 Dashboard 顯示。 */
   const setProgress = async (progress: number) => {
     await jobs.update({ progress }).eq("id", payload.renderJobId);
   };
 
+  /** 統一失敗出口，確保資料庫狀態與錯誤訊息保持一致。 */
   const failJob = async (message: string) => {
     await jobs
       .update({ status: "failed", progress: 0, error_message: message })
@@ -243,6 +293,7 @@ export async function processRender(payload: {
     const raw = (project as unknown as { composition_snapshot?: CourseComposition })
       ?.composition_snapshot;
     if (!raw) throw new Error("無 composition");
+    // 在真正進渲染前補齊章節分隔步驟，避免輸出時間線不完整。
     const composition = ensureChapterDividerSteps(raw);
 
     workDir = join(tmpdir(), `cf-render-${randomUUID()}`);
@@ -303,6 +354,7 @@ export async function processRender(payload: {
   } finally {
     if (workDir) {
       try {
+        // Worker 任務是高頻暫存 I/O；若不清理，容器磁碟很快會被暫存素材塞滿。
         rmSync(workDir, { recursive: true, force: true });
         console.log(`[render] 已清理暫存目錄 ${workDir}`);
       } catch (cleanupErr) {

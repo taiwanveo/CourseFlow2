@@ -7,6 +7,16 @@ import {
   geminiTtsProvider,
 } from "./providers.js";
 
+/**
+ * TTS 入口層。
+ *
+ * 這裡特別重要的一點是：CourseFlow v2 的「生成語音」沒有獨立 system prompt。
+ * TTS 階段拿到的是前一階段已生成好的 `script` 純文字，然後直接交給各 provider 合成語音。
+ *
+ * 所以如果你未來想改：
+ * - 說話內容是什麼 → 改 `SCRIPT_SYSTEM_PROMPT` 或 `MARKDOWN_TO_COURSE_SYSTEM_PROMPT`
+ * - 聲音是誰、模型是哪個、支援哪些 provider → 改這個檔案與 provider 實作
+ */
 const PROVIDERS: Record<TtsProviderId, TtsProvider> = {
   "edge-tts": edgeTtsProvider,
   openai: openAiTtsProvider,
@@ -52,6 +62,12 @@ export function listTtsModels(
   return models;
 }
 
+/**
+ * 真正執行 TTS 合成。
+ *
+ * 這裡接收的 `text` 就是最終會被念出的內容，不會再經過任何 LLM prompt 改寫。
+ * 因此語音內容要改字句，不能改這裡，要回去改上游文字生成 prompt。
+ */
 export async function synthesizeSpeech(
   providerId: TtsProviderId,
   text: string,

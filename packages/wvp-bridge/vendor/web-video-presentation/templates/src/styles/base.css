@@ -16,6 +16,9 @@
  * in this file (.label-mono / .kicker / .corner-mark / .click-cue /
  * .scene-pad / .badge-mono / .pull-quote / .card / .masthead). They are
  * NOT a contract chapters must consume.
+ *
+ * 維護提示：若你未來想全域調整「所有版型都一起變大/變小」的標題、內文、kicker，
+ * 先從下面 `:root` 的 `--t-*` / `--space-*` / `--stage-pad-*` 找起。
  * ───────────────────────────────────────────────────────────────────── */
 
 /* ─── 0. Reset ─── */
@@ -49,8 +52,8 @@ body {
   --t-display-1:   clamp(140px, 11vw, 200px);   /* 超大展示字（封面巨型標題） */
   --t-display-2:   clamp(80px, 7vw, 128px);     /* 大展示字（Hero 數字、強調展示） */
   --t-h1:          clamp(90px, 7.5vw, 140px);   /* 一級標題（章節大標） */
-  --t-h2:          80px;                         /* 二級標題（清單格標題、卡片標題），視覺約 38px */
-  --t-body:        63px;                         /* 內文（字幕、清單格內文），視覺約 30px */
+  --t-h2:          80px;                         /* 二級標題（清單格標題、卡片標題）；多數子版型標題會引用這個 token */
+  --t-body:        63px;                         /* 內文（字幕、清單格內文）；覺得整體字太大/太小可先改這裡 */
   --t-cue:         64px;                         /* 章節 kicker / mono 標籤（序號行） */
   --t-micro:       12px;                         /* 極小標籤（不隨 stage 縮放，原始 px） */
 
@@ -68,8 +71,8 @@ body {
   --space-9:    96px;
 
   /* ── Stage padding (theme can dial density) ── */
-  --stage-pad-x: 96px;   /* 幻燈片內容安全左右邊距 — 縮小可讓內容更寬 */
-  --stage-pad-y: 80px;   /* 幻燈片內容安全上下邊距 */
+  --stage-pad-x: 96px;   /* 幻燈片內容安全左右邊距 — 縮小可讓內容更寬，放大可讓內容更集中 */
+  --stage-pad-y: 80px;   /* 幻燈片內容安全上下邊距 — 想把內容整體上移/下移時可連動參考 */
 
   /* ── Radius scale (themes reference these via --r-card; chapters write
         their own radii freely) ── */

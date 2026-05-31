@@ -1,5 +1,5 @@
 /* ══ 章節配圖框 ══ 帶邊框與圓角的圖片容器，佔幻燈片 38~55% 寬
-   max-width / min-width 可調整圖片框寬度範圍 */
+  max-width / min-width 可調整圖片框寬度範圍；min/max-height 可調整圖片框高度 */
 .cf-chapter-figure {
   margin: 0;
   max-width: min(720px, 55vw);
@@ -17,7 +17,8 @@
   background: color-mix(in srgb, var(--surface, rgba(255, 255, 255, 0.04)) 72%, transparent);
 }
 
-/* ══ 章節配圖本體 ══ object-fit:contain 確保圖片完整顯示不裁切 */
+/* ══ 章節配圖本體 ══ object-fit:contain 確保圖片完整顯示不裁切
+  若想改成更滿版可測 `cover`，但會有裁切風險。 */
 .cf-chapter-figure img {
   display: block;
   max-width: 100%;
@@ -26,7 +27,8 @@
   object-fit: contain;
 }
 
-/* ══ 尚無圖片時的佔位區塊 ══ 漸層背景 + 說明文字 */
+/* ══ 尚無圖片時的佔位區塊 ══ 漸層背景 + 說明文字
+  `font-size` / `padding` 是佔位提示文字最直接的調整點。 */
 .cf-chapter-figure-placeholder {
   min-height: 320px;    /* 固定 stage-px */
   max-height: 480px;

@@ -6,6 +6,12 @@ import { assetForStep, assetsForChapter } from "../hook-slots.js";
 import { screenHeadlineForSlot } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
+/**
+ * Magazine / editorial 章節版型 codegen。
+ *
+ * 跟 list-reveal / flow / hook 不同，magazine 有大量樣式直接內嵌在這個檔案回傳的 CSS 字串中。
+ * 所以未來若你要調整標題大小、split 比例、章節 divider 位置，這個檔案本身就是主要修改點。
+ */
 function escapeTsString(s: string): string {
   return s
     .replace(/\\/g, "\\\\")
@@ -23,6 +29,7 @@ function truncate(s: string, max: number): string {
   return t.slice(0, max).trim();
 }
 
+/** 決定每一步輪替使用哪種 editorial 版面。若想固定某種節奏，可直接改這裡。 */
 function pickLayout(step: number): "cover" | "split" | "callout" | "figure-first" {
   if (step === 0) return "cover";
   const variants = ["split", "callout", "figure-first", "split"] as const;
@@ -311,6 +318,7 @@ ${stepBlocks.join("\n")}
 .${prefix}-chapter-divider:has(.${prefix}-divider-figure img) {
   justify-content: flex-start;
 }
+/* 章節 divider 主標題：調這裡可改章首大標字級、行高、最大寬度。 */
 .${prefix}-divider-title {
   font-size: clamp(2.75rem, 6vw, 5.5rem);
   line-height: 1.08;
@@ -370,12 +378,14 @@ ${stepBlocks.join("\n")}
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
   align-items: start;
 }
+/* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
   font-size: clamp(2.75rem, 5vw, 5rem);
   line-height: 1.08;
   text-align: center;
   margin: 0;
 }
+/* headline 長短分級：標題字數越少，用越大的級距。 */
 .${prefix}-headline-short {
   font-size: clamp(3.8rem, 6.4vw, 6.2rem);
   letter-spacing: 0.01em;
@@ -387,8 +397,10 @@ ${stepBlocks.join("\n")}
   font-size: clamp(2.35rem, 4.6vw, 4.2rem);
 }
 .${prefix}-cover-num { font-size: clamp(4rem, 8vw, 7rem); margin-bottom: var(--space-4); }
+/* 內文段落：調這裡可改 body 字級、行高、單欄最長寬度。 */
 .${prefix}-body { text-align: left; font-size: var(--t-body, 22px); line-height: 1.55; max-width: 52ch; }
 .asd-body-line { margin: 0 0 var(--space-3); color: var(--text-2, var(--text)); }
+/* split 版左右欄比例與間距。若要改文字區 / 圖片區寬度，改這裡。 */
 .${prefix}-split {
   flex: 1;
   display: grid;
@@ -399,6 +411,7 @@ ${stepBlocks.join("\n")}
 .${prefix}-split-text { display: flex; flex-direction: column; gap: var(--space-4); justify-content: center; }
 .${prefix}-split-h { text-align: left; }
 .${prefix}-split-num { align-self: flex-start; }
+/* figure-first 版左右欄比例。 */
 .${prefix}-figure-first-grid {
   flex: 1;
   display: grid;

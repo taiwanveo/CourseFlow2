@@ -5,6 +5,12 @@ import { assetsForChapter, assetForStep } from "../hook-slots.js";
 import { parseListRevealSlots } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
+/**
+ * 清單揭示版型（list-reveal）的 codegen。
+ *
+ * 這個檔案決定「章節資料如何餵給 ListRevealGrid 元件」，
+ * 但真正的標題字級 / 卡片間距 / 圖片尺寸，多半在 ListRevealGrid.css 調整。
+ */
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
@@ -19,7 +25,8 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
   const introCheckpoint = assetForStep(chapterAssets, 0);
   const animIndices = new Set<number>(input.stepAnimationIndices ?? []);
 
-  // 只在確實有圖片或動畫時才傳 introImageUrl / introAnimationUrl；否則 ListRevealGrid 會是文字置中版型
+  // 只在確實有圖片或動畫時才傳 introImageUrl / introAnimationUrl；否則 ListRevealGrid 會是文字置中版型。
+  // 也就是說：同一個 list-reveal，是否為「大標置中」或「左文右圖」會由這裡決定。
   const hasIntroStepImage = 0 in (input.stepImageExtensions ?? {});
   const hasIntroAnimation = animIndices.has(0);
 
@@ -100,6 +107,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
 }
 `;
 
+  // 這裡幾乎不產生專屬 CSS，因為 list-reveal 的主要可調樣式集中在 vendor 的 ListRevealGrid.css。
   const css = `/* ${componentName} — list-reveal 使用 ListRevealGrid 全域樣式 */\n`;
 
   return {

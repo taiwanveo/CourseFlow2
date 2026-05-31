@@ -10,6 +10,9 @@
  *     • card radius    — sharp (no radius on stage; small radius on cards)
  *     • surface        — warm vignette only, no grain
  *     • motion         — slow + cinematic (1100ms reveals)
+ *
+ * 維護提示：如果你想全域改「這個主題」的字體、顏色、舞台邊距、卡片圓角，
+ * 改這個檔案；如果只想改某個版型的標題位置或某一頁版面比例，不要改 theme，去改 component CSS。
  * ───────────────────────────────────────────────────────────────────── */
 :root {
   /* ─── palette ─── */
@@ -26,7 +29,8 @@
   --accent-soft:  rgba(255, 74, 43, 0.14);
   --accent-glow:  rgba(255, 74, 43, 0.55);
 
-  /* ─── fonts ─── */
+    /* ─── fonts ───
+      這裡決定整個主題的字體氣質；多數標題 / 內文元件都會沿用這些 token。 */
   --font-display-cn: "Noto Serif SC", "Source Han Serif SC", serif;
   --font-display-en: "Instrument Serif", "GT Sectra", "Playfair Display", Georgia, serif;
   --font-body:       "Manrope", "Inter", "Noto Sans SC", -apple-system, sans-serif;
@@ -38,7 +42,8 @@
   --dur-slow:       1100ms;
   --dur-cinematic:  1600ms;
 
-  /* ─── design identity ─── */
+    /* ─── design identity ───
+      `--stage-pad-x/y` 是整個主題的全域安全邊界；若覺得所有章節都太貼邊，可先改這裡。 */
   --r-card:        var(--r-sm);     /* refined, almost flat */
   --r-stage:       0;
   --rule-w:        1px;

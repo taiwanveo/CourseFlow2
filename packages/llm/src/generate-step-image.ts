@@ -1,6 +1,12 @@
 import OpenAI from "openai";
 import type { LlmCredentials, LlmProviderId } from "./types.js";
 
+/**
+ * 單一步驟的 AI 生圖模組。
+ *
+ * 這裡沒有名為 `SYSTEM_PROMPT` 的常數，但 `buildStepImagePrompt()` 就是實際的 prompt 定義點。
+ * 若未來要調整步驟插圖的風格、構圖、語系政策、文字是否可出現在圖中，優先改這個檔案。
+ */
 /** 支援圖像生成的提供者（依 API Key 設定） */
 export const IMAGE_GENERATION_PROVIDERS: LlmProviderId[] = ["openai", "openrouter"];
 
@@ -151,6 +157,7 @@ export async function generateStepImage(
   return new Uint8Array(await imageRes.arrayBuffer());
 }
 
+/** 判斷 style fragment 是否為中文規格；這會直接影響 prompt 走中文或英文版本。 */
 function stylePromptUsesChinese(styleFragment: string): boolean {
   return /[\u4e00-\u9fff]/.test(styleFragment);
 }
@@ -164,6 +171,15 @@ export type StepImageDirectorHints = {
   layoutIntegration?: string;
 };
 
+/**
+ * 單步生圖 prompt 組裝器。
+ *
+ * 重要修改入口：
+ * - 文字是否允許出現在圖片中：改 `Text policy`
+ * - 預設文字語系：改 Traditional Chinese / English / Japanese / Simplified Chinese 規則
+ * - 構圖與內容導向：改 content-aware / composition / avoid 段落
+ * - 若有 Visual Director 給的 `imagePromptEn`，這裡會優先走 director 路徑
+ */
 export function buildStepImagePrompt(params: {
   courseTopic: string;
   screenContent: string;
