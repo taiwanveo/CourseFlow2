@@ -8,6 +8,8 @@ import { runAnchorChapterTrial } from "@/lib/wvp-chapter-craft";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { parseWvpSettings } from "@/lib/wvp-settings";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
+import { shouldAsyncWvpCraftJobs } from "@/lib/wvp-craft-async";
+import { runWvpTrialChapter1 } from "@/lib/run-wvp-trial-chapter-1";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -54,6 +56,74 @@ export async function POST(
   const resolved = await resolveLlmProvider(supabase, user.id, body.provider);
   if (!resolved.ok) {
     return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+  }
+
+  if (shouldAsyncWvpCraftJobs()) {
+    const { data: existingJob } = await supabase
+      .from("job_runs")
+      .select("id")
+      .eq("project_id", id)
+      .eq("job_type", "wvp-trial-chapter-1")
+      .in("status", ["pending", "running"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingJob?.id) {
+      return NextResponse.json(
+        {
+          ok: true,
+          queued: true,
+          jobRunId: existingJob.id,
+          message: "已有第 1 章試執行任務進行中，請稍候…",
+        },
+        { status: 202 },
+      );
+    }
+
+    const { data: jobRun, error: jobError } = await supabase
+      .from("job_runs")
+      .insert({
+        project_id: id,
+        user_id: user.id,
+        job_type: "wvp-trial-chapter-1",
+        status: "pending",
+        payload: {
+          provider: resolved.provider,
+          themeId,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (jobError || !jobRun) {
+      return NextResponse.json(
+        { error: jobError?.message ?? "無法建立試執行任務" },
+        { status: 500 },
+      );
+    }
+
+    setImmediate(() => {
+      void runWvpTrialChapter1({
+        projectId: id,
+        userId: user.id,
+        jobRunId: jobRun.id,
+        provider: resolved.provider,
+        themeId,
+      }).catch((err) => {
+        console.error("[wvp-trial-job] 背景試執行失敗:", err);
+      });
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        queued: true,
+        jobRunId: jobRun.id,
+        message: "第 1 章試執行已開始，請稍候…",
+      },
+      { status: 202 },
+    );
   }
 
   try {

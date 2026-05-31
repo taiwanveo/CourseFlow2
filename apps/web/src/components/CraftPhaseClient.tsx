@@ -53,6 +53,16 @@ type ResponsePayload = Record<string, unknown> & {
   illustrationSyncWarning?: string;
 };
 
+type BatchSummary = {
+  total: number;
+  synced: number;
+  generated: number;
+  failed: number;
+};
+
+const JOB_POLL_INTERVAL_MS = 2000;
+const JOB_POLL_MAX_ATTEMPTS = 900;
+
 async function readResponsePayload(response: Response): Promise<ResponsePayload> {
   const text = await response.text();
   if (!text.trim()) return {};
@@ -87,6 +97,26 @@ function getResponseErrorMessage(
   }
   const statusText = response.statusText ? ` ${response.statusText}` : "";
   return `${fallback}（HTTP ${response.status}${statusText}）`;
+}
+
+function toBatchSummary(payload: ResponsePayload, fallbackTotal: number): BatchSummary {
+  const raw = payload.summary;
+  if (!raw || typeof raw !== "object") {
+    return {
+      total: fallbackTotal,
+      synced: 0,
+      generated: 0,
+      failed: 0,
+    };
+  }
+  const summary = raw as Record<string, unknown>;
+  const toInt = (v: unknown, def = 0) => (typeof v === "number" ? v : def);
+  return {
+    total: toInt(summary.total, fallbackTotal),
+    synced: toInt(summary.synced, 0),
+    generated: toInt(summary.generated, 0),
+    failed: toInt(summary.failed, 0),
+  };
 }
 
 // ─── self-check report types ──────────────────────────────────────────────
@@ -460,6 +490,46 @@ export function CraftPhaseClient({
     }
   };
 
+  const pollJobRun = useCallback(
+    async (jobRunId: string): Promise<ResponsePayload> => {
+      const run = async (attempt: number): Promise<ResponsePayload> => {
+        const res = await fetch(`/api/job-runs/${jobRunId}`);
+        const payload = await readResponsePayload(res);
+        if (!res.ok) {
+          throw new Error(getResponseErrorMessage(res, payload, "無法查詢任務狀態"));
+        }
+
+        const jobRaw = payload.job;
+        const job = jobRaw && typeof jobRaw === "object"
+          ? (jobRaw as {
+              status?: string;
+              error_message?: string | null;
+              result?: Record<string, unknown>;
+            })
+          : undefined;
+        const status = job?.status;
+
+        if (status === "completed") {
+          const result = job?.result;
+          return result && typeof result === "object" ? (result as ResponsePayload) : {};
+        }
+        if (status === "failed") {
+          throw new Error(job?.error_message ?? "背景任務失敗");
+        }
+
+        if (attempt >= JOB_POLL_MAX_ATTEMPTS) {
+          throw new Error("任務執行時間過長（>30 分鐘），請稍後重新整理頁面確認狀態");
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, JOB_POLL_INTERVAL_MS));
+        return run(attempt + 1);
+      };
+
+      return run(0);
+    },
+    [],
+  );
+
   const batchCraftAll = async (onlyMissing: boolean) => {
     if (!defaultProvider) {
       toast("請先在設定頁填寫 LLM API Key", "error");
@@ -476,24 +546,32 @@ export function CraftPhaseClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: defaultProvider, onlyMissing }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "批次處理失敗");
+      const data = await readResponsePayload(res);
+      let finalData = data;
+
+      if (res.status === 202 && typeof data.jobRunId === "string") {
+        toast(
+          typeof data.message === "string" && data.message
+            ? data.message
+            : "全課批次已開始，請稍候…",
+          "info",
+        );
+        finalData = await pollJobRun(data.jobRunId);
+      } else if (!res.ok) {
+        throw new Error(getResponseErrorMessage(res, data, "批次處理失敗"));
+      }
+
       await refreshWvp();
-      const s = data.summary as {
-        total?: number;
-        synced?: number;
-        generated?: number;
-        failed?: number;
-      };
+      const s = toBatchSummary(finalData, chapters.length);
       if (s.failed && s.failed > 0) {
         playWarningSound();
         toast(
-          `已完成 ${s.generated ?? 0}/${s.total ?? 0} 章 AI 產生；${s.failed} 章有錯誤（見主控台或重試單章）`,
+          `已完成 ${s.generated}/${s.total} 章 AI 產生；${s.failed} 章有錯誤（見主控台或重試單章）`,
           "info",
         );
       } else {
         toast(
-          `已處理 ${s.total ?? chapters.length} 章：匯入口播 ${s.synced ?? 0}、產生畫面 ${s.generated ?? 0}。請前往「3. 語音生成」，再到「4. 預覽匯出」打包。`,
+          `已處理 ${s.total} 章：匯入口播 ${s.synced}、產生畫面 ${s.generated}。請前往「3. 語音生成」，再到「4. 預覽匯出」打包。`,
           "success",
           { taskComplete: true },
         );
@@ -561,7 +639,20 @@ export function CraftPhaseClient({
         body: JSON.stringify({ provider: defaultProvider }),
       });
       const data = await readResponsePayload(res);
-      if (!res.ok) throw new Error(getResponseErrorMessage(res, data, "試執行失敗"));
+      let finalData = data;
+
+      if (res.status === 202 && typeof data.jobRunId === "string") {
+        toast(
+          typeof data.message === "string" && data.message
+            ? data.message
+            : "第 1 章試執行已開始，請稍候…",
+          "info",
+        );
+        finalData = await pollJobRun(data.jobRunId);
+      } else if (!res.ok) {
+        throw new Error(getResponseErrorMessage(res, data, "試執行失敗"));
+      }
+
       setSettings((s) => ({
         ...s,
         anchorChapterTrialCompleted: true,
@@ -569,11 +660,14 @@ export function CraftPhaseClient({
         anchorProfile: undefined,
       }));
       await refreshWvp();
-      if (typeof data.illustrationSyncWarning === "string" && data.illustrationSyncWarning) {
+      if (
+        typeof finalData.illustrationSyncWarning === "string" &&
+        finalData.illustrationSyncWarning
+      ) {
         toast(
           anchorTrialDone
-            ? `第 1 章已重新試執行。${data.illustrationSyncWarning}`
-            : `第 1 章試執行完成。${data.illustrationSyncWarning}`,
+            ? `第 1 章已重新試執行。${finalData.illustrationSyncWarning}`
+            : `第 1 章試執行完成。${finalData.illustrationSyncWarning}`,
           "info",
         );
         playFinishedSound();
