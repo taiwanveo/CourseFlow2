@@ -107,7 +107,7 @@ async function main() {
     return;
   }
 
-  const snap = project.composition_snapshot as { steps?: Array<{ id: string; script: string }> };
+  const snap = project.composition_snapshot as { steps?: Array<{ id: string; script?: string }> };
   let patched = false;
   for (const step of snap.steps ?? []) {
     if (step.id === dividerStep.id) { step.script = newScript; patched = true; break; }
