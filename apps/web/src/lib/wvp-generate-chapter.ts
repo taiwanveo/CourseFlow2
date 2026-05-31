@@ -1,7 +1,8 @@
 import OpenAI from "openai";
 import type { LlmProviderId } from "@courseflow/llm";
 
-const DEFAULT_WVP_LLM_TIMEOUT_MS = 25_000;
+const DEFAULT_WVP_LLM_TIMEOUT_MS = 60_000;
+const DEFAULT_WVP_LLM_MAX_RETRIES = 1;
 
 function resolveWvpLlmTimeoutMs(): number {
   const raw = process.env.WVP_LLM_TIMEOUT_MS;
@@ -9,6 +10,14 @@ function resolveWvpLlmTimeoutMs(): number {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 1_000) return DEFAULT_WVP_LLM_TIMEOUT_MS;
   return Math.floor(parsed);
+}
+
+function resolveWvpLlmMaxRetries(): number {
+  const raw = process.env.WVP_LLM_MAX_RETRIES;
+  if (!raw) return DEFAULT_WVP_LLM_MAX_RETRIES;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 0) return DEFAULT_WVP_LLM_MAX_RETRIES;
+  return Math.min(3, Math.floor(parsed));
 }
 
 async function withTimeout<T>(
@@ -42,11 +51,12 @@ export async function generateChapterPlan(opts: {
         : undefined;
 
   const timeout = resolveWvpLlmTimeoutMs();
+  const maxRetries = resolveWvpLlmMaxRetries();
   const client = new OpenAI({
     apiKey: opts.apiKey,
     baseURL,
     timeout,
-    maxRetries: 0,
+    maxRetries,
   });
   const model =
     opts.model ??
