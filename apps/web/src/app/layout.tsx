@@ -20,8 +20,9 @@ export const metadata: Metadata = {
   title: "CourseFlow — 教學影片生成平台",
   description: "從教學文件自動產生教學影片",
   icons: {
-    icon: "/favicon.ico",
+    icon: [{ url: "/favicon.ico", type: "image/x-icon" }],
     shortcut: "/favicon.ico",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "256x256", type: "image/png" }],
   },
 };
 
