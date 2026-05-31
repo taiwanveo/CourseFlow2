@@ -64,11 +64,21 @@ async function readResponsePayload(response: Response): Promise<ResponsePayload>
   }
 }
 
+function isLikelyHtmlResponse(response: Response, payload: ResponsePayload): boolean {
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType.includes("text/html")) return true;
+  if (response.redirected && response.url.includes("/login")) return true;
+  return typeof payload.rawText === "string" && /^\s*<!doctype html/i.test(payload.rawText);
+}
+
 function getResponseErrorMessage(
   response: Response,
   payload: ResponsePayload,
   fallback: string,
 ): string {
+  if (isLikelyHtmlResponse(response, payload)) {
+    return "登入狀態已失效，請重新登入後再試。";
+  }
   if (typeof payload.error === "string" && payload.error.trim()) {
     return payload.error;
   }
@@ -301,13 +311,19 @@ export function CraftPhaseClient({
 
   const refreshWvp = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/wvp`);
+    const data = await readResponsePayload(res);
     if (!res.ok) {
       setWvpHydrated(true);
       return;
     }
-    const data = await res.json();
-    setChapters(data.chapters ?? []);
-    if (data.wvpSettings) setSettings(data.wvpSettings);
+    if (isLikelyHtmlResponse(res, data)) {
+      setWvpHydrated(true);
+      throw new Error("登入狀態已失效，請重新登入後再試。");
+    }
+    setChapters(Array.isArray(data.chapters) ? data.chapters : []);
+    if (data.wvpSettings && typeof data.wvpSettings === "object") {
+      setSettings(data.wvpSettings as WvpSettings);
+    }
     setWvpHydrated(true);
   }, [projectId]);
 
