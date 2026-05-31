@@ -48,6 +48,48 @@ interface SettingsApiKeysResponse {
   error?: string;
 }
 
+type ResponsePayload = Record<string, unknown> & {
+  error?: string;
+  rawText?: string;
+};
+
+async function readResponsePayload(response: Response): Promise<ResponsePayload> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? (parsed as ResponsePayload) : {};
+  } catch {
+    return { rawText: text };
+  }
+}
+
+function getResponseErrorMessage(
+  response: Response,
+  payload: ResponsePayload,
+  fallback: string,
+): string {
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error;
+  }
+  if (typeof payload.rawText === "string" && payload.rawText.trim()) {
+    return payload.rawText;
+  }
+  const statusText = response.statusText ? ` ${response.statusText}` : "";
+  return `${fallback}（HTTP ${response.status}${statusText}）`;
+}
+
+function toModelList(payload: ResponsePayload): ModelList {
+  return {
+    text: Array.isArray(payload.text) ? (payload.text as ModelEntry[]) : [],
+    image: Array.isArray(payload.image) ? (payload.image as ModelEntry[]) : [],
+    recommendations:
+      payload.recommendations && typeof payload.recommendations === "object"
+        ? (payload.recommendations as ModelList["recommendations"])
+        : undefined,
+  };
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -151,13 +193,16 @@ export default function SettingsPage() {
     setModelListErrors((prev) => ({ ...prev, [provider]: "" }));
     try {
       const res = await fetch(`/api/settings/models/list?provider=${provider}`);
-      const data = await res.json();
+      const data = await readResponsePayload(res);
       if (!res.ok) {
-        setModelListErrors((prev) => ({ ...prev, [provider]: data.error ?? "載入失敗" }));
+        setModelListErrors((prev) => ({
+          ...prev,
+          [provider]: getResponseErrorMessage(res, data, "載入失敗"),
+        }));
         setModelLists((prev) => ({ ...prev, [provider]: null }));
         return;
       }
-      const list = data as ModelList;
+      const list = toModelList(data);
       setModelLists((prev) => ({ ...prev, [provider]: list }));
       // 若尚未設定 defaultModel，自動選第一個文字模型
       setModelPrefs((prev) => {

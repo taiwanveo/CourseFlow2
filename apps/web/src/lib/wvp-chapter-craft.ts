@@ -535,6 +535,13 @@ export async function runAnchorChapterTrial(
   illustrationSyncWarning?: string;
   error?: string;
 }> {
+  const startedAt = Date.now();
+  const logStage = (stage: string) => {
+    const elapsedMs = Date.now() - startedAt;
+    console.info(`[wvp-trial] ${stage} (+${elapsedMs}ms)`, { projectId, userId });
+  };
+
+  logStage("start");
   const { data: crafts } = await supabase
     .from("chapter_craft")
     .select("*")
@@ -561,6 +568,7 @@ export async function runAnchorChapterTrial(
       error: "無法載入專案內容",
     };
   }
+  logStage("composition-loaded");
 
   const { data: project } = await supabase
     .from("projects")
@@ -590,6 +598,7 @@ export async function runAnchorChapterTrial(
   }
 
   const sync = await syncChapterNarrations(supabase, projectId, first, composition);
+  logStage("narration-synced");
   if (sync.error) {
     return {
       ok: false,
@@ -608,6 +617,7 @@ export async function runAnchorChapterTrial(
     template,
     wvpSettings.assets,
   );
+  logStage("template-applied");
   if (!apply.ok) {
     return {
       ok: false,
@@ -631,8 +641,14 @@ export async function runAnchorChapterTrial(
     forceTemplate: template,
     userId,
   });
+  logStage("chapter-generated");
 
   if (!gen.ok) {
+    console.warn("[wvp-trial] chapter-generate-failed", {
+      projectId,
+      userId,
+      error: gen.error,
+    });
     return {
       ok: false,
       wvpChapterId: first.wvp_chapter_id,
@@ -647,6 +663,7 @@ export async function runAnchorChapterTrial(
   const build = await buildAnchorChapterPreview(supabase, projectId, userId, {
     themeId: opts.themeId,
   });
+  logStage("preview-built");
 
   const previewUrl = `/projects/${projectId}/wvp-play?anchor=1&start=1`;
   return {

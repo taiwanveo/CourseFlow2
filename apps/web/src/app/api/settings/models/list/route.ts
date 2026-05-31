@@ -182,7 +182,18 @@ export async function GET(req: NextRequest) {
   if (!keyRow?.encrypted_key)
     return NextResponse.json({ error: "找不到 API Key" }, { status: 404 });
 
-  const apiKey = decryptApiKey(keyRow.encrypted_key);
+  let apiKey: string;
+  try {
+    apiKey = decryptApiKey(keyRow.encrypted_key);
+  } catch {
+    return NextResponse.json(
+      {
+        error: "這組 API Key 無法解密，可能是加密金鑰已變更。請重新儲存此 provider 的 API Key。",
+      },
+      { status: 409 },
+    );
+  }
+
   try {
     const result =
       provider === "openai"
