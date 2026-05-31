@@ -80,6 +80,10 @@ async function main() {
 
   const dividerStep =
     steps.find((s: { step_kind: string }) => s.step_kind === "chapter") ?? steps[0];
+  if (!dividerStep) {
+    console.error("❌ 找不到任何步驟");
+    process.exit(1);
+  }
   console.log(`✓ 找到步驟：id=${dividerStep.id}, 現有 script="${dividerStep.script}"`);
 
   // 3. 更新 steps 表
