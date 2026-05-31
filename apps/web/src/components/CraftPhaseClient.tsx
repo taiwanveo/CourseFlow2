@@ -62,6 +62,7 @@ type BatchSummary = {
 
 const JOB_POLL_INTERVAL_MS = 2000;
 const JOB_POLL_MAX_ATTEMPTS = 900;
+const TRANSIENT_POLL_STATUS = new Set([502, 503, 504]);
 
 async function readResponsePayload(response: Response): Promise<ResponsePayload> {
   const text = await response.text();
@@ -493,9 +494,25 @@ export function CraftPhaseClient({
   const pollJobRun = useCallback(
     async (jobRunId: string): Promise<ResponsePayload> => {
       const run = async (attempt: number): Promise<ResponsePayload> => {
-        const res = await fetch(`/api/job-runs/${jobRunId}`);
-        const payload = await readResponsePayload(res);
+        let res: Response;
+        let payload: ResponsePayload = {};
+
+        try {
+          res = await fetch(`/api/job-runs/${jobRunId}`);
+          payload = await readResponsePayload(res);
+        } catch {
+          if (attempt >= JOB_POLL_MAX_ATTEMPTS) {
+            throw new Error("任務狀態查詢逾時，請稍後重新整理頁面確認結果");
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, JOB_POLL_INTERVAL_MS));
+          return run(attempt + 1);
+        }
+
         if (!res.ok) {
+          if (TRANSIENT_POLL_STATUS.has(res.status) && attempt < JOB_POLL_MAX_ATTEMPTS) {
+            await new Promise((resolve) => window.setTimeout(resolve, JOB_POLL_INTERVAL_MS));
+            return run(attempt + 1);
+          }
           throw new Error(getResponseErrorMessage(res, payload, "無法查詢任務狀態"));
         }
 

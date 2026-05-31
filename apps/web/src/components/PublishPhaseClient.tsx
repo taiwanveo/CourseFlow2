@@ -83,8 +83,8 @@ export function PublishPhaseClient({
 
   const pollWvpBuildJob = async (jobRunId: string, attempt = 0): Promise<void> => {
     setBuildElapsedSec(attempt * (POLL_INTERVAL_MS / 1000));
-    const res = await fetch(`/api/job-runs/${jobRunId}`);
-    const data = (await res.json()) as {
+    let res: Response;
+    let data: {
       error?: string;
       job?: {
         status?: string;
@@ -94,8 +94,30 @@ export function PublishPhaseClient({
           storageUploaded?: boolean;
         };
       };
-    };
+    } = {};
+
+    try {
+      res = await fetch(`/api/job-runs/${jobRunId}`);
+      const text = await res.text();
+      if (text.trim()) {
+        const parsed: unknown = JSON.parse(text);
+        if (parsed && typeof parsed === "object") {
+          data = parsed as typeof data;
+        }
+      }
+    } catch {
+      if (attempt >= POLL_MAX_ATTEMPTS) {
+        throw new Error("打包狀態查詢逾時，請稍後重新整理頁面確認結果");
+      }
+      await new Promise((r) => window.setTimeout(r, POLL_INTERVAL_MS));
+      return pollWvpBuildJob(jobRunId, attempt + 1);
+    }
+
     if (!res.ok) {
+      if ([502, 503, 504].includes(res.status) && attempt < POLL_MAX_ATTEMPTS) {
+        await new Promise((r) => window.setTimeout(r, POLL_INTERVAL_MS));
+        return pollWvpBuildJob(jobRunId, attempt + 1);
+      }
       throw new Error(data.error ?? "無法查詢打包狀態");
     }
 

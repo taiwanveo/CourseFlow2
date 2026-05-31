@@ -389,9 +389,33 @@ export function AudioPhaseClient({
 
   const pollJobRun = useCallback(
     async (jobRunId: string, onDone: () => void, attempt = 0) => {
-      const res = await fetch(`/api/job-runs/${jobRunId}`);
-      const data = await res.json();
+      let res: Response;
+      let data: { error?: string; job?: { status?: string; error_message?: string | null } } = {};
+
+      try {
+        res = await fetch(`/api/job-runs/${jobRunId}`);
+        const text = await res.text();
+        if (text.trim()) {
+          const parsed: unknown = JSON.parse(text);
+          if (parsed && typeof parsed === "object") {
+            data = parsed as { error?: string; job?: { status?: string; error_message?: string | null } };
+          }
+        }
+      } catch {
+        if (attempt >= 60) {
+          toast("任務狀態查詢逾時，請稍後重新整理頁面確認結果", "error");
+          onDone();
+          return;
+        }
+        window.setTimeout(() => void pollJobRun(jobRunId, onDone, attempt + 1), 2000);
+        return;
+      }
+
       if (!res.ok) {
+        if ([502, 503, 504].includes(res.status) && attempt < 60) {
+          window.setTimeout(() => void pollJobRun(jobRunId, onDone, attempt + 1), 2000);
+          return;
+        }
         toast(data.error ?? "無法查詢合成狀態", "error");
         onDone();
         return;
