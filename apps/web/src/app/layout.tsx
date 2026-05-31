@@ -19,6 +19,10 @@ const notoSansTc = Noto_Sans_TC({
 export const metadata: Metadata = {
   title: "CourseFlow — 教學影片生成平台",
   description: "從教學文件自動產生教學影片",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
