@@ -12,6 +12,36 @@ export type WvpTrialChapter1JobResult = {
   illustrationSyncWarning?: string;
 };
 
+const DEFAULT_TRIAL_JOB_TIMEOUT_MS = 12 * 60 * 1000;
+const HEARTBEAT_INTERVAL_MS = 15_000;
+
+function resolveTrialJobTimeoutMs(): number {
+  const raw = process.env.COURSEFLOW_TRIAL_JOB_TIMEOUT_MS;
+  const parsed = raw ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_TRIAL_JOB_TIMEOUT_MS;
+  }
+  return Math.floor(parsed);
+}
+
+function withTimeout<T>(work: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} 逾時（>${Math.round(timeoutMs / 1000)}s）`));
+    }, timeoutMs);
+
+    work
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 export async function runWvpTrialChapter1(payload: {
   projectId: string;
   userId: string;
@@ -22,9 +52,10 @@ export async function runWvpTrialChapter1(payload: {
   const supabase = createServiceClient();
 
   const patchJob = async (patch: {
-    status: string;
+    status?: "pending" | "running" | "completed" | "failed";
     result?: WvpTrialChapter1JobResult;
     error_message?: string | null;
+    updated_at?: string;
   }) => {
     // @ts-expect-error Supabase 對 job_runs.update 推斷為 never
     await supabase.from("job_runs").update(patch).eq("id", payload.jobRunId);
@@ -41,8 +72,11 @@ export async function runWvpTrialChapter1(payload: {
     throw new Error("找不到專案");
   }
 
-  await patchJob({ status: "running" });
+  await patchJob({ status: "running", updated_at: new Date().toISOString() });
   const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    void patchJob({ status: "running", updated_at: new Date().toISOString() });
+  }, HEARTBEAT_INTERVAL_MS);
   console.log(
     `[wvp-trial-job] start job=${payload.jobRunId} project=${payload.projectId}`,
   );
@@ -53,16 +87,21 @@ export async function runWvpTrialChapter1(payload: {
       throw new Error(resolved.error);
     }
 
-    const result = await runAnchorChapterTrial(supabase, payload.projectId, payload.userId, {
-      provider: resolved.provider,
-      encryptedKey: resolved.encryptedKey,
-      textModel: resolveEffectiveTextModel(
-        resolved.provider,
-        resolved.textModel,
-        resolved.defaultModel,
-      ),
-      themeId: payload.themeId,
-    });
+    const timeoutMs = resolveTrialJobTimeoutMs();
+    const result = await withTimeout(
+      runAnchorChapterTrial(supabase, payload.projectId, payload.userId, {
+        provider: resolved.provider,
+        encryptedKey: resolved.encryptedKey,
+        textModel: resolveEffectiveTextModel(
+          resolved.provider,
+          resolved.textModel,
+          resolved.defaultModel,
+        ),
+        themeId: payload.themeId,
+      }),
+      timeoutMs,
+      "第 1 章試執行背景任務",
+    );
 
     if (!result.ok) {
       throw new Error(result.error ?? "試執行失敗");
@@ -77,7 +116,7 @@ export async function runWvpTrialChapter1(payload: {
       illustrationSyncWarning: result.illustrationSyncWarning,
     };
 
-    await patchJob({ status: "completed", result: jobResult });
+    await patchJob({ status: "completed", result: jobResult, updated_at: new Date().toISOString() });
     console.log(
       `[wvp-trial-job] done job=${payload.jobRunId} in ${Math.round((Date.now() - startedAt) / 1000)}s`,
     );
@@ -85,7 +124,13 @@ export async function runWvpTrialChapter1(payload: {
   } catch (e) {
     const message = e instanceof Error ? e.message : "試執行失敗";
     console.error("[wvp-trial-job] 背景任務失敗:", message);
-    await patchJob({ status: "failed", error_message: message.slice(0, 2000) });
+    await patchJob({
+      status: "failed",
+      error_message: message.slice(0, 2000),
+      updated_at: new Date().toISOString(),
+    });
     throw e;
+  } finally {
+    clearInterval(heartbeat);
   }
 }

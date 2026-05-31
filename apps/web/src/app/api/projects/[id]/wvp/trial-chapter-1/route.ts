@@ -14,6 +14,25 @@ import { runWvpTrialChapter1 } from "@/lib/run-wvp-trial-chapter-1";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+const DEFAULT_STALE_JOB_MS = 10 * 60 * 1000;
+
+function resolveStaleJobMs(): number {
+  const raw = process.env.COURSEFLOW_JOB_STALE_MS;
+  const parsed = raw ? Number(raw) : Number.NaN;
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_STALE_JOB_MS;
+  }
+  return Math.floor(parsed);
+}
+
+function isStaleJob(updatedAt: string | null, createdAt: string | null, staleMs: number): boolean {
+  const touchedAt = updatedAt ?? createdAt;
+  if (!touchedAt) return false;
+  const touchedTs = Date.parse(touchedAt);
+  if (!Number.isFinite(touchedTs)) return false;
+  return Date.now() - touchedTs > staleMs;
+}
+
 /** 試執行第 1 章：匯入口播、套用模板、AI 產生、打包僅第 1 章預覽 */
 export async function POST(
   req: NextRequest,
@@ -61,7 +80,7 @@ export async function POST(
   if (shouldAsyncWvpCraftJobs()) {
     const { data: existingJob } = await supabase
       .from("job_runs")
-      .select("id")
+      .select("id, created_at, updated_at")
       .eq("project_id", id)
       .eq("job_type", "wvp-trial-chapter-1")
       .in("status", ["pending", "running"])
@@ -69,7 +88,12 @@ export async function POST(
       .limit(1)
       .maybeSingle();
 
-    if (existingJob?.id) {
+    const staleMs = resolveStaleJobMs();
+    const existingIsStale = existingJob
+      ? isStaleJob(existingJob.updated_at, existingJob.created_at, staleMs)
+      : false;
+
+    if (existingJob?.id && !existingIsStale) {
       return NextResponse.json(
         {
           ok: true,
@@ -78,6 +102,22 @@ export async function POST(
           message: "已有第 1 章試執行任務進行中，請稍候…",
         },
         { status: 202 },
+      );
+    }
+
+    if (existingJob?.id && existingIsStale) {
+      const nowIso = new Date().toISOString();
+      await supabase
+        .from("job_runs")
+        .update({
+          status: "failed",
+          error_message: `偵測到逾時未更新任務（>${Math.round(staleMs / 1000)}s）已自動結束`,
+          updated_at: nowIso,
+        })
+        .eq("id", existingJob.id)
+        .in("status", ["pending", "running"]);
+      console.warn(
+        `[wvp-trial-job] auto-failed stale job job=${existingJob.id} project=${id} staleMs=${staleMs}`,
       );
     }
 
