@@ -98,6 +98,10 @@ export async function runWvpTrialChapter1(payload: {
           resolved.defaultModel,
         ),
         themeId: payload.themeId,
+        onStage: async (stage) => {
+          console.info(`[wvp-trial-job] stage=${stage} job=${payload.jobRunId}`);
+          await patchJob({ status: "running", updated_at: new Date().toISOString() });
+        },
       }),
       timeoutMs,
       "第 1 章試執行背景任務",
