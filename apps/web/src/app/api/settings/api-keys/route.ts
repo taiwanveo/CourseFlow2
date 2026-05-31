@@ -2,6 +2,10 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { encryptApiKey } from "@/lib/crypto";
+import {
+  isMissingModelPrefsColumnError,
+  MODEL_PREFS_MIGRATION_HINT,
+} from "@/lib/user-api-key-model-prefs";
 
 export async function GET() {
   const supabase = await createClient();
@@ -10,10 +14,44 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "未登入" }, { status: 401 });
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("user_api_keys")
     .select("provider, updated_at, default_model, text_model, image_model")
     .eq("user_id", user.id);
+
+  if (error && isMissingModelPrefsColumnError(error)) {
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("user_api_keys")
+      .select("provider, updated_at")
+      .eq("user_id", user.id);
+
+    if (fallbackError) {
+      return NextResponse.json({ error: fallbackError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      providers: (fallbackData ?? []).map(
+        (r: {
+          provider: string;
+          updated_at: string;
+        }) => ({
+          provider: r.provider,
+          configured: true,
+          updatedAt: r.updated_at,
+          defaultModel: null,
+          textModel: null,
+          imageModel: null,
+        }),
+      ),
+      modelPrefsSupported: false,
+      warning: MODEL_PREFS_MIGRATION_HINT,
+    });
+  }
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
   return NextResponse.json({
     providers: (data ?? []).map(
       (r: {
@@ -31,6 +69,7 @@ export async function GET() {
         imageModel: r.image_model ?? null,
       }),
     ),
+    modelPrefsSupported: true,
   });
 }
 

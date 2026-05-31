@@ -40,7 +40,11 @@ git push -u origin main
 
 ### 2. Supabase（必要，v2 新專案）
 
-- 在 **新的** Supabase 專案執行 `supabase/migrations/*.sql`（含 `20260601000000_v2_wvp_extensions.sql`）
+- 在 **新的** Supabase 專案執行 `supabase/migrations/*.sql`
+- 至少確認已套用下列 migration：
+   - `20260601000000_v2_wvp_extensions.sql`
+   - `20260602000000_storage_wvp_dist_mimes.sql`
+   - `20260603000000_model_prefs.sql`
 - Storage bucket：**`courseflow-v2-assets`**（私有）— 不是 v1 的 `courseflow-assets`
 - **Authentication → URL configuration** 新增 Render 網域（見 §5）
 
@@ -135,6 +139,7 @@ git push -u origin main
 | 匯出一直排隊 | `courseflow-v2-worker` 是否 Live、`REDIS_URL` 是否為 v2 |
 | 誤連到 v1 資料 | 檢查 env 是否仍指向 v1 Supabase URL |
 | Worker 402 | Render 需付款方式才能建 Background Worker |
+| 設定頁顯示 `default_model` schema cache 錯誤 | Supabase 尚未套用 `20260603000000_model_prefs.sql` |
 
 ## 費用參考
 

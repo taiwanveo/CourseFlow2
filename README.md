@@ -43,7 +43,11 @@ Storage bucket：**`courseflow-v2-assets`**（私有）。
 supabase db push
 ```
 
-含 `20260601000000_v2_wvp_extensions.sql`（`chapter_craft`、`wvp_phase_locks` 等）。
+至少需包含：
+
+- `20260601000000_v2_wvp_extensions.sql`（`chapter_craft`、`wvp_phase_locks` 等）
+- `20260602000000_storage_wvp_dist_mimes.sql`（WVP dist MIME）
+- `20260603000000_model_prefs.sql`（`user_api_keys.default_model` / `text_model` / `image_model`）
 
 ### 4. 安裝與建置
 

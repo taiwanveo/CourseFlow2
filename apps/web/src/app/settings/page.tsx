@@ -41,6 +41,13 @@ interface ModelPrefs {
   imageModel: string;
 }
 
+interface SettingsApiKeysResponse {
+  providers?: ProviderInfo[];
+  modelPrefsSupported?: boolean;
+  warning?: string;
+  error?: string;
+}
+
 export default function SettingsPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -53,14 +60,22 @@ export default function SettingsPage() {
   const [modelListErrors,  setModelListErrors]  = useState<Record<string, string>>({});
   const [modelPrefs,       setModelPrefs]       = useState<Record<string, ModelPrefs>>({});
   const [savingModelPrefs, setSavingModelPrefs] = useState<string | null>(null);
+  const [modelPrefsSupported, setModelPrefsSupported] = useState(true);
+  const [settingsWarning, setSettingsWarning] = useState("");
 
   // ── 初始載入 ─────────────────────────────────────────────────────────────
   useEffect(() => {
     fetch("/api/settings/api-keys")
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = (await r.json()) as SettingsApiKeysResponse;
+        if (!r.ok) throw new Error(data.error ?? "載入設定失敗");
+        return data;
+      })
       .then((d) => {
         const infos: ProviderInfo[] = d.providers ?? [];
         setProviderInfos(infos);
+        setModelPrefsSupported(d.modelPrefsSupported ?? true);
+        setSettingsWarning(d.warning ?? "");
         const prefs: Record<string, ModelPrefs> = {};
         for (const p of infos) {
           prefs[p.provider] = {
@@ -70,8 +85,12 @@ export default function SettingsPage() {
           };
         }
         setModelPrefs(prefs);
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "載入設定失敗";
+        toast(message, "error");
       });
-  }, []);
+  }, [toast]);
 
   const configured = providerInfos.filter((p) => p.configured).map((p) => p.provider);
 
@@ -234,6 +253,12 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {!modelPrefsSupported && settingsWarning && (
+          <div className="mb-4 rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {settingsWarning}
+          </div>
+        )}
+
         <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {PROVIDERS.map((p) => {
             const isConfigured = configured.includes(p.id);
@@ -273,6 +298,12 @@ export default function SettingsPage() {
                   {/* ── 模型選擇區塊（僅已設定時顯示） ──────────── */}
                   {isConfigured && (
                     <div className="border-t border-[var(--cf-border)] pt-4">
+                      {!modelPrefsSupported ? (
+                        <p className="text-sm text-[var(--cf-text-mute)]">
+                          目前部署環境的資料庫尚未完成模型偏好 migration，API Key 仍可使用，但暫時無法儲存預設模型。
+                        </p>
+                      ) : (
+                        <>
                       <div className="mb-3 flex items-center justify-between gap-2">
                         <span className="text-sm font-medium text-[var(--cf-text2)]">
                           模型設定
@@ -461,6 +492,8 @@ export default function SettingsPage() {
                             <span>點擊「載入模型清單」以選擇模型</span>
                           )}
                         </div>
+                      )}
+                        </>
                       )}
                     </div>
                   )}

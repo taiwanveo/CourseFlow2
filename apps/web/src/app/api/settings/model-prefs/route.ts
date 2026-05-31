@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  isMissingModelPrefsColumnError,
+  MODEL_PREFS_MIGRATION_HINT,
+} from "@/lib/user-api-key-model-prefs";
 
 export async function PUT(req: NextRequest) {
   const supabase = await createClient();
@@ -30,6 +34,13 @@ export async function PUT(req: NextRequest) {
     })
     .eq("user_id", user.id)
     .eq("provider", body.provider);
+
+  if (error && isMissingModelPrefsColumnError(error)) {
+    return NextResponse.json(
+      { error: MODEL_PREFS_MIGRATION_HINT },
+      { status: 409 },
+    );
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

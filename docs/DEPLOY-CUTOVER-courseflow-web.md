@@ -17,6 +17,7 @@
 |------|------|
 | `20260601000000_v2_wvp_extensions.sql` | `chapter_craft`、`wvp_phase_locks` 等 |
 | `20260602000000_storage_wvp_dist_mimes.sql` | WVP dist 上傳 MIME |
+| `20260603000000_model_prefs.sql` | `user_api_keys.default_model`、`text_model`、`image_model` |
 
 **Authentication → URL configuration**（若尚未設定）：
 
@@ -109,3 +110,4 @@ node scripts/render-cutover.mjs
 | 登入失敗 | Supabase Auth 網址、Render 上 `NEXT_PUBLIC_*` 建置時是否存在 |
 | 舊 v1 專案不見 | v2 schema 不同，舊資料需遷移或接受重新建立 |
 | MP4 一直排隊 | Worker 是否 Live、`REDIS_URL` 是否與 Web 相同 |
+| 設定頁無法儲存模型偏好、提到 `default_model` | 先在既有 Supabase 專案套用 `20260603000000_model_prefs.sql` |

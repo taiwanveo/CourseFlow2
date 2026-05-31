@@ -47,6 +47,38 @@ const STATUS_LABEL: Record<string, string> = {
   approved: "已通過",
 };
 
+type ResponsePayload = Record<string, unknown> & {
+  error?: string;
+  rawText?: string;
+  illustrationSyncWarning?: string;
+};
+
+async function readResponsePayload(response: Response): Promise<ResponsePayload> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return parsed && typeof parsed === "object" ? (parsed as ResponsePayload) : {};
+  } catch {
+    return { rawText: text };
+  }
+}
+
+function getResponseErrorMessage(
+  response: Response,
+  payload: ResponsePayload,
+  fallback: string,
+): string {
+  if (typeof payload.error === "string" && payload.error.trim()) {
+    return payload.error;
+  }
+  if (typeof payload.rawText === "string" && payload.rawText.trim()) {
+    return payload.rawText;
+  }
+  const statusText = response.statusText ? ` ${response.statusText}` : "";
+  return `${fallback}（HTTP ${response.status}${statusText}）`;
+}
+
 // ─── self-check report types ──────────────────────────────────────────────
 type SelfCheckSeverity = "ok" | "warn" | "fail";
 interface SelfCheckFinding { level: SelfCheckSeverity; message: string }
@@ -298,7 +330,8 @@ export function CraftPhaseClient({
           themeId: themeToSave,
         }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? "儲存失敗");
+      const data = await readResponsePayload(res);
+      if (!res.ok) throw new Error(getResponseErrorMessage(res, data, "儲存失敗"));
     } finally {
       setSavingTheme(false);
     }
@@ -511,8 +544,8 @@ export function CraftPhaseClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ provider: defaultProvider }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "試執行失敗");
+      const data = await readResponsePayload(res);
+      if (!res.ok) throw new Error(getResponseErrorMessage(res, data, "試執行失敗"));
       setSettings((s) => ({
         ...s,
         anchorChapterTrialCompleted: true,
@@ -520,7 +553,7 @@ export function CraftPhaseClient({
         anchorProfile: undefined,
       }));
       await refreshWvp();
-      if (data.illustrationSyncWarning) {
+      if (typeof data.illustrationSyncWarning === "string" && data.illustrationSyncWarning) {
         toast(
           anchorTrialDone
             ? `第 1 章已重新試執行。${data.illustrationSyncWarning}`
