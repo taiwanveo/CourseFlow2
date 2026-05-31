@@ -673,7 +673,7 @@ export function AudioPhaseClient({
         return;
       }
 
-      setRecordedBlob(new Blob([mp3Bytes.buffer.slice(0)], { type: "audio/mpeg" }));
+      setRecordedBlob(new Blob([mp3Bytes], { type: "audio/mpeg" }));
       setRecordedDurationMs(Math.max(1, Math.round((session.totalSamples / session.sampleRate) * 1000)));
       toast("錄音完成，可先試聽再存檔", "success");
     } catch (error) {
