@@ -27,7 +27,7 @@ projects:
             dockerContext: .
             plan: starter
             region: singapore
-            healthCheckPath: /
+            healthCheckPath: /api/health
             autoDeploy: true
             envVars:
               - fromGroup: courseflow-v2-shared

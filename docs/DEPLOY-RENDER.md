@@ -9,6 +9,13 @@
 | 服務 | 說明 |
 |------|------|
 | `courseflow-v2-web` | Next.js（standalone），對外 HTTPS |
+## 健康檢查與 502 判讀
+
+- Render health check 已設定為 `/api/health`（`render.yaml` 的 `healthCheckPath`）
+- 若使用 Free tier，冷啟動確實可能造成短暫 502
+- 但本專案目前預設 `starter`，較常見的 502 原因是「單次請求超過代理逾時」
+- `試執行第 1 章` 與整課建置屬重操作，建議維持非同步流程並避免同步長請求
+
 | `courseflow-v2-worker` | BullMQ + TTS + HyperFrames MP4（過渡期；v2 將改 Playwright 錄屏） |
 | **Supabase**（外部，**v2 專用專案**） | Postgres、Auth、Storage |
 | **Redis**（外部，**v2 專用**） | 佇列；`REDIS_URL` 勿與 v1 相同 instance |
