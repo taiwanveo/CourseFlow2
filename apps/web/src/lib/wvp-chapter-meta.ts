@@ -47,7 +47,8 @@ export function screenContentsForChapter(
       return title || "章節";
     }
     const raw = compactSpaces((s.screenContent ?? "").replace(/\.\.\.|…/g, ""));
-    return raw ? toScreenHeadline(raw, "重點", 96) : "重點";
+    // 與「文稿內容」螢幕欄位一致，不在此處再截短或改寫
+    return raw || "重點";
   });
 }
 

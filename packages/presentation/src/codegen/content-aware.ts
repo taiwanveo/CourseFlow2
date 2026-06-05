@@ -22,7 +22,7 @@ export function splitHeadlineForStaggeredReveal(text: string, maxParts = 2): str
   const raw = compactSpaces(text);
   if (!raw) return [];
   const byPunct = raw
-    .split(/[／|｜，。！？；、]/)
+    .split(/[／|｜，。！？；、:：]/)
     .map((p) => p.trim())
     .filter(Boolean);
   if (byPunct.length >= 2) return byPunct.slice(0, maxParts);
@@ -35,7 +35,7 @@ export function splitHeadlineForStaggeredReveal(text: string, maxParts = 2): str
 
   if (raw.length > 14) {
     const pivot = Math.min(
-      raw.search(/[，,。！？；、]/),
+      raw.search(/[，,。！？；、:：]/),
       raw.length > 20 ? 12 : 10,
     );
     if (pivot > 4 && pivot < raw.length - 4) {

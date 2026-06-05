@@ -3,7 +3,7 @@ import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { assetForStep, assetsForChapter } from "../hook-slots.js";
-import { screenHeadlineForSlot } from "../slots.js";
+import { verbatimScreenOrFallback } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
@@ -82,9 +82,7 @@ function chapterDividerScene(
   checkpointUrl?: string,
   figureAlt?: string,
 ): string {
-  const headline = screenContent.trim()
-    ? screenHeadlineForSlot(screenContent, title, 96)
-    : screenHeadlineForSlot(narration, title, 96);
+  const headline = verbatimScreenOrFallback(screenContent, narration || title);
   const figureUrl = checkpointUrl?.trim()
     ? `"${escapeTsString(checkpointUrl.trim())}"`
     : `{stepImageUrl(0)}`;
@@ -117,9 +115,10 @@ function stepScene(
 ): string {
   const layout = pickLayout(step);
   const phrases = splitNarrationPhrases(narration, 4);
-  const headline = screenContent.trim()
-    ? screenHeadlineForSlot(screenContent, `步驟 ${step + 1}`, 96)
-    : screenHeadlineForSlot(phrases[0] ?? narration, `步驟 ${step + 1}`, 40);
+  const headline = verbatimScreenOrFallback(
+    screenContent,
+    phrases[0] ?? narration || `步驟 ${step + 1}`,
+  );
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
   const stepLabel = `Step ${String(step + 1).padStart(2, "0")}`;

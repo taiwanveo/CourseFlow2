@@ -55,24 +55,31 @@ export function syncChapterDividerTitles(composition: CourseComposition): Course
 
   const steps = composition.steps.map((step) => {
     if (step.stepKind !== "chapter") return step;
-    const title = chapterById.get(step.chapterId)?.title ?? step.screenContent;
-    // 章節分隔頁的 screenContent 應永遠跟章節標題同步，但 script 不一定只是標題：
-    // coldopen / outro 等章節可能有完整口播稿，不能在每次 normalize 時被洗回標題。
+    const title = (chapterById.get(step.chapterId)?.title ?? step.screenContent).trim();
+    const existingScreen = step.screenContent.trim();
+    const existingScript = step.script.trim();
+    // 螢幕內容：使用者在「文稿內容」自訂後應保留；僅空白或仍等於章節標題時才跟標題同步。
+    const nextScreenContent =
+      !existingScreen || existingScreen === title ? title : step.screenContent;
+    // 口播稿：coldopen / outro 可為完整稿，勿在 normalize 時洗回標題。
     const nextScript =
-      !step.script.trim() || step.script.trim() === step.screenContent.trim()
+      !existingScript ||
+      existingScript === existingScreen ||
+      existingScript === title
         ? title
         : step.script;
-    return { ...step, screenContent: title, script: nextScript };
+    return { ...step, screenContent: nextScreenContent, script: nextScript };
   });
 
   const visuals = composition.visuals.map((visual) => {
     const step = steps.find((s) => s.id === visual.stepId);
     if (step?.stepKind !== "chapter") return visual;
-    const title = chapterById.get(step.chapterId)?.title ?? step.screenContent;
+    const title = (chapterById.get(step.chapterId)?.title ?? step.screenContent).trim();
+    const display = step.screenContent.trim() || title;
     return {
       ...visual,
       elements: visual.elements.map((el) =>
-        el.type === "text" ? { ...el, content: title } : el,
+        el.type === "text" ? { ...el, content: display } : el,
       ),
     };
   });

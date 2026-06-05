@@ -1,4 +1,4 @@
-import { screenHeadlineForSlot } from "./slots.js";
+import { verbatimScreenOrFallback } from "./slots.js";
 
 export interface HookSlide {
   url: string | null;
@@ -46,7 +46,7 @@ export function buildHookSlides(
 
   for (let i = 0; i < count; i++) {
     const asset = withUrl[i];
-    const cap = screenHeadlineForSlot(screenContents[i + 1], `重點 ${i + 1}`, 48);
+    const cap = verbatimScreenOrFallback(screenContents[i + 1], `重點 ${i + 1}`);
     slides.push({
       url: asset?.url?.trim() ?? null,
       alt: asset?.alt?.trim() || cap.slice(0, 24),
