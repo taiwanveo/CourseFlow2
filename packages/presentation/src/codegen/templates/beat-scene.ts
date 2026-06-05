@@ -101,9 +101,10 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
   const scenes = input.narrations.map((narration, stepIndex) => {
     const screen = input.screenContents?.[stepIndex] ?? "";
     const headline = verbatimScreenOrFallback(screen, narration || "重點");
-    const parts = splitHeadlineForStaggeredReveal(headline, 2);
-    const intro = parts[0] ?? headline;
-    const introSub = parts[1] ?? "";
+    const hasScreen = Boolean(screen.trim());
+    const parts = hasScreen ? [] : splitHeadlineForStaggeredReveal(headline, 2);
+    const intro = hasScreen ? headline : (parts[0] ?? headline);
+    const introSub = hasScreen ? "" : (parts[1] ?? "");
     const checkpoint = assetForStep(chapterAssets, stepIndex);
     const hasStepImage = stepIndex in (input.stepImageExtensions ?? {});
     let figureLine = "";

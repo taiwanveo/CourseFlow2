@@ -16,7 +16,7 @@ import {
   uploadDistDirectory,
   wvpDistStoragePrefix,
 } from "@courseflow/presentation";
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasBuiltPresentation, presentationDistDir } from "@/lib/wvp-workdir";
 
@@ -152,9 +152,10 @@ export async function ensureWvpDistLocal(
   if (localMatchesRevision) return true;
 
   if (!(await hasWvpDistInStorage(supabase, userId, projectId))) {
-    return hasBuiltPresentation(projectId);
+    return false;
   }
 
+  await rm(dest, { recursive: true, force: true });
   await mkdir(dest, { recursive: true });
   await downloadWvpDistFromStorage(supabase, userId, projectId, dest);
   if (revision) {

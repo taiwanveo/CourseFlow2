@@ -105,6 +105,14 @@ export function parseListRevealSlots(
   const introSub = introParts[1] ?? "";
   const items = narrations.slice(1).map((n, i) => {
     const screen = verbatimScreenOrFallback(screenContents[i + 1], n);
+    const hasScreen = Boolean(screenContents[i + 1]?.trim());
+    if (hasScreen) {
+      return {
+        num: String(i + 1).padStart(2, "0"),
+        title: screen,
+        body: "",
+      };
+    }
     const parts = splitHeadlineForStaggeredReveal(screen, 2);
     return {
       num: String(i + 1).padStart(2, "0"),

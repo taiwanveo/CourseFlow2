@@ -95,35 +95,31 @@ export async function loadCompositionForWvpBuild(
   supabase: Supabase,
   projectId: string,
 ): Promise<CourseComposition | null> {
-  const fresh = await loadProjectComposition(supabase, projectId, { forceFresh: true });
-  if (!fresh) return null;
-
   const { data: project } = await supabase
     .from("projects")
-    .select("composition_snapshot")
+    .select("composition_snapshot, theme_id, settings")
     .eq("id", projectId)
     .single();
-  const snap = project?.composition_snapshot as CourseComposition | null;
-  if (!snap?.steps?.length) return fresh;
+  if (!project) return null;
 
-  const snapStepById = new Map(snap.steps.map((s) => [s.id, s]));
-  for (const step of fresh.steps) {
-    const snapStep = snapStepById.get(step.id);
-    if (!snapStep) continue;
-    const screen = snapStep.screenContent?.trim();
-    if (screen) step.screenContent = snapStep.screenContent;
-    const script = snapStep.script?.trim();
-    if (script) step.script = snapStep.script;
-    if (snapStep.infoPool?.length) step.infoPool = snapStep.infoPool;
-    if (snapStep.stepKind) step.stepKind = snapStep.stepKind;
+  const snap = project.composition_snapshot as CourseComposition | null;
+  if (snap?.steps?.length) {
+    const language =
+      snap.meta?.language ??
+      (project.settings as { language?: string } | null)?.language ??
+      "zh-TW";
+    const composition = ensureChapterDividerSteps({
+      ...snap,
+      meta: {
+        ...snap.meta,
+        language,
+        themeId: snap.meta.themeId ?? project.theme_id ?? undefined,
+      },
+    });
+    return composition;
   }
 
-  for (const ch of fresh.chapters) {
-    const snapCh = snap.chapters.find((c) => c.id === ch.id);
-    if (snapCh?.title?.trim()) ch.title = snapCh.title;
-  }
-
-  return ensureChapterDividerSteps(fresh);
+  return loadProjectComposition(supabase, projectId, { forceFresh: true });
 }
 
 export async function saveComposition(

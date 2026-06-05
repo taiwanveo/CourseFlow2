@@ -143,11 +143,9 @@ export async function materializeChapterFromCraft(
     narrations = narrationsFromChecklist;
   } else if (
     chapter &&
-    narrationsFromChecklist.length > narrationsFromComposition.length
+    narrationsFromComposition.length === 0 &&
+    narrationsFromChecklist.length > 0
   ) {
-    console.warn(
-      `[wvp-materialize] narration count mismatch chapter=${craft.wvp_chapter_id} composition=${narrationsFromComposition.length} checklist=${narrationsFromChecklist.length}; using checklist`,
-    );
     narrations = narrationsFromChecklist;
   }
   const aiPlan = craft.checklist_result?.aiPlan;
@@ -189,7 +187,18 @@ export async function materializeChapterFromCraft(
       rawSource?.chapterCss ?? "",
       narrations,
     );
-  if (useCachedLlmSource) {
+  const useCachedTemplateSource =
+    rawSource?.source === "template" &&
+    llmTsx &&
+    !llmCacheScreenContentsStale &&
+    validateChapterTsx(
+      llmTsx,
+      narrations.length,
+      componentName,
+      rawSource?.chapterCss ?? "",
+      narrations,
+    );
+  if (useCachedLlmSource || useCachedTemplateSource) {
     await writeChapterSourcesRaw(presentationDir, {
       folderName,
       componentName,
