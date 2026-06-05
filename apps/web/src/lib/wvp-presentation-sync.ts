@@ -187,17 +187,9 @@ export async function materializeChapterFromCraft(
       rawSource?.chapterCss ?? "",
       narrations,
     );
+  // 模板 TSX 由 applyChapterTemplate 依螢幕欄位產生；驗證失敗時仍優先沿用，避免重產時退回口播稿
   const useCachedTemplateSource =
-    rawSource?.source === "template" &&
-    llmTsx &&
-    !llmCacheScreenContentsStale &&
-    validateChapterTsx(
-      llmTsx,
-      narrations.length,
-      componentName,
-      rawSource?.chapterCss ?? "",
-      narrations,
-    );
+    rawSource?.source === "template" && llmTsx && !llmCacheScreenContentsStale;
   if (useCachedLlmSource || useCachedTemplateSource) {
     await writeChapterSourcesRaw(presentationDir, {
       folderName,

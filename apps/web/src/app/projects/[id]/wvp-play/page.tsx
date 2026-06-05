@@ -69,6 +69,9 @@ export default async function WvpPlayPage({
   query.set("external_controls", "1");
   if (q.auto === "1") query.set("auto", "1");
   if (q.audio === "1") query.set("audio", "1");
+  if (project.presentation_revision) {
+    query.set("cf_rev", project.presentation_revision);
+  }
   const src = `${base}?${query.toString()}`;
 
   return (

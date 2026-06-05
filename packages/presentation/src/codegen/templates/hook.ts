@@ -28,7 +28,8 @@ export function generateHookSources(
     narrations[slideCount + 1]?.trim() ||
     input.title;
   const closeLine = includeClose ? narrations[narrations.length - 1] : "";
-  const introKicker = narrations[0]?.slice(0, 24) || input.title;
+  const introKicker =
+    (input.screenContents?.[0]?.trim() || input.title).slice(0, 24);
 
   const slidesJson = JSON.stringify(
     slides.map((s) => ({

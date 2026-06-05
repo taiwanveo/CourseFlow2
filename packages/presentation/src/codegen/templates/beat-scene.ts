@@ -3,7 +3,7 @@ import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import { splitHeadlineForStaggeredReveal } from "../content-aware.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { assetForStep, assetsForChapter } from "../hook-slots.js";
-import { verbatimScreenOrFallback } from "../slots.js";
+import { screenTextOnly } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
@@ -100,11 +100,11 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
 
   const scenes = input.narrations.map((narration, stepIndex) => {
     const screen = input.screenContents?.[stepIndex] ?? "";
-    const headline = verbatimScreenOrFallback(screen, narration || "重點");
+    const headline = screenTextOnly(screen, "重點");
     const hasScreen = Boolean(screen.trim());
-    const parts = hasScreen ? [] : splitHeadlineForStaggeredReveal(headline, 2);
-    const intro = hasScreen ? headline : (parts[0] ?? headline);
-    const introSub = hasScreen ? "" : (parts[1] ?? "");
+    const parts = hasScreen ? splitHeadlineForStaggeredReveal(headline, 2) : [];
+    const intro = parts[0] ?? headline;
+    const introSub = parts[1] ?? "";
     const checkpoint = assetForStep(chapterAssets, stepIndex);
     const hasStepImage = stepIndex in (input.stepImageExtensions ?? {});
     let figureLine = "";
