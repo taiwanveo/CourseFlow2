@@ -7,6 +7,7 @@ export async function GET() {
     {
       ok: true,
       service: "courseflow-v2-web",
+      buildSha: process.env.COURSEFLOW_BUILD_SHA?.trim() || "unknown",
       timestamp: new Date().toISOString(),
     },
     {
