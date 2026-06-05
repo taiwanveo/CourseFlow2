@@ -1,16 +1,20 @@
 import type { WvpChapterKind, WvpStepVisualPlan } from "@courseflow/core";
+import { scoreFlowSignals, scoreListSignals } from "./content-aware.js";
 
 const FLOW_KW =
-  /流程|步驟|迴圈|循环|Agent|Workflow|管線|管道|RAG|Tool|架構|链路|鏈路/i;
-const LIST_KW = /三|四|五|六|七|八|九|十|第一|第二|第三|幾|几|項|项|點|点|清單|清单|特性|優勢|优势/i;
+  /流程|步驟|迴圈|循环|Agent|Workflow|管線|管道|RAG|Tool|架構|链路|鏈路|階段|阶段|串接|從.*到/i;
+const LIST_KW =
+  /三|四|五|六|七|八|九|十|第一|第二|第三|第四|第五|幾|几|項|项|點|点|清單|清单|特性|優勢|优势|痛點|痛点|要點|要点|條列|条列/i;
 
 export function normalizeVizType(raw?: string): WvpChapterKind | null {
   if (!raw) return null;
   const v = raw.toLowerCase().replace(/_/g, "-");
   if (v.includes("list")) return "list-reveal";
   if (v.includes("flow") || v.includes("diagram") || v.includes("process")) return "flow";
-  if (v.includes("hook") || v.includes("image")) return "hook";
-  if (v.includes("magazine") || v.includes("quote")) return "magazine";
+  if (v.includes("hook") || v.includes("image") || v.includes("coldopen") || v.includes("intro")) {
+    return "hook";
+  }
+  if (v.includes("magazine") || v.includes("quote") || v.includes("outro")) return "magazine";
   if (v === "custom") return "custom";
   return null;
 }
@@ -23,7 +27,7 @@ export function inferChapterKind(opts: {
   preferFlow?: boolean;
 }): WvpChapterKind {
   const fromPlan = normalizeVizType(opts.planChapterKind);
-  if (fromPlan) return fromPlan;
+  if (fromPlan && fromPlan !== "magazine") return fromPlan;
 
   const vizVotes = (opts.stepVisuals ?? [])
     .map((s) => normalizeVizType(s.vizType))
@@ -31,17 +35,38 @@ export function inferChapterKind(opts: {
   if (vizVotes.length > 0) {
     const flowCount = vizVotes.filter((v) => v === "flow").length;
     const listCount = vizVotes.filter((v) => v === "list-reveal").length;
-    if (flowCount >= listCount && flowCount >= 2) return "flow";
+    if (flowCount > listCount && flowCount >= 2) return "flow";
     if (listCount >= 2) return "list-reveal";
   }
 
-  const blob = `${opts.chapterTitle ?? ""} ${opts.narrations.join(" ")}`;
-  const n = opts.narrations.length;
+  const title = opts.chapterTitle ?? "";
+  const narrations = opts.narrations;
+  const n = narrations.length;
+  const blob = `${title} ${narrations.join(" ")}`;
 
+  if (/開場|前言|冷開|coldopen|intro/i.test(blob) && n <= 2) return "hook";
+  if (/結語|結束|outro|conclusion/i.test(title) && n <= 2) return "magazine";
+
+  let listScore = scoreListSignals(title, narrations);
+  let flowScore = scoreFlowSignals(title, narrations);
+  if (FLOW_KW.test(blob)) flowScore += 2;
+  if (LIST_KW.test(blob)) listScore += 2;
+
+  if (opts.preferFlow && n >= 3 && flowScore >= 1) return "flow";
+
+  if (flowScore > listScore && flowScore >= 2 && n >= 3) return "flow";
+  if (listScore >= 2 && n >= 3) return "list-reveal";
   if (FLOW_KW.test(blob) && n >= 3) return "flow";
-  if (LIST_KW.test(blob) && n >= 4) return "list-reveal";
-  if (opts.preferFlow && n >= 3) return "flow";
+  if (LIST_KW.test(blob) && n >= 3) return "list-reveal";
+
+  // 多步驟章節預設走結構化版型，避免落到 magazine
   if (n >= 5) return "list-reveal";
-  if (n >= 3 && FLOW_KW.test(blob)) return "flow";
+  if (n >= 4) return listScore >= flowScore ? "list-reveal" : "flow";
+  if (n >= 3) return flowScore > listScore ? "flow" : "list-reveal";
+  if (n === 2) {
+    if (flowScore > listScore) return "flow";
+    if (listScore > 0) return "list-reveal";
+  }
+
   return "magazine";
 }

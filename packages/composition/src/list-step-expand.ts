@@ -79,8 +79,20 @@ export function expandListItemsInStep(step: GeneratedChapterInput["steps"][numbe
   ];
 }
 
+const FLOW_HINT =
+  /流程|步驟|阶段|階段|管線|管道|架構|链路|鏈路|迴圈|循环|Agent|Workflow|RAG|然後|接著|接下來/i;
+const LIST_HINT =
+  /清單|清单|條列|条列|優勢|优势|痛點|痛点|特性|要點|要点|第一|第二|第三|其一|其二/i;
+
 export function inferChapterKindFromSteps(steps: GeneratedChapterInput["steps"]): WvpChapterKind | undefined {
-  if (steps.length >= 4) return "list-reveal";
+  const n = steps.length;
+  if (n < 3) return undefined;
+  const blob = steps.map((s) => `${s.screenContent} ${s.script ?? ""}`).join(" ");
+  const flowScore = FLOW_HINT.test(blob) ? 2 : 0;
+  const listScore = LIST_HINT.test(blob) ? 2 : 0;
+  if (flowScore > listScore) return "flow";
+  if (listScore > 0 || n >= 4) return "list-reveal";
+  if (n >= 3) return "list-reveal";
   return undefined;
 }
 

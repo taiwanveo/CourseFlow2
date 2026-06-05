@@ -315,7 +315,11 @@ export async function generateChapterCraft(
           assets: chapterAssets.length ? chapterAssets : undefined,
           stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,
           stepImageExtensions,
-          stepMotions: makeDefaultStepMotions(opts.narrations.length),
+          stepMotions: makeDefaultStepMotions(opts.narrations.length, {
+            narrations: opts.narrations,
+            screenContents,
+            chapterKind: chapterKind ?? "list-reveal",
+          }),
         });
         chapterSource = {
           chapterTsx: gen.tsx,
@@ -446,7 +450,11 @@ export async function applyChapterTemplate(
     screenContents,
     forceTemplate: template,
     assets: chapterAssets.length ? chapterAssets : undefined,
-    stepMotions: makeDefaultStepMotions(narrations.length),
+    stepMotions: makeDefaultStepMotions(narrations.length, {
+      narrations,
+      screenContents,
+      chapterKind: template,
+    }),
   });
   const outNarrations =
     "narrations" in gen && Array.isArray(gen.narrations) ? gen.narrations : narrations;

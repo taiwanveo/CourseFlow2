@@ -15,10 +15,29 @@ import {
   expandListStepsInGeneratedChapters,
 } from "@courseflow/composition";
 import type { GeneratedChapterInput } from "@courseflow/composition";
+import { inferChapterKind } from "@courseflow/presentation";
 import { saveComposition } from "@/lib/project-composition";
 import { defaultSubtitleForStep, defaultVisualForStep } from "@courseflow/db";
 import { resolveLlmProvider, resolveEffectiveTextModel } from "@/lib/llm-provider";
 import type { CourseComposition } from "@courseflow/core";
+
+/** 內容生成後：依口播語意補齊 chapterKind，避免多步驟章節落到 magazine */
+function enrichGeneratedChapterKinds(
+  chapters: GeneratedChapterInput[],
+): GeneratedChapterInput[] {
+  return chapters.map((ch) => {
+    if (ch.chapterKind === "hook") return ch;
+    const narrations = ch.steps
+      .map((st) => st.script?.trim() || st.screenContent?.trim() || "")
+      .filter(Boolean);
+    const inferred = inferChapterKind({
+      chapterTitle: ch.title,
+      narrations,
+      planChapterKind: ch.chapterKind,
+    });
+    return { ...ch, chapterKind: inferred };
+  });
+}
 
 const TW_TERM_MAP: Array<[RegExp, string]> = [
   [/編程/g, "程式設計"],
@@ -316,7 +335,7 @@ export async function POST(
         .eq("id", id);
     }
 
-    const chaptersForComposition: GeneratedChapterInput[] =
+    const chaptersForComposition: GeneratedChapterInput[] = enrichGeneratedChapterKinds(
       expandListStepsInGeneratedChapters(
         course.chapters.map((ch) => ({
           title: ch.title,
@@ -331,7 +350,8 @@ export async function POST(
             script: st.script,
           })),
         })),
-      );
+      ),
+    );
 
     let composition = createCompositionFromArticle(language, chaptersForComposition);
     // normalizeGeneratedScriptsToTw 仍執行（台灣用詞正規化），不需第三次 LLM

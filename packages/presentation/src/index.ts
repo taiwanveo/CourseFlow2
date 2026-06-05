@@ -4,6 +4,7 @@ export * from "./scaffold.js";
 export * from "./codegen/chapter.js";
 export * from "./codegen/step-visuals.js";
 export * from "./codegen/router.js";
+export * from "./codegen/content-aware.js";
 export * from "./chapter-checklist.js";
 export * from "./registry.js";
 export * from "./build.js";

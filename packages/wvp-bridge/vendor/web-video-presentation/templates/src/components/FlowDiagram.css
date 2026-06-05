@@ -76,6 +76,11 @@
   max-width: 18ch;
 }
 
+.cf-flow-intro-accent {
+  color: var(--accent, var(--text));
+  font-style: italic;
+}
+
 .cf-flow-preview {
   display: flex;
   flex-wrap: wrap;

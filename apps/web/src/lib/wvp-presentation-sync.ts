@@ -19,7 +19,7 @@ import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
-import { pickEnterAnimation } from "@/lib/wvp-motion-utils";
+import { makeDefaultStepMotions, pickEnterAnimation } from "@/lib/wvp-motion-utils";
 import {
   chapterKindForCraft,
   resolveCompositionChapterForCraft,
@@ -183,14 +183,31 @@ export async function materializeChapterFromCraft(
     });
   } else {
     const stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
+    const resolvedChapterKind = chapter
+      ? chapterKindForCraft(composition, chapter.id, craft.title, narrations, aiPlan)
+      : undefined;
     const stepMotions = chapter
-      ? orderedWvpStepsForChapter(composition, chapter.id).map((s, stepIndex) => {
-          const visual = composition.visuals.find((v) => v.stepId === s.id);
-          return {
-            enterAnimationId: visual?.enterAnimationId ?? pickEnterAnimation(stepIndex),
-            transitionId: visual?.transitionId ?? "crossfade",
-          };
-        })
+      ? (() => {
+          const steps = orderedWvpStepsForChapter(composition, chapter.id);
+          const hasCustomVisualMotions = steps.some((s) => {
+            const visual = composition.visuals.find((v) => v.stepId === s.id);
+            return Boolean(visual?.enterAnimationId && visual.enterAnimationId !== "fade-up");
+          });
+          if (!hasCustomVisualMotions && resolvedChapterKind) {
+            return makeDefaultStepMotions(narrations.length, {
+              narrations,
+              screenContents: currentScreenContents,
+              chapterKind: resolvedChapterKind,
+            });
+          }
+          return steps.map((s, stepIndex) => {
+            const visual = composition.visuals.find((v) => v.stepId === s.id);
+            return {
+              enterAnimationId: visual?.enterAnimationId ?? pickEnterAnimation(stepIndex),
+              transitionId: visual?.transitionId ?? "crossfade",
+            };
+          });
+        })()
       : [];
     const projectIdFromPath = basename(dirname(presentationDir));
     // 直接從 presentationDir 掃描，避免 presentationDirForProject 路徑重建不一致
@@ -235,9 +252,7 @@ export async function materializeChapterFromCraft(
       stepBeats: aiPlan?.stepBeats,
       stepVisuals: (aiPlan?.stepVisuals as { step: number; vizType?: string }[]) ?? undefined,
       screenContents: chapter ? currentScreenContents : [],
-      chapterKind: chapter
-        ? chapterKindForCraft(composition, chapter.id, craft.title, narrations, aiPlan)
-        : undefined,
+      chapterKind: resolvedChapterKind,
       forceTemplate,
       assets: assets.length ? assets : undefined,
       stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,

@@ -1,15 +1,16 @@
 /**
  * wvp-motion-utils.ts
  *
- * 工具函式：為每個步驟自動分配多樣的 enterAnimationId，
- * 讓每章的入場動畫不再全是 fade-up，而是依索引循環使用
- * 所有已定義的 cf-enter-* 類型。
+ * 工具函式：依章節內容與版型，為每步挑選 enterAnimationId。
  */
 
-export type StepMotion = {
-  enterAnimationId: string;
-  transitionId: string;
-};
+import {
+  makeContentAwareStepMotions,
+  type StepMotion,
+} from "@courseflow/presentation";
+import type { WvpChapterKind } from "@courseflow/core";
+
+export type { StepMotion };
 
 /**
  * 完整的 cf-enter-* 動畫循環序列。
@@ -54,11 +55,22 @@ export function pickEnterAnimation(stepIndex: number): string {
   return ENTER_ANIM_CYCLE[cycleIndex] ?? "fade-up";
 }
 
-/**
- * 為整章產出完整的 stepMotions 陣列。
- * 可直接傳入 generateChapterSources / writeChapterToPresentation 的 stepMotions 欄位。
- */
-export function makeDefaultStepMotions(stepCount: number): StepMotion[] {
+/** 內容感知：依口播／畫面文字與 chapterKind 挑選動畫 */
+export function makeDefaultStepMotions(
+  stepCount: number,
+  opts?: {
+    narrations?: string[];
+    screenContents?: string[];
+    chapterKind?: WvpChapterKind;
+  },
+): StepMotion[] {
+  if (opts?.narrations?.length && opts.chapterKind) {
+    return makeContentAwareStepMotions(
+      opts.narrations,
+      opts.screenContents ?? [],
+      opts.chapterKind,
+    );
+  }
   return Array.from({ length: stepCount }, (_, i): StepMotion => {
     const transitionCycleIndex = i % TRANSITION_CYCLE.length;
     return {

@@ -17,7 +17,7 @@ function escapeTsString(s: string): string {
 
 export function generateFlowSources(input: ChapterCodegenInput) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
-  const { intro, nodes } = parseFlowSlots(input.narrations, input.screenContents ?? []);
+  const { intro, introSub, nodes } = parseFlowSlots(input.narrations, input.screenContents ?? []);
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const assetsLiteral = JSON.stringify(chapterAssets);
   const stepImageBlock = buildCodegenStepImageBlock(
@@ -56,6 +56,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       step={step}
       chapterTitle={${JSON.stringify(deriveChapterKicker(input.wvpChapterId))}}
       intro={${JSON.stringify(intro)}}
+      introSub={${JSON.stringify(introSub)}}
       nodes={[...NODES]}
       stepImageUrl={stepImage(step)}
       enterAnimationId={motion.enterAnimationId}

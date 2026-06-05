@@ -6,6 +6,8 @@ export interface ListRevealItem {
   imageUrl?: string;
 }
 
+import { splitHeadlineForStaggeredReveal } from "./content-aware.js";
+
 export interface FlowNodeSlot {
   id: string;
   label: string;
@@ -85,8 +87,13 @@ export function parseListRevealSlots(
       items: [],
     };
   }
-  const intro = screenHeadlineForSlot(screenContents[0] || narrations[0], "本章重點", 96);
-  const introSub = "";
+  const introSource = screenContents[0] || narrations[0] || "本章重點";
+  const introParts = splitHeadlineForStaggeredReveal(
+    screenHeadlineForSlot(introSource, "本章重點", 96),
+    2,
+  );
+  const intro = introParts[0] ?? "本章重點";
+  const introSub = introParts[1] ?? "";
   const items = narrations.slice(1).map((n, i) => ({
     num: String(i + 1).padStart(2, "0"),
     title: screenLabelForItem(screenContents[i + 1] || n, `重點 ${i + 1}`),
@@ -99,21 +106,28 @@ export function parseListRevealSlots(
 export function parseFlowSlots(
   narrations: string[],
   screenContents: string[] = [],
-): { intro: string; nodes: FlowNodeSlot[] } {
+): { intro: string; introSub: string; nodes: FlowNodeSlot[] } {
   if (narrations.length <= 1) {
     const single = sanitizeScreenLabel(screenContents[0], "流程", 20);
     return {
       intro: single,
+      introSub: "",
       nodes: narrations[0]
         ? [{ id: "n0", label: single, detail: single }]
         : [],
     };
   }
-  const intro = screenHeadlineForSlot(screenContents[0], "流程總覽", 48);
+  const introSource = screenContents[0] || narrations[0] || "流程總覽";
+  const introParts = splitHeadlineForStaggeredReveal(
+    screenHeadlineForSlot(introSource, "流程總覽", 48),
+    2,
+  );
+  const intro = introParts[0] ?? "流程總覽";
+  const introSub = introParts[1] ?? "";
   const nodes = narrations.slice(1).map((n, i) => ({
     id: `n${i}`,
     label: screenHeadlineForSlot(screenContents[i + 1], `節點 ${i + 1}`, 40),
     detail: "",
   }));
-  return { intro, nodes };
+  return { intro, introSub, nodes };
 }

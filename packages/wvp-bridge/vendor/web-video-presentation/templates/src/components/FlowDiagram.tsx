@@ -7,6 +7,7 @@ export function FlowDiagram({
   step,
   chapterTitle,
   intro,
+  introSub,
   nodes,
   stepImageUrl,
   enterAnimationId = "fade-up",
@@ -15,6 +16,7 @@ export function FlowDiagram({
   step: number;
   chapterTitle: string;
   intro: string;
+  introSub?: string;
   nodes: FlowNode[];
   stepImageUrl?: string;
   enterAnimationId?: string;
@@ -45,9 +47,19 @@ export function FlowDiagram({
       >
         <div className="cf-flow-main">
           <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
-          <MaskReveal show duration={1000}>
-            <h1 className="cf-flow-intro serif-cn">{intro}</h1>
-          </MaskReveal>
+          <h1 className="cf-flow-intro serif-cn">
+            <MaskReveal show duration={1000}>
+              <span>{intro}</span>
+            </MaskReveal>
+            {introSub?.trim() ? (
+              <>
+                <br />
+                <MaskReveal show delay={400} duration={900}>
+                  <span className="cf-flow-intro-accent">{introSub}</span>
+                </MaskReveal>
+              </>
+            ) : null}
+          </h1>
           <div className="cf-flow-preview" aria-hidden data-no-advance>
             {nodes.map((n, i) => (
               <span key={n.id} className="cf-flow-pill">

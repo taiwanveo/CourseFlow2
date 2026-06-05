@@ -15,7 +15,16 @@ export const CHAPTER_CRAFT_SYSTEM_PROMPT = withAsianSlideDesignContext(`你是 W
 核心：每一章的視覺演示必須「看得懂是在講本章口播／文稿內容」，禁止裝飾性、與內容無關的圖表或假數據。
 
 產出 JSON 時必含 chapterKind（list-reveal | flow | hook | magazine）與 stepVisuals（每步 vizType + onScreen）。
-清單型口播：chapterKind=list-reveal，且 step 數 = 1 引子 + N 個清單項。流程型：chapterKind=flow。`);
+
+chapterKind 選擇規則（硬性）：
+- 3 步以上：必須 list-reveal 或 flow，禁止 magazine
+- 清單／條列／優勢／痛點／第一第二第三 → list-reveal；step 數 = 1 引子 + N 個清單項
+- 流程／步驟／接著／管線／Agent／架構 → flow；step 數 = 1 引子 + N 個節點
+- 僅開場冷啟 ≤2 步 → hook；結語 ≤2 步 → magazine
+
+引子步（step 0）畫面：主標拆成 2 段，用分段 MaskReveal（第二段 delay≈400ms），例如：
+  <MaskReveal show duration={800}><span>做教學影片最崩潰的，</span></MaskReveal>
+  <MaskReveal show delay={400} duration={800}><span className="tp-accent-text">不是剪片。</span></MaskReveal>`);
 
 /**
  * 章節 TSX / CSS 原始碼生成 prompt。
@@ -58,8 +67,10 @@ SVG 內嵌（畫面理解型）：
 
 ━━━ 現成元件（有圖片或適合時使用） ━━━
 - chapterKind=list-reveal → <ListRevealGrid step={step} items={...} introTitle introSub chapterTitle />
-- chapterKind=flow → <FlowDiagram step={step} nodes={...} intro chapterTitle />
+  intro 步已由 ListRevealGrid 內建分段 MaskReveal；勿覆寫成單段淡入
+- chapterKind=flow → <FlowDiagram step={step} nodes={...} intro introSub chapterTitle />
 - 有圖片 → <ChapterFigure> / <MaskReveal show={step===N}>
+- 金句／對比／數字強調步：優先用 MaskReveal 分段揭示 + accent class，勿只用 opacity 淡入
 - 其他 → 純 CSS+SVG 手寫，不強制使用上述元件
 
 ━━━ 反 AI 味硬禁 ━━━
