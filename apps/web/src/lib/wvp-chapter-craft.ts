@@ -34,7 +34,10 @@ import {
   syncFullWvpProject,
 } from "@/lib/wvp-presentation-sync";
 import { wvpEmbedBasePath } from "@/lib/wvp-workdir";
-import { loadProjectComposition } from "@/lib/project-composition";
+import {
+  loadCompositionForWvpBuild,
+  loadProjectComposition,
+} from "@/lib/project-composition";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
 import {
@@ -47,7 +50,6 @@ import {
   generateStepVisualConfigsForChapter,
   type StepVisualDecision,
 } from "@/lib/wvp-step-visual-config";
-import { shouldTrialFastPath } from "@/lib/wvp-craft-async";
 import { parseCssCustomProperties, themesDir } from "@courseflow/wvp-bridge";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -403,9 +405,7 @@ export async function materializeAllChapters(
   projectId: string,
   themeId: string,
 ): Promise<boolean> {
-  const composition = await loadProjectComposition(supabase, projectId, {
-    forceFresh: true,
-  });
+  const composition = await loadCompositionForWvpBuild(supabase, projectId);
   if (!composition) return false;
   const { data: allCrafts } = await supabase
     .from("chapter_craft")
@@ -534,7 +534,7 @@ export function pickAnchorTrialTemplate(
     : "list-reveal";
 }
 
-/** 第 1 章試執行：匯入口播 → 套用模板 → AI 產生畫面 → 打包僅含第 1 章的預覽 */
+/** 第 1 章試執行：匯入口播 → 套用模板 → 打包僅含第 1 章的預覽（螢幕文字與文稿內容一致） */
 export async function runAnchorChapterTrial(
   supabase: SupabaseClient,
   projectId: string,
@@ -583,7 +583,7 @@ export async function runAnchorChapterTrial(
     };
   }
 
-  const composition = await loadProjectComposition(supabase, projectId, { forceFresh: true });
+  const composition = await loadCompositionForWvpBuild(supabase, projectId);
   if (!composition) {
     return {
       ok: false,
@@ -597,10 +597,9 @@ export async function runAnchorChapterTrial(
 
   const { data: project } = await supabase
     .from("projects")
-    .select("article, wvp_settings")
+    .select("wvp_settings")
     .eq("id", projectId)
     .single();
-  const article = (project?.article as { rawText?: string })?.rawText?.slice(0, 8000) ?? "";
   const wvpSettings = parseWvpSettings(project?.wvp_settings);
   const template = pickAnchorTrialTemplate(wvpSettings.assets, first.wvp_chapter_id);
 
@@ -653,48 +652,12 @@ export async function runAnchorChapterTrial(
     };
   }
 
-  const narrations = apply.narrations ?? sync.narrations;
-  let chapterSource: "llm" | "template" = "template";
-
-  if (shouldTrialFastPath()) {
-    await emitStage("chapter-craft-skipped-fast-path");
-    console.info("[wvp-trial] fast-path: skip generateChapterCraft after applyChapterTemplate", {
-      projectId,
-      userId,
-      template,
-    });
-  } else {
-    const gen = await generateChapterCraft(supabase, projectId, first, {
-      provider: opts.provider,
-      encryptedKey: opts.encryptedKey,
-      textModel: opts.textModel,
-      composition,
-      article,
-      themeId: opts.themeId,
-      narrations,
-      assets: wvpSettings.assets,
-      forceTemplate: template,
-      userId,
-    });
-    await emitStage("chapter-generated");
-
-    if (!gen.ok) {
-      console.warn("[wvp-trial] chapter-generate-failed", {
-        projectId,
-        userId,
-        error: gen.error,
-      });
-      return {
-        ok: false,
-        wvpChapterId: first.wvp_chapter_id,
-        templateKind: apply.templateKind ?? template,
-        previewUrl: "",
-        chapterSource: gen.chapterSource,
-        error: gen.error ?? "AI 產生第 1 章畫面失敗",
-      };
-    }
-    chapterSource = gen.chapterSource;
-  }
+  const chapterSource: "llm" | "template" = "template";
+  await emitStage("chapter-craft-skipped-trial-template");
+  console.info(
+    "[wvp-trial] skip generateChapterCraft: trial uses applyChapterTemplate for screen fidelity",
+    { projectId, userId, template },
+  );
 
   const { buildAnchorChapterPreview } = await import("@/lib/wvp-presentation-sync");
   const build = await buildAnchorChapterPreview(supabase, projectId, userId, {

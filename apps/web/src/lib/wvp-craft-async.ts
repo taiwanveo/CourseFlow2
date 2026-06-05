@@ -36,9 +36,9 @@ export function resolveJobStaleMs(): number {
 }
 
 /**
- * 試執行快速路徑：applyChapterTemplate 後跳過重複 Craft LLM（仍保留 LLM 寫碼嘗試）。
- * 僅在明確設 COURSEFLOW_TRIAL_FAST_PATH=1 時啟用（Render 逾時緊張時可開）。
+ * @deprecated 試執行已固定跳過 generateChapterCraft，改由 applyChapterTemplate 產出螢幕文字。
+ * 保留供舊環境變數相容；不再影響試執行流程。
  */
 export function shouldTrialFastPath(): boolean {
-  return process.env.COURSEFLOW_TRIAL_FAST_PATH === "1";
+  return true;
 }

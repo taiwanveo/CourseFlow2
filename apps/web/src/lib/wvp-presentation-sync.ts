@@ -26,7 +26,7 @@ import {
   screenContentsForChapter,
   toScreenHeadline,
 } from "@/lib/wvp-chapter-meta";
-import { loadProjectComposition } from "@/lib/project-composition";
+import { loadCompositionForWvpBuild } from "@/lib/project-composition";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { parseWvpSettings, type WvpAssetRef } from "@/lib/wvp-settings";
@@ -178,6 +178,7 @@ export async function materializeChapterFromCraft(
       .some((sc) => !llmTsx.includes(sc));
   const useCachedLlmSource =
     rawSource?.source === "llm" &&
+    !forceTemplate &&
     assets.length === 0 &&
     llmTsx &&
     !llmCacheScreenContentsStale &&
@@ -447,9 +448,7 @@ export async function buildAnchorChapterPreview(
   const first = (crafts ?? [])[0] as CraftRow | undefined;
   if (!first) throw new Error("請先建立章節清單");
 
-  const composition = await loadProjectComposition(supabase, projectId, {
-    forceFresh: true,
-  });
+  const composition = await loadCompositionForWvpBuild(supabase, projectId);
   if (!composition) throw new Error("無法載入專案內容");
   const themeId =
     opts?.themeId ??
@@ -554,9 +553,7 @@ export async function syncFullWvpProject(
 
   const wvpSettings = parseWvpSettings(project.wvp_settings);
 
-  const composition = await loadProjectComposition(supabase, projectId, {
-    forceFresh: true,
-  });
+  const composition = await loadCompositionForWvpBuild(supabase, projectId);
   if (!composition) throw new Error("無法載入專案內容");
   const themeId =
     opts?.themeId ??

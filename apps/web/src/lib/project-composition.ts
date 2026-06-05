@@ -86,6 +86,46 @@ export async function loadProjectComposition(
   return ensureChapterDividerSteps(composition);
 }
 
+/**
+ * WVP 打包／試執行：步驟結構以 DB 為準，文稿螢幕欄位以 composition_snapshot 為準。
+ * 使用者在「文稿內容」的修改寫入 snapshot；若 steps 表 screen_summary 未同步，
+ * 僅 forceFresh 會讀到空白螢幕欄位而退回口播稿文字。
+ */
+export async function loadCompositionForWvpBuild(
+  supabase: Supabase,
+  projectId: string,
+): Promise<CourseComposition | null> {
+  const fresh = await loadProjectComposition(supabase, projectId, { forceFresh: true });
+  if (!fresh) return null;
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("composition_snapshot")
+    .eq("id", projectId)
+    .single();
+  const snap = project?.composition_snapshot as CourseComposition | null;
+  if (!snap?.steps?.length) return fresh;
+
+  const snapStepById = new Map(snap.steps.map((s) => [s.id, s]));
+  for (const step of fresh.steps) {
+    const snapStep = snapStepById.get(step.id);
+    if (!snapStep) continue;
+    const screen = snapStep.screenContent?.trim();
+    if (screen) step.screenContent = snapStep.screenContent;
+    const script = snapStep.script?.trim();
+    if (script) step.script = snapStep.script;
+    if (snapStep.infoPool?.length) step.infoPool = snapStep.infoPool;
+    if (snapStep.stepKind) step.stepKind = snapStep.stepKind;
+  }
+
+  for (const ch of fresh.chapters) {
+    const snapCh = snap.chapters.find((c) => c.id === ch.id);
+    if (snapCh?.title?.trim()) ch.title = snapCh.title;
+  }
+
+  return ensureChapterDividerSteps(fresh);
+}
+
 export async function saveComposition(
   supabase: Supabase,
   projectId: string,
