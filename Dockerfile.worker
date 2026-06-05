@@ -59,6 +59,6 @@ COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 # WVP MP4：Playwright Chromium（與 ffmpeg 搭配）
-RUN npx playwright install chromium
+RUN npx --yes playwright@1.52.0 install chromium
 
 CMD ["node", "apps/worker/dist/index.js"]
