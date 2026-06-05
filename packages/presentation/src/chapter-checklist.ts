@@ -47,14 +47,9 @@ export function runChapterCraftChecklist(opts: {
   items.push({
     id: "narrations-length",
     label: "narrations 與 step 區塊一致",
-    passed: narrations.every(
-      (_, i) =>
-        tsx.includes(`step === ${i}`) ||
-        tsx.includes("ListRevealGrid") ||
-        tsx.includes("FlowDiagram") ||
-        tsx.includes("HookImageStrip") ||
-        tsx.includes("VisualBlock"),
-    ),
+    passed:
+      /ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx) ||
+      narrations.every((_, i) => tsx.includes(`step === ${i}`)),
     evidence: `${narrations.length} narrations`,
   });
 

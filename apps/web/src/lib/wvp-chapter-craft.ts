@@ -12,7 +12,8 @@ import {
   generateChapterSources,
   normalizeChapterTsx,
   runChapterCraftChecklist,
-  validateChapterTsx,
+  validateChapterTsxIssues,
+  formatChapterTsxValidationFeedback,
   checkStepsHaveVisuals,
 } from "@courseflow/presentation";
 import type { WvpChapterKind } from "@courseflow/core";
@@ -46,6 +47,7 @@ import {
   generateStepVisualConfigsForChapter,
   type StepVisualDecision,
 } from "@/lib/wvp-step-visual-config";
+import { shouldTrialFastPath } from "@/lib/wvp-craft-async";
 import { parseCssCustomProperties, themesDir } from "@courseflow/wvp-bridge";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -212,13 +214,11 @@ export async function generateChapterCraft(
 
     if (opts.narrations.length > 0) {
       const componentName = `Chapter${chapterComponentName(wvpChapterId)}`;
-      try {
-        const sourcePayload = await generateChapterPlan({
-          provider: opts.provider,
-          apiKey,
-          model: opts.textModel ?? undefined,
-          system: CHAPTER_SOURCE_SYSTEM_PROMPT,
-          user: buildChapterSourceUserPrompt({
+      const maxLlmAttempts = 2;
+      let validationFeedback = "";
+      for (let attempt = 0; attempt < maxLlmAttempts; attempt++) {
+        try {
+          const sourceUser = buildChapterSourceUserPrompt({
             wvpChapterId,
             componentName,
             themeId: opts.themeId,
@@ -228,27 +228,36 @@ export async function generateChapterCraft(
             aiPlan: plan,
             screenContents,
             themeTokens,
-          }),
-        });
-        const rawTsx = String(sourcePayload.chapterTsx ?? "").trim();
-        const chapterTsx = normalizeChapterTsx(rawTsx, componentName);
-        const chapterCss =
-          String(sourcePayload.chapterCss ?? "").trim() || "/* CourseFlow LLM */\n";
-        if (
-          chapterAssets.length === 0 &&
-          validateChapterTsx(
+          });
+          const sourcePayload = await generateChapterPlan({
+            provider: opts.provider,
+            apiKey,
+            model: opts.textModel ?? undefined,
+            system: CHAPTER_SOURCE_SYSTEM_PROMPT,
+            user: validationFeedback
+              ? `${sourceUser}\n\n【上次輸出未通過驗證，請修正】\n${validationFeedback}`
+              : sourceUser,
+          });
+          const rawTsx = String(sourcePayload.chapterTsx ?? "").trim();
+          const chapterTsx = normalizeChapterTsx(rawTsx, componentName);
+          const chapterCss =
+            String(sourcePayload.chapterCss ?? "").trim() || "/* CourseFlow LLM */\n";
+          const issues = validateChapterTsxIssues(
             chapterTsx,
             opts.narrations.length,
             componentName,
             chapterCss,
             opts.narrations,
             tsxSyntaxChecker,
-          )
-        ) {
-          chapterSource = { chapterTsx, chapterCss, source: "llm" };
+          );
+          if (issues.length === 0) {
+            chapterSource = { chapterTsx, chapterCss, source: "llm" };
+            break;
+          }
+          validationFeedback = formatChapterTsxValidationFeedback(issues);
+        } catch {
+          /* 下一輪重試或 fallback template */
         }
-      } catch {
-        /* fallback template */
       }
 
       if (chapterSource.source !== "llm") {
@@ -643,39 +652,52 @@ export async function runAnchorChapterTrial(
   }
 
   const narrations = apply.narrations ?? sync.narrations;
-  const gen = await generateChapterCraft(supabase, projectId, first, {
-    provider: opts.provider,
-    encryptedKey: opts.encryptedKey,
-    textModel: opts.textModel,
-    composition,
-    article,
-    themeId: opts.themeId,
-    narrations,
-    assets: wvpSettings.assets,
-    forceTemplate: template,
-    userId,
-  });
-  await emitStage("chapter-generated");
+  let chapterSource: "llm" | "template" = "template";
 
-  if (!gen.ok) {
-    console.warn("[wvp-trial] chapter-generate-failed", {
+  if (shouldTrialFastPath()) {
+    await emitStage("chapter-craft-skipped-fast-path");
+    console.info("[wvp-trial] fast-path: skip generateChapterCraft after applyChapterTemplate", {
       projectId,
       userId,
-      error: gen.error,
+      template,
     });
-    return {
-      ok: false,
-      wvpChapterId: first.wvp_chapter_id,
-      templateKind: apply.templateKind ?? template,
-      previewUrl: "",
-      chapterSource: gen.chapterSource,
-      error: gen.error ?? "AI 產生第 1 章畫面失敗",
-    };
+  } else {
+    const gen = await generateChapterCraft(supabase, projectId, first, {
+      provider: opts.provider,
+      encryptedKey: opts.encryptedKey,
+      textModel: opts.textModel,
+      composition,
+      article,
+      themeId: opts.themeId,
+      narrations,
+      assets: wvpSettings.assets,
+      forceTemplate: template,
+      userId,
+    });
+    await emitStage("chapter-generated");
+
+    if (!gen.ok) {
+      console.warn("[wvp-trial] chapter-generate-failed", {
+        projectId,
+        userId,
+        error: gen.error,
+      });
+      return {
+        ok: false,
+        wvpChapterId: first.wvp_chapter_id,
+        templateKind: apply.templateKind ?? template,
+        previewUrl: "",
+        chapterSource: gen.chapterSource,
+        error: gen.error ?? "AI 產生第 1 章畫面失敗",
+      };
+    }
+    chapterSource = gen.chapterSource;
   }
 
   const { buildAnchorChapterPreview } = await import("@/lib/wvp-presentation-sync");
   const build = await buildAnchorChapterPreview(supabase, projectId, userId, {
     themeId: opts.themeId,
+    onStage: emitStage,
   });
   await emitStage("preview-built");
 
@@ -684,7 +706,7 @@ export async function runAnchorChapterTrial(
     ok: true,
     wvpChapterId: build.wvpChapterId,
     templateKind: apply.templateKind ?? template,
-    chapterSource: gen.chapterSource,
+    chapterSource,
     previewUrl,
     illustrationSyncWarning: build.illustrationSyncWarning,
   };

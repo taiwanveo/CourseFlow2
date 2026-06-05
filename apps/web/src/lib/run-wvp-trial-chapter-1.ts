@@ -1,6 +1,7 @@
 import type { LlmProviderId } from "@courseflow/llm";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { resolveEffectiveTextModel, resolveLlmProvider } from "@/lib/llm-provider";
+import { resolveTrialJobTimeoutMs } from "@/lib/wvp-craft-async";
 import { runAnchorChapterTrial } from "@/lib/wvp-chapter-craft";
 
 export type WvpTrialChapter1JobResult = {
@@ -12,17 +13,7 @@ export type WvpTrialChapter1JobResult = {
   illustrationSyncWarning?: string;
 };
 
-const DEFAULT_TRIAL_JOB_TIMEOUT_MS = 12 * 60 * 1000;
 const HEARTBEAT_INTERVAL_MS = 15_000;
-
-function resolveTrialJobTimeoutMs(): number {
-  const raw = process.env.COURSEFLOW_TRIAL_JOB_TIMEOUT_MS;
-  const parsed = raw ? Number(raw) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_TRIAL_JOB_TIMEOUT_MS;
-  }
-  return Math.floor(parsed);
-}
 
 function withTimeout<T>(work: Promise<T>, timeoutMs: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {

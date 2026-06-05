@@ -38,6 +38,15 @@ projects:
               # WVP 課程打包：避免 Render ~30s 閘道逾時導致 HTTP 502
               - key: COURSEFLOW_ASYNC_WVP_BUILD
                 value: "1"
+              # 試執行第 1 章：背景 job + 快速路徑（略過重複 LLM Craft）
+              - key: COURSEFLOW_ASYNC_WVP_CRAFT
+                value: "1"
+              - key: COURSEFLOW_TRIAL_FAST_PATH
+                value: "0"
+              - key: COURSEFLOW_TRIAL_JOB_TIMEOUT_MS
+                value: "900000"
+              - key: COURSEFLOW_JOB_STALE_MS
+                value: "960000"
               # Vite build 記憶體上限（512MB 容器建議 384）
               - key: COURSEFLOW_VITE_HEAP_MB
                 value: "384"

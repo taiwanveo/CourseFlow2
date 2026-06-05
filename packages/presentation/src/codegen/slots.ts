@@ -94,11 +94,18 @@ export function parseListRevealSlots(
   );
   const intro = introParts[0] ?? "本章重點";
   const introSub = introParts[1] ?? "";
-  const items = narrations.slice(1).map((n, i) => ({
-    num: String(i + 1).padStart(2, "0"),
-    title: screenLabelForItem(screenContents[i + 1] || n, `重點 ${i + 1}`),
-    body: "",
-  }));
+  const items = narrations.slice(1).map((n, i) => {
+    const screen = screenContents[i + 1] || n;
+    const parts = splitHeadlineForStaggeredReveal(
+      screenHeadlineForSlot(screen, `重點 ${i + 1}`, 40),
+      2,
+    );
+    return {
+      num: String(i + 1).padStart(2, "0"),
+      title: screenLabelForItem(screen, `重點 ${i + 1}`),
+      body: parts[1] ?? "",
+    };
+  });
   return { intro, introSub, items };
 }
 
@@ -124,10 +131,17 @@ export function parseFlowSlots(
   );
   const intro = introParts[0] ?? "流程總覽";
   const introSub = introParts[1] ?? "";
-  const nodes = narrations.slice(1).map((n, i) => ({
-    id: `n${i}`,
-    label: screenHeadlineForSlot(screenContents[i + 1], `節點 ${i + 1}`, 40),
-    detail: "",
-  }));
+  const nodes = narrations.slice(1).map((n, i) => {
+    const screen = screenContents[i + 1] || n;
+    const parts = splitHeadlineForStaggeredReveal(
+      screenHeadlineForSlot(screen, `節點 ${i + 1}`, 40),
+      2,
+    );
+    return {
+      id: `n${i}`,
+      label: parts[0] ?? screenHeadlineForSlot(screen, `節點 ${i + 1}`, 40),
+      detail: parts[1] ?? "",
+    };
+  });
   return { intro, introSub, nodes };
 }

@@ -39,7 +39,9 @@ export const CHAPTER_SOURCE_SYSTEM_PROMPT = withAsianSlideDesignContext(`你是 
 - import type { ChapterStepProps } from "../../registry/types";
 - import "./<ComponentName>.css";
 - 禁止 setTimeout/useEffect 驅動動畫
-- 每個 if (step === N) 分支必須包含非純文字的視覺演示元素
+- 優先輸出「每步 if (step === N)」手寫場景（含 SVG / @keyframes / MaskReveal），以內容演出口播；這是首選模式
+- 每個 if (step === N) 分支必須包含非純文字的視覺演示元素（禁止只有 <p> 文字）
+- 僅在明確適合清單／流程時才用 ListRevealGrid / FlowDiagram（step prop 驅動，不需 if(step===N)）
 
 ━━━ 內容感知動畫（最重要） ━━━
 每一步的視覺演示必須「演出」當步口播在說的事，不是通用裝飾。
@@ -70,8 +72,13 @@ SVG 內嵌（畫面理解型）：
   intro 步已由 ListRevealGrid 內建分段 MaskReveal；勿覆寫成單段淡入
 - chapterKind=flow → <FlowDiagram step={step} nodes={...} intro introSub chapterTitle />
 - 有圖片 → <ChapterFigure> / <MaskReveal show={step===N}>
-- 金句／對比／數字強調步：優先用 MaskReveal 分段揭示 + accent class，勿只用 opacity 淡入
-- 其他 → 純 CSS+SVG 手寫，不強制使用上述元件
+- 金句／對比／數字強調步：主標拆 2 段，雙 MaskReveal（第二段 delay≈400ms）+ accent class
+- 其他 → 純 CSS+SVG 手寫 if(step===N) 場景（優先於套用現成元件）
+
+━━━ LLM 輸出驗證（未通過會重試）━━━
+- 必須涵蓋 step 0 到 step N-1（手寫 if(step===N) 或 ListRevealGrid/FlowDiagram）
+- 禁止把口播全文貼進 JSX；畫面只用 user prompt 的 screenContents 短語
+- MaskReveal 只用 show prop，禁止 title= prop
 
 ━━━ 反 AI 味硬禁 ━━━
 - 禁止：StepContentViz、假長條圖（純裝飾無真實數據）、無關關鍵詞雲

@@ -8,22 +8,11 @@ import { runAnchorChapterTrial } from "@/lib/wvp-chapter-craft";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { parseWvpSettings } from "@/lib/wvp-settings";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { shouldAsyncWvpCraftJobs } from "@/lib/wvp-craft-async";
+import { resolveJobStaleMs, shouldAsyncWvpCraftJobs } from "@/lib/wvp-craft-async";
 import { runWvpTrialChapter1 } from "@/lib/run-wvp-trial-chapter-1";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-const DEFAULT_STALE_JOB_MS = 10 * 60 * 1000;
-
-function resolveStaleJobMs(): number {
-  const raw = process.env.COURSEFLOW_JOB_STALE_MS;
-  const parsed = raw ? Number(raw) : Number.NaN;
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    return DEFAULT_STALE_JOB_MS;
-  }
-  return Math.floor(parsed);
-}
 
 function isStaleJob(updatedAt: string | null, createdAt: string | null, staleMs: number): boolean {
   const touchedAt = updatedAt ?? createdAt;
@@ -88,7 +77,7 @@ export async function POST(
       .limit(1)
       .maybeSingle();
 
-    const staleMs = resolveStaleJobMs();
+    const staleMs = resolveJobStaleMs();
     const existingIsStale = existingJob
       ? isStaleJob(existingJob.updated_at, existingJob.created_at, staleMs)
       : false;
@@ -160,7 +149,7 @@ export async function POST(
         ok: true,
         queued: true,
         jobRunId: jobRun.id,
-        message: "第 1 章試執行已開始，請稍候…",
+        message: "第 1 章試執行已開始（雲端約 3–8 分鐘），請稍候…",
       },
       { status: 202 },
     );

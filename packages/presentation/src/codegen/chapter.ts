@@ -6,6 +6,7 @@ import { assetsForChapter } from "./hook-slots.js";
 import { generateFlowSources } from "./templates/flow.js";
 import { generateHookSources } from "./templates/hook.js";
 import { generateListRevealSources } from "./templates/list-reveal.js";
+import { generateBeatSceneSources } from "./templates/beat-scene.js";
 import { generateMagazineSources } from "./templates/magazine.js";
 import { generateVisualMixSources } from "./templates/visual-mix.js";
 import type { ChapterCodegenInput } from "./chapter-types.js";
@@ -34,7 +35,7 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   const visualConfigCount = input.stepVisualConfigs?.length ?? 0;
   const animationConfigCount =
     input.stepVisualConfigs?.filter((e) => e.config.kind === "animation").length ?? 0;
-  const minStepsForVisualMix = Math.min(2, input.narrations.length);
+  const minStepsForVisualMix = Math.min(1, input.narrations.length);
   /** 有工作室配圖或強制模板時，不得用 visual-mix（否則畫面完全沒有 step 配圖） */
   const useVisualMix =
     !input.forceTemplate &&
@@ -42,7 +43,7 @@ export function generateChapterSources(input: ChapterCodegenInput) {
     !hasUploadedAssets &&
     visualConfigCount >= minStepsForVisualMix &&
     (animationConfigCount >= 1 ||
-      visualConfigCount >= Math.ceil(input.narrations.length * 0.3));
+      visualConfigCount >= Math.max(1, Math.ceil(input.narrations.length * 0.2)));
   if (useVisualMix) {
     return {
       ...generateVisualMixSources(input, input.stepVisualConfigs!),
@@ -57,6 +58,9 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   }
   if (kind === "hook") {
     return { ...generateHookSources(input), templateKind: kind };
+  }
+  if (input.narrations.length >= 2) {
+    return { ...generateBeatSceneSources(input), templateKind: "beat-scene" as const };
   }
   return { ...generateMagazineSources(input), templateKind: "magazine" as const };
 }

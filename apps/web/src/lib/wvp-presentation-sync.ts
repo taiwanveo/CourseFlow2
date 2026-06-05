@@ -408,7 +408,7 @@ export async function buildAnchorChapterPreview(
   supabase: SupabaseClient,
   projectId: string,
   userId: string,
-  opts?: { themeId?: string },
+  opts?: { themeId?: string; onStage?: (stage: string) => Promise<void> | void },
 ): Promise<{
   built: boolean;
   wvpChapterId: string;
@@ -483,7 +483,12 @@ export async function buildAnchorChapterPreview(
   }
 
   const base = `/projects/${projectId}/wvp-embed/`;
-  await buildProjectPresentation(projectId, base);
+  await opts?.onStage?.("vite-build-start");
+  try {
+    await buildProjectPresentation(projectId, base);
+  } finally {
+    await opts?.onStage?.("vite-build-done");
+  }
   logWvpBuildQuality(composition, themeId);
 
   const nextSettings = {

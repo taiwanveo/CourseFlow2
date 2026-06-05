@@ -662,7 +662,7 @@ export function CraftPhaseClient({
         toast(
           typeof data.message === "string" && data.message
             ? data.message
-            : "第 1 章試執行已開始，請稍候…",
+            : "第 1 章試執行已開始（雲端約 3–8 分鐘，含 Vite 打包），請保持此頁開啟…",
           "info",
         );
         finalData = await pollJobRun(data.jobRunId);

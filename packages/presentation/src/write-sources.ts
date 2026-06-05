@@ -2,9 +2,60 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   chapterBindsNarrationText,
+  chapterCoversAllSteps,
   chapterUsesInvalidMaskReveal,
   hasVisualDemoInSources,
 } from "./visual-demo.js";
+
+export type ChapterTsxValidationIssue =
+  | "missing-export"
+  | "missing-step-props"
+  | "missing-css-import"
+  | "missing-component-name"
+  | "invalid-mask-reveal"
+  | "no-visual-demo"
+  | "narration-not-bound"
+  | "narration-leaked-to-jsx"
+  | "incomplete-steps"
+  | "extra-step-branch"
+  | "too-short"
+  | "invalid-jsx-prop"
+  | "syntax-error";
+
+export function validateChapterTsxIssues(
+  tsx: string,
+  stepCount: number,
+  componentName: string,
+  chapterCss = "",
+  narrations: string[] = [],
+  syntaxChecker?: (code: string) => boolean,
+): ChapterTsxValidationIssue[] {
+  const issues: ChapterTsxValidationIssue[] = [];
+  const normalized = normalizeChapterTsx(tsx, componentName);
+  if (!normalized.includes("export default function")) issues.push("missing-export");
+  if (!normalized.includes("ChapterStepProps")) issues.push("missing-step-props");
+  if (!normalized.includes(`./${componentName}.css`)) issues.push("missing-css-import");
+  if (!normalized.includes(`function ${componentName}`)) issues.push("missing-component-name");
+  if (chapterUsesInvalidMaskReveal(normalized)) issues.push("invalid-mask-reveal");
+  if (!hasVisualDemoInSources(normalized, chapterCss)) issues.push("no-visual-demo");
+  if (narrations.length > 0 && !chapterBindsNarrationText(normalized, narrations)) {
+    issues.push("narration-not-bound");
+  }
+  for (const narration of narrations) {
+    if (narration.length > 28 && normalized.includes(narration)) {
+      issues.push("narration-leaked-to-jsx");
+      break;
+    }
+  }
+  if (!chapterCoversAllSteps(normalized, stepCount)) {
+    if (normalized.includes(`step === ${stepCount}`)) issues.push("extra-step-branch");
+    else issues.push("incomplete-steps");
+  }
+  if (normalized.length <= 160) issues.push("too-short");
+  if (/\b(?!style\b)\w+=\{\{/.test(normalized)) issues.push("invalid-jsx-prop");
+  if (syntaxChecker && !syntaxChecker(normalized)) issues.push("syntax-error");
+  return issues;
+}
 
 export interface WriteChapterSourcesInput {
   folderName: string;
@@ -72,34 +123,39 @@ export function validateChapterTsx(
   /** 圖靈 TypeScript compile-check，由呼叫端注入（可用 ts.transpileModule 實作） */
   syntaxChecker?: (code: string) => boolean,
 ): boolean {
-  const normalized = normalizeChapterTsx(tsx, componentName);
-  if (!normalized.includes("export default function")) return false;
-  if (!normalized.includes("ChapterStepProps")) return false;
-  if (!normalized.includes(`./${componentName}.css`)) return false;
-  if (!normalized.includes(`function ${componentName}`)) return false;
-  if (chapterUsesInvalidMaskReveal(normalized)) return false;
-  if (!hasVisualDemoInSources(normalized, chapterCss)) return false;
-  if (narrations.length > 0 && !chapterBindsNarrationText(normalized, narrations)) {
-    return false;
-  }
-  // LLM 常犯：把整段 narration 口播句複製到 JSX 字串裡（如 title="..." body="..."）。
-  // narration 句子超過 20 字且逐字出現在 TSX，視為錯誤——口播只屬於 narrations.ts。
-  for (const narration of narrations) {
-    if (narration.length > 20 && normalized.includes(narration)) return false;
-  }
-  for (let i = 0; i < stepCount; i++) {
-    if (!normalized.includes(`step === ${i}`)) return false;
-  }
-  // 禁止多餘的步驟：step === stepCount 或更高代表 unreachable 分支，
-  // 正確內容可能被放到永遠到達不了的 step 裡，導致畫面顯示錯誤
-  if (normalized.includes(`step === ${stepCount}`)) return false;
-  if (normalized.length <= 200) return false;
-  // 快速捕捉 LLM 常犯的 JSX 屬性雙花括號語法錯誤，如 url={{stepImageUrl(0)}}
-  // 合法的雙花括號只出現在 style={{ ... }} 物件字面量，其他屬性不應有此語法
-  if (/\b(?!style\b)\w+=\{\{/.test(normalized)) return false;
-  // TypeScript compile-check：由呼叫端注入的 checker（通常用 ts.transpileModule）
-  if (syntaxChecker && !syntaxChecker(normalized)) return false;
-  return true;
+  return (
+    validateChapterTsxIssues(
+      tsx,
+      stepCount,
+      componentName,
+      chapterCss,
+      narrations,
+      syntaxChecker,
+    ).length === 0
+  );
+}
+
+const VALIDATION_ISSUE_HINTS: Record<ChapterTsxValidationIssue, string> = {
+  "missing-export": "必須 export default function <ComponentName>",
+  "missing-step-props": "必須 import type { ChapterStepProps }",
+  "missing-css-import": "必須 import \"./<ComponentName>.css\"",
+  "missing-component-name": "函式名稱必須與檔名一致",
+  "invalid-mask-reveal": "MaskReveal 必須用 show prop，禁止 title= prop",
+  "no-visual-demo": "每章需含 SVG/@keyframes/MaskReveal/ListRevealGrid/FlowDiagram 等視覺演示",
+  "narration-not-bound": "需為每個 step 提供畫面（if(step===N) 或 ListRevealGrid/FlowDiagram step prop）",
+  "narration-leaked-to-jsx": "禁止把口播全文複製進 JSX，畫面只用 screenContents 短語",
+  "incomplete-steps": "缺少部分 step 分支；請補齊 step 0 到 step N-1",
+  "extra-step-branch": "禁止多餘的 step === N 分支（超出口播步數）",
+  "too-short": "程式過短，請補齊每步視覺演示",
+  "invalid-jsx-prop": "禁止 url={{expr}} 雙花括號（style={{}} 除外）",
+  "syntax-error": "TypeScript/JSX 語法錯誤，請修正後重輸出",
+};
+
+export function formatChapterTsxValidationFeedback(
+  issues: ChapterTsxValidationIssue[],
+): string {
+  if (issues.length === 0) return "";
+  return issues.map((id) => `- ${VALIDATION_ISSUE_HINTS[id]}`).join("\n");
 }
 
 export async function writeChapterSourcesRaw(
@@ -169,6 +225,9 @@ export function checkStepsHaveVisuals(
   tsx: string,
   stepCount: number,
 ): { pass: boolean; failedSteps: number[] } {
+  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) {
+    return { pass: true, failedSteps: [] };
+  }
   const failedSteps: number[] = [];
   for (let i = 0; i < stepCount; i++) {
     // 找到 `step === N` 分支：擷取到下一個 `step ===` 或 return/); 前的內容

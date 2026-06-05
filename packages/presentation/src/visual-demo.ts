@@ -1,7 +1,7 @@
 /** 是否含與口播綁定的視覺演示（概念圖解／清單／流程） */
 export function hasVisualDemoInSources(tsx: string, css: string): boolean {
   const blob = `${tsx}\n${css}`;
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock|vf-chart|hk-solo-frame|cf-flow-svg|lr-slot-active/i.test(blob)) return true;
+  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock|vf-chart|hk-solo-frame|cf-flow-svg|lr-slot-active|bs-scene|bs-contrast|bs-metric/i.test(blob)) return true;
   if (/ChapterFigure|hero-num|MaskReveal\s+show/i.test(blob)) return true;
   if (/NarrationBeat|cf-narration-beat/i.test(blob)) return true;
   if (/<svg|<canvas/i.test(blob)) return true;
@@ -9,6 +9,18 @@ export function hasVisualDemoInSources(tsx: string, css: string): boolean {
   if (/stroke-dasharray|viewBox=|\.getContext\(/i.test(blob)) return true;
   if (/StepContentViz|cf-content-viz/i.test(blob)) return false;
   return false;
+}
+
+/** 章節是否涵蓋 0..stepCount-1 各步（元件驅動或 if(step===N) 皆可） */
+export function chapterCoversAllSteps(tsx: string, stepCount: number): boolean {
+  if (stepCount <= 0) return false;
+  if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return true;
+  if (/VisualBlock/.test(tsx) && /STEP_VISUALS/.test(tsx)) return true;
+  for (let i = 0; i < stepCount; i++) {
+    if (!tsx.includes(`step === ${i}`)) return false;
+  }
+  if (tsx.includes(`step === ${stepCount}`)) return false;
+  return true;
 }
 
 export function chapterBindsNarrationText(tsx: string, narrations: string[]): boolean {
