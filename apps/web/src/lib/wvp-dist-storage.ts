@@ -16,7 +16,7 @@ import {
   uploadDistDirectory,
   wvpDistStoragePrefix,
 } from "@courseflow/presentation";
-import { access, mkdir, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { hasBuiltPresentation, presentationDistDir } from "@/lib/wvp-workdir";
 
@@ -117,16 +117,49 @@ export async function hasWvpDistInStorage(
  * 即使先前 build 過，換了一個新容器之後本地檔案仍可能消失。
  * 這時若 Storage 有快取，就先還原到本地，再讓後續流程以「本機已有 dist」的方式繼續執行。
  */
+function distRevisionMarkerPath(projectId: string): string {
+  return join(presentationDistDir(projectId), ".cf-presentation-revision");
+}
+
 export async function ensureWvpDistLocal(
   supabase: SupabaseClient,
   userId: string,
   projectId: string,
 ): Promise<boolean> {
-  if (await hasBuiltPresentation(projectId)) return true;
-  if (!(await hasWvpDistInStorage(supabase, userId, projectId))) return false;
+  const { data: project } = await supabase
+    .from("projects")
+    .select("presentation_revision")
+    .eq("id", projectId)
+    .maybeSingle();
+  const revision =
+    typeof project?.presentation_revision === "string"
+      ? project.presentation_revision
+      : null;
+
   const dest = presentationDistDir(projectId);
+  const markerPath = distRevisionMarkerPath(projectId);
+  let cachedRevision: string | null = null;
+  try {
+    cachedRevision = (await readFile(markerPath, "utf8")).trim() || null;
+  } catch {
+    cachedRevision = null;
+  }
+
+  const localMatchesRevision =
+    revision !== null &&
+    cachedRevision === revision &&
+    (await hasBuiltPresentation(projectId));
+  if (localMatchesRevision) return true;
+
+  if (!(await hasWvpDistInStorage(supabase, userId, projectId))) {
+    return hasBuiltPresentation(projectId);
+  }
+
   await mkdir(dest, { recursive: true });
   await downloadWvpDistFromStorage(supabase, userId, projectId, dest);
+  if (revision) {
+    await writeFile(markerPath, revision, "utf8");
+  }
   try {
     await access(join(dest, "index.html"));
     return true;

@@ -507,6 +507,7 @@ export async function buildAnchorChapterPreview(
   }
   logWvpBuildQuality(composition, themeId);
 
+  const presentationRevision = `anchor-trial-${Date.now()}`;
   const nextSettings = {
     ...wvpSettings,
     themeId,
@@ -516,9 +517,24 @@ export async function buildAnchorChapterPreview(
     .from("projects")
     .update({
       wvp_settings: nextSettings,
-      presentation_revision: `anchor-trial-${Date.now()}`,
+      presentation_revision: presentationRevision,
     })
     .eq("id", projectId);
+
+  if (requiresDistInStorage()) {
+    await opts?.onStage?.("dist-upload-start");
+    try {
+      await uploadWvpDistToStorage(supabase, userId, projectId);
+    } catch (e) {
+      const msg = (e as Error).message;
+      console.warn("[wvp-trial] dist 上傳 Storage 失敗:", msg);
+      throw new Error(
+        `試執行建置完成但無法上傳預覽（${msg}）。請稍後重試或檢查 Storage 設定。`,
+      );
+    } finally {
+      await opts?.onStage?.("dist-upload-done");
+    }
+  }
 
   return {
     built: true,
