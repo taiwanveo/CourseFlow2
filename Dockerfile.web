@@ -7,6 +7,8 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
+# 雲端建置常注入 NODE_ENV=production，會略過 devDependencies（含 turbo）
+ENV NODE_ENV=development
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/web/package.json apps/web/
 COPY apps/worker/package.json apps/worker/
@@ -25,6 +27,7 @@ COPY packages/wvp-bridge/package.json packages/wvp-bridge/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
+ENV NODE_ENV=development
 # Next.js 會把 NEXT_PUBLIC_* 編進瀏覽器 bundle，建置階段必須有值（Render 會把服務 env 當 build-arg 傳入）
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY

@@ -24,6 +24,8 @@ RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
+# 雲端建置常注入 NODE_ENV=production，會略過 devDependencies（含 turbo）
+ENV NODE_ENV=development
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/worker/package.json apps/worker/
 COPY packages/composition/package.json packages/composition/
@@ -38,6 +40,7 @@ COPY packages/presentation/package.json packages/presentation/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
+ENV NODE_ENV=development
 COPY . .
 RUN pnpm turbo build --filter=@courseflow/worker...
 
