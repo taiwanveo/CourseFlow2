@@ -1,14 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import {
+  isStorageAllowedAudioMime,
+  normalizeAudioMimeType,
+} from "@/lib/audio-upload";
 import { createClient } from "@/lib/supabase/server";
 
 const ALLOWED_KINDS = new Set(["image", "background", "bgm", "audio"]);
-
-function normalizeContentType(input: string): string {
-  // e.g. "audio/webm;codecs=opus" -> "audio/webm"
-  return input.split(";")[0]?.trim() || "";
-}
 
 export async function POST(
   req: NextRequest,
@@ -42,7 +41,17 @@ export async function POST(
   const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
   const storagePath = `${user.id}/${projectId}/${kind}/${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
-  const contentType = normalizeContentType(file.type) || "application/octet-stream";
+  const contentType = normalizeAudioMimeType(file.type) || "application/octet-stream";
+
+  if (kind === "audio" && !isStorageAllowedAudioMime(contentType)) {
+    return NextResponse.json(
+      {
+        error:
+          "此音訊格式無法上傳至儲存空間。請重新錄音存檔，或改上傳 mp3／wav 音檔。",
+      },
+      { status: 400 },
+    );
+  }
 
   const { error: uploadError } = await supabase.storage
     .from("courseflow-assets")

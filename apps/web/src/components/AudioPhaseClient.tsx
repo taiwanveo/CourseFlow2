@@ -15,6 +15,7 @@ import {
   TTS_PROVIDER_LABELS,
   upsertStepTtsConfig,
 } from "@/lib/step-tts";
+import { ensureStorageCompatibleAudioFile } from "@/lib/audio-upload";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 
 const TTS_PROVIDER_ORDER = ["openai", "gemini", "openrouter", "edge-tts"] as const;
@@ -95,20 +96,6 @@ async function getAudioDurationMs(blob: Blob): Promise<number> {
   } catch {
     return 0;
   }
-}
-
-function guessAudioFileExtension(mime: string): string {
-  const lower = mime.toLowerCase();
-  if (lower.includes("webm")) return "webm";
-  if (lower.includes("ogg")) return "ogg";
-  if (lower.includes("mp4")) return "m4a";
-  if (lower.includes("mpeg")) return "mp3";
-  if (lower.includes("wav")) return "wav";
-  return "audio";
-}
-
-function normalizeMimeType(input: string): string {
-  return input.split(";")[0]?.trim() || "";
 }
 
 export function AudioPhaseClient({
@@ -536,12 +523,22 @@ export function AudioPhaseClient({
     setRecordingError(null);
 
     try {
-      const uploaded = await uploadAudioAsset(file);
+      const uploadFile = await ensureStorageCompatibleAudioFile(file, step.id);
+      const uploaded = await uploadAudioAsset(uploadFile);
+      const durationMs =
+        recordedDurationMs > 0
+          ? recordedDurationMs
+          : await getAudioDurationMs(uploadFile).catch(() => 0);
       const nextEntry = {
         stepId: step.id,
         storagePath: uploaded.storagePath,
         publicUrl: uploaded.publicUrl,
-        durationMs: recordedDurationMs > 0 ? recordedDurationMs : (step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000),
+        durationMs:
+          durationMs > 0
+            ? durationMs
+            : step.estimatedSeconds
+              ? step.estimatedSeconds * 1000
+              : 3000,
       };
       const nextComposition = {
         ...composition,
@@ -687,9 +684,7 @@ export function AudioPhaseClient({
     setRecordingSaving(true);
     setRecordingError(null);
     try {
-      const mime = normalizeMimeType(recordedBlob.type || "audio/webm") || "audio/webm";
-      const ext = guessAudioFileExtension(mime);
-      const file = new File([recordedBlob], `${step.id}.${ext}`, { type: mime });
+      const file = await ensureStorageCompatibleAudioFile(recordedBlob, step.id);
       const uploaded = await uploadAudioAsset(file);
       const nextEntry = {
         stepId: step.id,
