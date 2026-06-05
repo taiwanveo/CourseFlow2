@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Mp3Encoder } from "lamejs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
@@ -39,25 +38,10 @@ function pickDefaultTtsSelection(
 }
 
 type RecordingSession = {
-  context: AudioContext;
-  source: MediaStreamAudioSourceNode;
-  processor: ScriptProcessorNode;
-  sink: GainNode;
   stream: MediaStream;
-  chunks: Float32Array[];
-  sampleRate: number;
-  totalSamples: number;
+  recorder: MediaRecorder;
+  chunks: BlobPart[];
 };
-
-function mergeFloat32Chunks(chunks: Float32Array[], totalSamples: number): Float32Array {
-  const merged = new Float32Array(totalSamples);
-  let offset = 0;
-  for (const chunk of chunks) {
-    merged.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return merged;
-}
 
 function normalizeRecordingError(error: unknown): string {
   if (error instanceof DOMException) {
@@ -84,38 +68,43 @@ function normalizeRecordingError(error: unknown): string {
   return "無法啟用麥克風錄音";
 }
 
-function float32ToInt16(input: Float32Array): Int16Array {
-  const out = new Int16Array(input.length);
-  for (let i = 0; i < input.length; i++) {
-    const sample = Math.max(-1, Math.min(1, input[i] ?? 0));
-    out[i] = sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff);
+function pickSupportedRecordingMimeType(): string | undefined {
+  if (typeof window === "undefined") return undefined;
+  const maybe = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+    // Safari 常見
+    "audio/mp4",
+  ];
+  for (const type of maybe) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) return type;
   }
-  return out;
+  return undefined;
 }
 
-function encodeMp3(samples: Float32Array, sampleRate: number): Uint8Array {
-  const encoder = new Mp3Encoder(1, sampleRate, 128);
-  const pcm = float32ToInt16(samples);
-  const chunkSize = 1152;
-  const parts: Uint8Array[] = [];
-
-  for (let offset = 0; offset < pcm.length; offset += chunkSize) {
-    const chunk = pcm.subarray(offset, offset + chunkSize);
-    const encoded = encoder.encodeBuffer(chunk);
-    if (encoded.length > 0) parts.push(new Uint8Array(encoded));
+async function getAudioDurationMs(blob: Blob): Promise<number> {
+  if (typeof window === "undefined") return 0;
+  try {
+    const context = new window.AudioContext();
+    const buffer = await blob.arrayBuffer();
+    const decoded = await context.decodeAudioData(buffer.slice(0));
+    await context.close();
+    return Math.max(1, Math.round(decoded.duration * 1000));
+  } catch {
+    return 0;
   }
+}
 
-  const flushed = encoder.flush();
-  if (flushed.length > 0) parts.push(new Uint8Array(flushed));
-
-  const totalLength = parts.reduce((sum, part) => sum + part.length, 0);
-  const merged = new Uint8Array(totalLength);
-  let cursor = 0;
-  for (const part of parts) {
-    merged.set(part, cursor);
-    cursor += part.length;
-  }
-  return merged;
+function guessAudioFileExtension(mime: string): string {
+  const lower = mime.toLowerCase();
+  if (lower.includes("webm")) return "webm";
+  if (lower.includes("ogg")) return "ogg";
+  if (lower.includes("mp4")) return "m4a";
+  if (lower.includes("mpeg")) return "mp3";
+  if (lower.includes("wav")) return "wav";
+  return "audio";
 }
 
 export function AudioPhaseClient({
@@ -355,11 +344,7 @@ export function AudioPhaseClient({
     return () => {
       const active = recordingRef.current;
       if (!active) return;
-      active.processor.disconnect();
-      active.source.disconnect();
-      active.sink.disconnect();
       active.stream.getTracks().forEach((track) => track.stop());
-      void active.context.close();
       recordingRef.current = null;
     };
   }, []);
@@ -623,6 +608,10 @@ export function AudioPhaseClient({
       setRecordingError("目前瀏覽器不支援麥克風錄音。請使用最新版 Chrome 或 Edge。");
       return;
     }
+    if (typeof MediaRecorder === "undefined") {
+      setRecordingError("目前瀏覽器不支援錄音功能（MediaRecorder）。請使用最新版 Chrome 或 Edge，或改用「上傳已錄音檔」。");
+      return;
+    }
 
     setRecordingBusy(true);
     setRecordingError(null);
@@ -630,38 +619,19 @@ export function AudioPhaseClient({
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const context = new window.AudioContext();
-      await context.resume();
+      const mimeType = pickSupportedRecordingMimeType();
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const session: RecordingSession = { stream, recorder, chunks: [] };
 
-      const source = context.createMediaStreamSource(stream);
-      const processor = context.createScriptProcessor(4096, 1, 1);
-      const sink = context.createGain();
-      sink.gain.value = 0;
-
-      const session: RecordingSession = {
-        context,
-        source,
-        processor,
-        sink,
-        stream,
-        chunks: [],
-        sampleRate: context.sampleRate,
-        totalSamples: 0,
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) session.chunks.push(event.data);
       };
-
-      processor.onaudioprocess = (event) => {
-        const input = event.inputBuffer.getChannelData(0);
-        const copied = new Float32Array(input.length);
-        copied.set(input);
-        session.chunks.push(copied);
-        session.totalSamples += copied.length;
+      recorder.onerror = () => {
+        setRecordingError("錄音發生錯誤，請重試或改用「上傳已錄音檔」。");
       };
-
-      source.connect(processor);
-      processor.connect(sink);
-      sink.connect(context.destination);
 
       recordingRef.current = session;
+      recorder.start(250);
       setRecording(true);
     } catch (error) {
       setRecordingError(normalizeRecordingError(error));
@@ -679,28 +649,26 @@ export function AudioPhaseClient({
     recordingRef.current = null;
 
     try {
-      session.processor.disconnect();
-      session.source.disconnect();
-      session.sink.disconnect();
+      const recorderStop = new Promise<void>((resolve) => {
+        if (session.recorder.state === "inactive") resolve();
+        else {
+          session.recorder.onstop = () => resolve();
+          session.recorder.stop();
+        }
+      });
+      await recorderStop;
       session.stream.getTracks().forEach((track) => track.stop());
-      await session.context.close();
 
-      if (session.totalSamples <= 0) {
+      const mime = session.recorder.mimeType || "audio/webm";
+      const blob = new Blob(session.chunks, { type: mime });
+      if (blob.size <= 0) {
         setRecordingError("沒有錄到聲音，請再試一次。");
         return;
       }
 
-      const merged = mergeFloat32Chunks(session.chunks, session.totalSamples);
-      const mp3Bytes = encodeMp3(merged, session.sampleRate);
-      if (mp3Bytes.length === 0) {
-        setRecordingError("錄音轉檔失敗，請再試一次。");
-        return;
-      }
-
-      const mp3Buffer = new ArrayBuffer(mp3Bytes.byteLength);
-      new Uint8Array(mp3Buffer).set(mp3Bytes);
-      setRecordedBlob(new Blob([mp3Buffer], { type: "audio/mpeg" }));
-      setRecordedDurationMs(Math.max(1, Math.round((session.totalSamples / session.sampleRate) * 1000)));
+      setRecordedBlob(blob);
+      const duration = await getAudioDurationMs(blob);
+      setRecordedDurationMs(duration);
       toast("錄音完成，可先試聽再存檔", "success");
     } catch (error) {
       setRecordingError(error instanceof Error ? error.message : "停止錄音失敗");
@@ -715,13 +683,15 @@ export function AudioPhaseClient({
     setRecordingSaving(true);
     setRecordingError(null);
     try {
-      const file = new File([recordedBlob], `${step.id}.mp3`, { type: "audio/mpeg" });
+      const mime = recordedBlob.type || "audio/webm";
+      const ext = guessAudioFileExtension(mime);
+      const file = new File([recordedBlob], `${step.id}.${ext}`, { type: mime });
       const uploaded = await uploadAudioAsset(file);
       const nextEntry = {
         stepId: step.id,
         storagePath: uploaded.storagePath,
         publicUrl: uploaded.publicUrl,
-        durationMs: recordedDurationMs,
+        durationMs: recordedDurationMs > 0 ? recordedDurationMs : (step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000),
       };
       const nextComposition = {
         ...composition,

@@ -52,8 +52,9 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (useWvp) {
-    const inline = process.env.COURSEFLOW_INLINE_JOBS === "1";
-    const useQueue = !inline && (await shouldUseJobQueue());
+    const inlineForced = process.env.COURSEFLOW_INLINE_JOBS === "1";
+    const allowInlineFallback = inlineForced || process.env.NODE_ENV !== "production";
+    const useQueue = !inlineForced && (await shouldUseJobQueue());
 
     if (useQueue) {
       try {
@@ -73,6 +74,16 @@ export async function POST(
           .eq("id", job.id);
         return NextResponse.json({ error: "無法開始 WVP 渲染佇列" }, { status: 503 });
       }
+    }
+
+    if (!allowInlineFallback) {
+      const message =
+        "未偵測到 background worker。正式環境預設不啟用 Web inline MP4 錄製，請部署 courseflow-v2-worker。";
+      await supabase
+        .from("render_jobs")
+        .update({ status: "failed", error_message: message })
+        .eq("id", job.id);
+      return NextResponse.json({ error: message }, { status: 503 });
     }
 
     try {
