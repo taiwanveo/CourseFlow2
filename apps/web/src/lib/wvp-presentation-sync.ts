@@ -132,9 +132,24 @@ export async function materializeChapterFromCraft(
   projectAssets?: WvpAssetRef[],
 ): Promise<RegistryChapterEntry> {
   const chapter = resolveCompositionChapterForCraft(composition, craft);
-  const narrations = chapter
+  const narrationsFromComposition = chapter
     ? narrationsForChapter(composition, chapter.id)
-    : craft.checklist_result?.narrations ?? [];
+    : [];
+  const narrationsFromChecklist = Array.isArray(craft.checklist_result?.narrations)
+    ? craft.checklist_result.narrations
+    : [];
+  let narrations = narrationsFromComposition;
+  if (!chapter && narrationsFromChecklist.length > 0) {
+    narrations = narrationsFromChecklist;
+  } else if (
+    chapter &&
+    narrationsFromChecklist.length > narrationsFromComposition.length
+  ) {
+    console.warn(
+      `[wvp-materialize] narration count mismatch chapter=${craft.wvp_chapter_id} composition=${narrationsFromComposition.length} checklist=${narrationsFromChecklist.length}; using checklist`,
+    );
+    narrations = narrationsFromChecklist;
+  }
   const aiPlan = craft.checklist_result?.aiPlan;
   const rawSource = craft.checklist_result?.chapterSource;
   const folderName = folderFromPresentationPath(
@@ -432,7 +447,9 @@ export async function buildAnchorChapterPreview(
   const first = (crafts ?? [])[0] as CraftRow | undefined;
   if (!first) throw new Error("請先建立章節清單");
 
-  const composition = await loadProjectComposition(supabase, projectId);
+  const composition = await loadProjectComposition(supabase, projectId, {
+    forceFresh: true,
+  });
   if (!composition) throw new Error("無法載入專案內容");
   const themeId =
     opts?.themeId ??
@@ -537,7 +554,9 @@ export async function syncFullWvpProject(
 
   const wvpSettings = parseWvpSettings(project.wvp_settings);
 
-  const composition = await loadProjectComposition(supabase, projectId);
+  const composition = await loadProjectComposition(supabase, projectId, {
+    forceFresh: true,
+  });
   if (!composition) throw new Error("無法載入專案內容");
   const themeId =
     opts?.themeId ??

@@ -403,7 +403,9 @@ export async function materializeAllChapters(
   projectId: string,
   themeId: string,
 ): Promise<boolean> {
-  const composition = await loadProjectComposition(supabase, projectId);
+  const composition = await loadProjectComposition(supabase, projectId, {
+    forceFresh: true,
+  });
   if (!composition) return false;
   const { data: allCrafts } = await supabase
     .from("chapter_craft")
