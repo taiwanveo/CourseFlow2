@@ -117,7 +117,7 @@ function stepScene(
   const phrases = splitNarrationPhrases(narration, 4);
   const headline = verbatimScreenOrFallback(
     screenContent,
-    phrases[0] ?? narration || `步驟 ${step + 1}`,
+    phrases[0] ?? (narration || `步驟 ${step + 1}`),
   );
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
