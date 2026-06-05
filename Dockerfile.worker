@@ -37,6 +37,7 @@ COPY packages/shared/package.json packages/shared/
 COPY packages/tts/package.json packages/tts/
 COPY packages/wvp-bridge/package.json packages/wvp-bridge/
 COPY packages/presentation/package.json packages/presentation/
+COPY packages/visual-config/package.json packages/visual-config/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
