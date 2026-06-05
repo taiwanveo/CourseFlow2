@@ -107,6 +107,10 @@ function guessAudioFileExtension(mime: string): string {
   return "audio";
 }
 
+function normalizeMimeType(input: string): string {
+  return input.split(";")[0]?.trim() || "";
+}
+
 export function AudioPhaseClient({
   projectId,
   initialComposition,
@@ -683,7 +687,7 @@ export function AudioPhaseClient({
     setRecordingSaving(true);
     setRecordingError(null);
     try {
-      const mime = recordedBlob.type || "audio/webm";
+      const mime = normalizeMimeType(recordedBlob.type || "audio/webm") || "audio/webm";
       const ext = guessAudioFileExtension(mime);
       const file = new File([recordedBlob], `${step.id}.${ext}`, { type: mime });
       const uploaded = await uploadAudioAsset(file);

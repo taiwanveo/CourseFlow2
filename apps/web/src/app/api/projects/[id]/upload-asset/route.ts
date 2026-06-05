@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 
 const ALLOWED_KINDS = new Set(["image", "background", "bgm", "audio"]);
 
+function normalizeContentType(input: string): string {
+  // e.g. "audio/webm;codecs=opus" -> "audio/webm"
+  return input.split(";")[0]?.trim() || "";
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -37,11 +42,12 @@ export async function POST(
   const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
   const storagePath = `${user.id}/${projectId}/${kind}/${randomUUID()}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
+  const contentType = normalizeContentType(file.type) || "application/octet-stream";
 
   const { error: uploadError } = await supabase.storage
     .from("courseflow-assets")
     .upload(storagePath, buffer, {
-      contentType: file.type || "application/octet-stream",
+      contentType,
       upsert: false,
     });
   if (uploadError) {
