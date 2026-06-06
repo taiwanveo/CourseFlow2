@@ -220,7 +220,9 @@ function readIllustrationsFromChecklist(craft: CraftRow): StepIllustrationEntry[
 /** 本章是否已有至少一步產出 AI 解說動畫（HTML） */
 export function chapterHasStepExplainAnimations(craft: CraftRow): boolean {
   return readIllustrationsFromChecklist(craft).some(
-    (s) => s.imageSource === "animation" && Boolean(s.animationHtml?.trim()),
+    (s) =>
+      s.imageSource === "animation" &&
+      Boolean(s.animationHtml?.trim() || s.animationStoragePath?.trim()),
   );
 }
 

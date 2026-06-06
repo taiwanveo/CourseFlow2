@@ -239,8 +239,25 @@ export async function materializeChapterFromCraft(
               .filter((sc) => sc.length > 3)
               .some((sc) => !llmTsx.includes(sc)),
         );
+  const hasImagesOnDisk = await chapterIllustrationFilesInPresentation(
+    presentationDir,
+    craft.wvp_chapter_id,
+  );
+  const animationStepsOnDisk = await chapterAnimationStepsInPresentation(
+    presentationDir,
+    craft.wvp_chapter_id,
+  );
+  const cachedPackagedAssetsStale = cachedChapterSourceMissingPackagedAssets(
+    llmTsx,
+    hasImagesOnDisk,
+    animationStepsOnDisk,
+  );
   const mustRegenerateForPackagedAssets =
-    hasPackagedStepImagesForCraft(craft) || chapterHasStepExplainAnimations(craft);
+    hasPackagedStepImagesForCraft(craft) ||
+    chapterHasStepExplainAnimations(craft) ||
+    hasImagesOnDisk ||
+    animationStepsOnDisk.length > 0 ||
+    cachedPackagedAssetsStale;
   const useCachedLlmSource =
     !mustRegenerateForPackagedAssets &&
     !dataVisualForceRegenerate &&
@@ -495,23 +512,66 @@ function hasPackagedStepImagesForCraft(craft: CraftRow): boolean {
 }
 
 const STEP_IMAGE_FILE_RE = /^\d{2}\.(jpe?g|png|gif|bmp)$/i;
+const STEP_ANIMATION_FILE_RE = /^(\d{2})\.html$/i;
 
-async function chapterIllustrationFilesOnDisk(
-  projectId: string,
+async function chapterIllustrationFilesInPresentation(
+  presentationDir: string,
   wvpChapterId: string,
 ): Promise<boolean> {
-  const dir = join(
-    presentationDirForProject(projectId),
-    "public",
-    "images",
-    wvpChapterId,
-  );
+  const dir = join(presentationDir, "public", "images", wvpChapterId);
   try {
     const names = await readdir(dir);
     return names.some((n) => STEP_IMAGE_FILE_RE.test(n));
   } catch {
     return false;
   }
+}
+
+async function chapterIllustrationFilesOnDisk(
+  projectId: string,
+  wvpChapterId: string,
+): Promise<boolean> {
+  return chapterIllustrationFilesInPresentation(
+    presentationDirForProject(projectId),
+    wvpChapterId,
+  );
+}
+
+/** 掃描 presentation/public/animations 已寫入的步驟索引（0-based） */
+async function chapterAnimationStepsInPresentation(
+  presentationDir: string,
+  wvpChapterId: string,
+): Promise<number[]> {
+  const dir = join(presentationDir, "public", "animations", wvpChapterId);
+  try {
+    const names = await readdir(dir);
+    const steps: number[] = [];
+    for (const name of names) {
+      const m = STEP_ANIMATION_FILE_RE.exec(name);
+      if (!m) continue;
+      const step = Number.parseInt(m[1]!, 10) - 1;
+      if (step >= 0) steps.push(step);
+    }
+    return steps.sort((a, b) => a - b);
+  } catch {
+    return [];
+  }
+}
+
+/** checklist 內快取 TSX 未嵌入磁碟上已同步的配圖／動畫時，必須重產章節程式 */
+function cachedChapterSourceMissingPackagedAssets(
+  llmTsx: string,
+  hasImagesOnDisk: boolean,
+  animationStepsOnDisk: number[],
+): boolean {
+  if (!llmTsx.trim()) return false;
+  const referencesStepImages =
+    /stepImageUrl|STEP_IMAGE_EXT|introImageUrl|imageUrl\s*:/.test(llmTsx);
+  const referencesStepAnimations =
+    /stepAnimationUrl|STEP_ANIMATION_SET|introAnimationUrl|animationUrl\s*:/.test(llmTsx);
+  if (hasImagesOnDisk && !referencesStepImages) return true;
+  if (animationStepsOnDisk.length > 0 && !referencesStepAnimations) return true;
+  return false;
 }
 
 function stepIllustrationsMarkedDone(craft: CraftRow): boolean {
