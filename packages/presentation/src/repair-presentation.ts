@@ -135,7 +135,28 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
       /* empty */
     }
 
-    if (!needsChapterContentUpgrade(tsx, css, narrations)) continue;
+    const needsUpgrade = needsChapterContentUpgrade(tsx, css, narrations);
+    if (!needsUpgrade) continue;
+
+    // #region agent log
+    console.info(
+      "[DEBUG-c64e28]",
+      JSON.stringify({
+        hypothesisId: "H-A",
+        location: "repairPresentationBeforeBuild",
+        message: "chapter content upgrade triggered",
+        data: {
+          folderName,
+          hasListReveal: /ListRevealGrid/.test(tsx),
+          hasHook: /HookImageStrip/.test(tsx),
+          hasAgentText: /程式碼代理/.test(tsx),
+          hasPlaceholder: /重點 1|本章/.test(tsx),
+          narrationsCount: narrations.length,
+        },
+        timestamp: Date.now(),
+      }),
+    );
+    // #endregion
 
     const wvpId = folderName.replace(/^\d+-/, "") || folderName;
     const titleMatch = tsx.match(/className="brand"[^>]*>([^<]+)</);

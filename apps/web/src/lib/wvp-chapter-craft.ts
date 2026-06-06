@@ -26,7 +26,7 @@ import {
 import type { LlmProviderId } from "@courseflow/llm";
 import { decryptApiKey } from "@/lib/crypto";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
-import { narrationsForChapter } from "@/lib/wvp-chapters";
+import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 import { chapterContextForCraft } from "@/lib/wvp-chapter-context";
 import {
   ensurePresentationScaffolded,
@@ -38,6 +38,11 @@ import {
   loadCompositionForWvpBuild,
   loadProjectComposition,
 } from "@/lib/project-composition";
+import {
+  getWvpDebugTrace,
+  resetWvpDebugTrace,
+  wvpDebugTrace,
+} from "@/lib/wvp-debug-trace";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
 import {
@@ -451,6 +456,14 @@ export async function applyChapterTemplate(
   }
 
   const screenContents = screenContentsForChapter(composition, chapter.id);
+  // #region agent log
+  wvpDebugTrace("H-C", "applyChapterTemplate", "screenContents for codegen", {
+    template,
+    chapterId: chapter.id,
+    screenContents,
+    screenCount: screenContents.length,
+  });
+  // #endregion
   const folderName = `${String(craft.sort_order).padStart(2, "0")}-${craft.wvp_chapter_id}`;
   const chapterAssets = chapterAssetsForCodegen(assets, craft.wvp_chapter_id);
   const gen = generateChapterSources({
@@ -469,6 +482,17 @@ export async function applyChapterTemplate(
   });
   const outNarrations =
     "narrations" in gen && Array.isArray(gen.narrations) ? gen.narrations : narrations;
+  // #region agent log
+  wvpDebugTrace("H-B", "applyChapterTemplate", "generated chapter tsx snapshot", {
+    templateKind: gen.templateKind,
+    hasHook: /HookImageStrip/.test(gen.tsx),
+    hasListReveal: /ListRevealGrid/.test(gen.tsx),
+    hasPlaceholder: /重點 1|本章/.test(gen.tsx),
+    hasScreenText: screenContents.some((s) => s && gen.tsx.includes(s.slice(0, 12))),
+    introSnippet: gen.tsx.match(/introTitle=\{([^}]+)\}/)?.[1] ?? null,
+    itemTitleSnippet: gen.tsx.match(/title:\s*"([^"]{4,40})"/)?.[1] ?? null,
+  });
+  // #endregion
 
   const prev =
     craft.checklist_result && typeof craft.checklist_result === "object"
@@ -502,6 +526,7 @@ export async function applyChapterTemplate(
           source: "template",
           templateKind: gen.templateKind,
         },
+        appliedScreenContents: screenContents,
         craftChecklist,
         appliedTemplate: template,
       },
@@ -554,6 +579,7 @@ export async function runAnchorChapterTrial(
   previewUrl: string;
   illustrationSyncWarning?: string;
   error?: string;
+  debugTrace?: ReturnType<typeof getWvpDebugTrace>;
 }> {
   const startedAt = Date.now();
   const logStage = (stage: string) => {
@@ -566,6 +592,7 @@ export async function runAnchorChapterTrial(
     await opts.onStage?.(stage);
   };
 
+  resetWvpDebugTrace();
   await emitStage("start");
   const { data: crafts } = await supabase
     .from("chapter_craft")
@@ -594,6 +621,20 @@ export async function runAnchorChapterTrial(
     };
   }
   await emitStage("composition-loaded");
+  const contentChapter = resolveCompositionChapterForCraft(composition, first);
+  // #region agent log
+  wvpDebugTrace("H-C", "runAnchorChapterTrial", "composition snapshot screens", {
+    buildSha: process.env.COURSEFLOW_BUILD_SHA?.trim() ?? "unknown",
+    chapterId: contentChapter?.id ?? null,
+    steps: contentChapter
+      ? orderedWvpStepsForChapter(composition, contentChapter.id).map((s) => ({
+          kind: s.stepKind,
+          screenLen: (s.screenContent ?? "").length,
+          screenHead: (s.screenContent ?? "").slice(0, 40),
+        }))
+      : [],
+  });
+  // #endregion
 
   const { data: project } = await supabase
     .from("projects")
@@ -667,6 +708,7 @@ export async function runAnchorChapterTrial(
   await emitStage("preview-built");
 
   const previewUrl = `/projects/${projectId}/wvp-play?anchor=1&start=1`;
+  const debugTrace = getWvpDebugTrace();
   return {
     ok: true,
     wvpChapterId: build.wvpChapterId,
@@ -674,6 +716,7 @@ export async function runAnchorChapterTrial(
     chapterSource,
     previewUrl,
     illustrationSyncWarning: build.illustrationSyncWarning,
+    debugTrace,
   };
 }
 

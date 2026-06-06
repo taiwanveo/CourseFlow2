@@ -27,6 +27,7 @@ import {
   toScreenHeadline,
 } from "@/lib/wvp-chapter-meta";
 import { loadCompositionForWvpBuild } from "@/lib/project-composition";
+import { wvpDebugTrace } from "@/lib/wvp-debug-trace";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { parseWvpSettings, type WvpAssetRef } from "@/lib/wvp-settings";
@@ -34,7 +35,7 @@ import {
   resolveStepImageExtMapFromLocalDir,
   resolveStepImageExtMapLocal,
 } from "@/lib/wvp-step-image-resolve";
-import { readdir } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import type { CourseComposition } from "@courseflow/core";
@@ -161,19 +162,32 @@ export async function materializeChapterFromCraft(
   const checklist = craft.checklist_result as
     | {
         appliedTemplate?: string;
-        chapterSource?: { templateKind?: string };
+        appliedScreenContents?: string[];
+        chapterSource?: { templateKind?: string; source?: string };
       }
     | undefined;
   const forceTemplate = resolveCraftForceTemplate(checklist);
   const llmTsx = rawSource?.chapterTsx?.trim() ?? "";
-  // 比對目前 screenContents 與 LLM TSX 快取：若使用者在「文稿內容」階段修改了
-  // 螢幕內容，快取的 TSX 會有過期的硬編碼文字，需重新從模板產生。
   const currentScreenContents = chapter ? screenContentsForChapter(composition, chapter.id) : [];
+  const appliedScreenContents = Array.isArray(checklist?.appliedScreenContents)
+    ? checklist.appliedScreenContents.map((s) => (typeof s === "string" ? s.trim() : ""))
+    : undefined;
+  const screenContentsFingerprint = (screens: string[]) =>
+    screens.map((s) => s.trim()).join("\u001e");
+  const templateScreenContentsStale =
+    appliedScreenContents !== undefined &&
+    screenContentsFingerprint(appliedScreenContents) !==
+      screenContentsFingerprint(currentScreenContents);
+  // LLM TSX：以全文比對；模板 TSX：intro 可能被分段，不可用 includes 判斷過期
   const llmCacheScreenContentsStale =
-    llmTsx &&
-    currentScreenContents
-      .filter((sc) => sc && sc !== "重點" && sc.length > 3)
-      .some((sc) => !llmTsx.includes(sc));
+    rawSource?.source === "template"
+      ? templateScreenContentsStale
+      : Boolean(
+          llmTsx &&
+            currentScreenContents
+              .filter((sc) => sc.length > 3)
+              .some((sc) => !llmTsx.includes(sc)),
+        );
   const useCachedLlmSource =
     rawSource?.source === "llm" &&
     !forceTemplate &&
@@ -190,6 +204,22 @@ export async function materializeChapterFromCraft(
   // 模板 TSX 由 applyChapterTemplate 依螢幕欄位產生；驗證失敗時仍優先沿用，避免重產時退回口播稿
   const useCachedTemplateSource =
     rawSource?.source === "template" && llmTsx && !llmCacheScreenContentsStale;
+  // #region agent log
+  wvpDebugTrace("H-B", "materializeChapterFromCraft", "materialize branch", {
+    wvpChapterId: craft.wvp_chapter_id,
+    source: rawSource?.source ?? null,
+    useCachedLlmSource,
+    useCachedTemplateSource,
+    templateScreenContentsStale,
+    llmCacheScreenContentsStale,
+    currentScreenContents,
+    appliedScreenContents,
+    checklistTemplate: checklist?.appliedTemplate ?? null,
+    tsxHasPlaceholder: /重點 1|本章/.test(llmTsx),
+    tsxHasListReveal: /ListRevealGrid/.test(llmTsx),
+    tsxHasHook: /HookImageStrip/.test(llmTsx),
+  });
+  // #endregion
   if (useCachedLlmSource || useCachedTemplateSource) {
     await writeChapterSourcesRaw(presentationDir, {
       folderName,
@@ -499,6 +529,30 @@ export async function buildAnchorChapterPreview(
     throw new Error("第 1 章尚無口播步驟，請先在「文稿內容」完成大綱");
   }
 
+  const chapterTsxPath = join(
+    presentationDir,
+    "src",
+    "chapters",
+    `${String(first.sort_order).padStart(2, "0")}-${first.wvp_chapter_id}`,
+    `Chapter${chapterComponentName(first.wvp_chapter_id)}.tsx`,
+  );
+  let tsxBeforeBuild = "";
+  try {
+    tsxBeforeBuild = await readFile(chapterTsxPath, "utf8");
+  } catch {
+    tsxBeforeBuild = "";
+  }
+  // #region agent log
+  wvpDebugTrace("H-A", "buildAnchorChapterPreview", "chapter tsx before vite build", {
+    path: chapterTsxPath,
+    hasHook: /HookImageStrip/.test(tsxBeforeBuild),
+    hasListReveal: /ListRevealGrid/.test(tsxBeforeBuild),
+    hasPlaceholder: /重點 1|本章/.test(tsxBeforeBuild),
+    hasAgentText: /程式碼代理/.test(tsxBeforeBuild),
+    itemTitleSnippet: tsxBeforeBuild.match(/title:\s*"([^"]{4,48})"/)?.[1] ?? null,
+  });
+  // #endregion
+
   const base = `/projects/${projectId}/wvp-embed/`;
   await opts?.onStage?.("vite-build-start");
   try {
@@ -506,6 +560,28 @@ export async function buildAnchorChapterPreview(
   } finally {
     await opts?.onStage?.("vite-build-done");
   }
+
+  let tsxAfterBuild = "";
+  try {
+    tsxAfterBuild = await readFile(chapterTsxPath, "utf8");
+  } catch {
+    tsxAfterBuild = "";
+  }
+  // #region agent log
+  wvpDebugTrace("H-A", "buildAnchorChapterPreview", "chapter tsx after vite build", {
+    path: chapterTsxPath,
+    hasHook: /HookImageStrip/.test(tsxAfterBuild),
+    hasListReveal: /ListRevealGrid/.test(tsxAfterBuild),
+    hasPlaceholder: /重點 1|本章/.test(tsxAfterBuild),
+    hasAgentText: /程式碼代理/.test(tsxAfterBuild),
+    itemTitleSnippet: tsxAfterBuild.match(/title:\s*"([^"]{4,48})"/)?.[1] ?? null,
+    wipedByRepair: Boolean(
+      tsxBeforeBuild &&
+        /程式碼代理/.test(tsxBeforeBuild) &&
+        !/程式碼代理/.test(tsxAfterBuild),
+    ),
+  });
+  // #endregion
   logWvpBuildQuality(composition, themeId);
 
   const presentationRevision = `anchor-trial-${Date.now()}`;

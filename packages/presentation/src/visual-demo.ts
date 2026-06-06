@@ -57,11 +57,10 @@ export function needsChapterContentUpgrade(
   narrations: string[],
 ): boolean {
   if (/StepContentViz/.test(tsx)) return true;
-  if (/ListRevealGrid/.test(tsx) && !/imageUrl|lr-featured-img/.test(tsx)) return true;
-  if (/FlowDiagram/.test(tsx) && !/stepImageUrl/.test(tsx)) return true;
-  if (chapterUsesInvalidMaskReveal(tsx) && !/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) {
-    return true;
-  }
+  // CourseFlow 模板章節（ListReveal / Flow / Hook / VisualBlock）的螢幕文案寫在 TSX 常數裡。
+  // 建置前重產時沒有 screenContents 輸入，會退回「本章」「重點 1」占位符，故一律跳過。
+  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) return false;
+  if (chapterUsesInvalidMaskReveal(tsx)) return true;
   if (!hasVisualDemoInSources(tsx, css)) return true;
   if (!chapterBindsNarrationText(tsx, narrations)) return true;
   return false;

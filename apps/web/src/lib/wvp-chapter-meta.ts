@@ -44,11 +44,11 @@ export function screenContentsForChapter(
   return orderedWvpStepsForChapter(composition, chapterId).map((s) => {
     if (isChapterStep(s)) {
       const title = stripEditorChapterLabel(s.screenContent ?? "") || chapterTitle;
-      return title || "章節";
+      return title;
     }
     const raw = compactSpaces((s.screenContent ?? "").replace(/\.\.\.|…/g, ""));
-    // 與「文稿內容」螢幕欄位一致，不在此處再截短或改寫
-    return raw || "重點";
+    // 與「文稿內容」螢幕欄位一致，不在此處再截短、改寫或填入占位符
+    return raw;
   });
 }
 

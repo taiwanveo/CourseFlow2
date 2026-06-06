@@ -102,7 +102,10 @@ export function parseListRevealSlots(
   }
   if (narrations.length === 1) {
     const introOnly = screenTextOnly(screenContents[0], "本章");
-    const introParts = splitHeadlineForStaggeredReveal(introOnly, 2);
+    const hasExplicitIntroScreen = Boolean(screenContents[0]?.trim());
+    const introParts = hasExplicitIntroScreen
+      ? [introOnly]
+      : splitHeadlineForStaggeredReveal(introOnly, 2);
     return {
       intro: introParts[0] ?? introOnly,
       introSub: introParts[1] ?? "",
@@ -110,7 +113,10 @@ export function parseListRevealSlots(
     };
   }
   const introSource = screenTextOnly(screenContents[0], "本章");
-  const introParts = splitHeadlineForStaggeredReveal(introSource, 2);
+  const hasExplicitIntroScreen = Boolean(screenContents[0]?.trim());
+  const introParts = hasExplicitIntroScreen
+    ? [introSource]
+    : splitHeadlineForStaggeredReveal(introSource, 2);
   const intro = introParts[0] ?? introSource;
   const introSub = introParts[1] ?? "";
   const items = narrations.slice(1).map((_n, i) => {
