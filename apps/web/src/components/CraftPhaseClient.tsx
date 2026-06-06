@@ -91,24 +91,15 @@ function ChapterIllustrationBlock({
   onOpenStepStudio: () => void;
 }) {
   return (
-    <div className="space-y-2">
-      <CraftChapterIllustration
-        projectId={projectId}
-        wvpChapterId={wvpChapterId}
-        chapterTitle={chapterTitle}
-        scriptSteps={scriptSteps}
-        disabled={craftLocked}
-        reloadKey={reloadKey}
-      />
-      <button
-        type="button"
-        className="cf-btn cf-btn-secondary cf-btn-sm w-full"
-        disabled={craftLocked}
-        onClick={onOpenStepStudio}
-      >
-        步驟配圖
-      </button>
-    </div>
+    <CraftChapterIllustration
+      projectId={projectId}
+      wvpChapterId={wvpChapterId}
+      chapterTitle={chapterTitle}
+      scriptSteps={scriptSteps}
+      disabled={craftLocked}
+      reloadKey={reloadKey}
+      onOpenStepStudio={onOpenStepStudio}
+    />
   );
 }
 

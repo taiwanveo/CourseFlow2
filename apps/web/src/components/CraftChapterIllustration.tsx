@@ -12,6 +12,7 @@ interface Props {
   disabled?: boolean;
   reloadKey?: number;
   onOpenStylePicker?: () => void;
+  onOpenStepStudio?: () => void;
 }
 
 function ChapterScriptReference({ steps }: { steps: ChapterScriptStep[] }) {
@@ -56,6 +57,7 @@ export function CraftChapterIllustration({
   disabled = false,
   reloadKey = 0,
   onOpenStylePicker,
+  onOpenStepStudio,
 }: Props) {
   const [entry, setEntry] = useState<ChapterIllustrationEntry | null>(null);
   const [stepAnimationActive, setStepAnimationActive] = useState(false);
@@ -428,6 +430,19 @@ export function CraftChapterIllustration({
       {loading && !isGenerating && (
         <p className="text-[11px] text-zinc-500">處理中…</p>
       )}
+
+      {onOpenStepStudio ? (
+        <div className="border-t border-zinc-800 pt-3">
+          <button
+            type="button"
+            className="cf-btn cf-btn-secondary cf-btn-sm w-full"
+            disabled={disabled}
+            onClick={onOpenStepStudio}
+          >
+            步驟配圖
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
