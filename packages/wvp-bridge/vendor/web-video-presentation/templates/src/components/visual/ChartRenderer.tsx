@@ -5,6 +5,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  LabelList,
   Line,
   LineChart,
   Pie,
@@ -63,6 +64,14 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
   const axis = cssVar("--text-mute", "#888");
   const grid = cssVar("--rule", "rgba(255,255,255,0.08)");
   const subtitle = safeSubtitle(config.subtitle);
+  const textColor = cssVar("--text", "#eee");
+  const formatLabel = (value: number | string): string => {
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return String(value);
+    if (config.unit === "%") return `${n}%`;
+    if (config.unit === "萬") return `${n}萬`;
+    return config.unit ? `${n}${config.unit}` : String(n);
+  };
 
   if (config.chartType === "kpi") {
     const row = config.data[0] ?? {};
@@ -108,12 +117,20 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
     }
     if (config.chartType === "line") {
       return (
-        <LineChart data={config.data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <LineChart data={config.data} margin={{ top: 28, right: 16, left: 4, bottom: 0 }}>
           <CartesianGrid stroke={grid} strokeDasharray="4 4" />
           <XAxis dataKey={config.xKey} tick={{ fill: axis, fontSize: 11 }} axisLine={false} tickLine={false} />
           <YAxis tick={{ fill: axis, fontSize: 11 }} axisLine={false} tickLine={false} unit={config.unit} width={44} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Line type="monotone" dataKey={config.yKey} stroke={colors[0]} strokeWidth={2.5} dot={{ r: 4, fill: colors[0] }} isAnimationActive animationDuration={900} />
+          <Line type="monotone" dataKey={config.yKey} stroke={colors[0]} strokeWidth={2.5} dot={{ r: 5, fill: colors[0] }} isAnimationActive animationDuration={900}>
+            <LabelList
+              dataKey={config.yKey}
+              position="top"
+              offset={14}
+              formatter={(value) => formatLabel(value as number)}
+              style={{ fill: textColor, fontSize: 14, fontWeight: 600 }}
+            />
+          </Line>
         </LineChart>
       );
     }
@@ -129,7 +146,7 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
       );
     }
     return (
-      <BarChart data={config.data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+      <BarChart data={config.data} margin={{ top: 28, right: 16, left: 4, bottom: 0 }}>
         <CartesianGrid stroke={grid} strokeDasharray="4 4" />
         <XAxis dataKey={config.xKey} tick={{ fill: axis, fontSize: 11 }} axisLine={false} tickLine={false} />
         <YAxis tick={{ fill: axis, fontSize: 11 }} axisLine={false} tickLine={false} unit={config.unit} width={44} />
@@ -138,6 +155,13 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
           {config.data.map((_, i) => (
             <Cell key={i} fill={colors[i % colors.length]} />
           ))}
+          <LabelList
+            dataKey={config.yKey}
+            position="top"
+            offset={14}
+            formatter={(value) => formatLabel(value as number)}
+            style={{ fill: textColor, fontSize: 14, fontWeight: 600 }}
+          />
         </Bar>
       </BarChart>
     );

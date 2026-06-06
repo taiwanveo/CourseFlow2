@@ -27,4 +27,10 @@
   overflow: visible;
   max-width: min(1200px, 92%);
   margin-inline: auto;
+  text-align: center;
+}
+/* VisualBlock 已有 headline 時，圖表內重複標題隱藏 */
+.vf-block:has(.vf-headline) .vf-chart > .vf-title,
+.vf-block:has(.vf-headline) .vf-table-card > .vf-title {
+  display: none;
 }

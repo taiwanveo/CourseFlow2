@@ -1,19 +1,41 @@
 .vf-table-wrap {
   width: 100%;
-  max-width: 92%;
+  max-width: min(1100px, 94%);
   margin: 0 auto;
 }
 .vf-table-card {
   border: var(--rule-w) solid var(--rule);
   border-radius: var(--r-card);
-  padding: var(--space-5);
+  padding: var(--space-6);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+}
+.vf-table-card > .vf-title {
+  text-align: center;
+  margin-bottom: var(--space-4);
+  font-size: clamp(32px, 4vw, 48px);
 }
 .vf-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--t-body);
+}
+.vf-table-compare .vf-th,
+.vf-table-compare .vf-td {
+  text-align: center;
+  font-size: clamp(28px, 3.2vw, 42px);
+  line-height: 1.35;
+  padding: var(--space-4) var(--space-5);
+}
+.vf-table-compare .vf-th {
+  font-size: clamp(24px, 2.8vw, 36px);
+}
+.vf-table-compare .vf-td-num,
+.vf-table-compare .vf-td-barcell {
+  text-align: center;
+}
+.vf-table-compare .vf-barcell {
+  justify-content: center;
 }
 .vf-th {
   text-align: left;

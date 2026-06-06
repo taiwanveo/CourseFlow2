@@ -1,8 +1,7 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
 import type { StepVisualEntry } from "../step-visuals.js";
-import { splitHeadlineForStaggeredReveal } from "../content-aware.js";
-import { screenTextOnly } from "../slots.js";
+import { screenHeadlineForSlot, screenTextOnly, stripNarrationLeakFromScreen } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
@@ -15,15 +14,13 @@ function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
 
-/** 圖表上方只顯示螢幕內容第一個重點片語（screenTextOnly 已剝除 craft 後設字串） */
+/** 圖表上方只顯示螢幕短語（禁止口播／步驟說明外洩） */
 function visualMixHeadline(screen: string | undefined, title: string): string {
-  const raw = screen?.trim() ? screenTextOnly(screen, title) : "";
-  if (!raw || raw === title) {
-    const parts = splitHeadlineForStaggeredReveal(screenTextOnly(title, title), 1);
-    return escapeTsString(parts[0] ?? title);
-  }
-  const parts = splitHeadlineForStaggeredReveal(raw, 1);
-  return escapeTsString(parts[0] ?? raw);
+  const cleaned = screen?.trim()
+    ? stripNarrationLeakFromScreen(screenTextOnly(screen, title))
+    : "";
+  const headline = screenHeadlineForSlot(cleaned || title, title, 24);
+  return escapeTsString(headline);
 }
 
 export function generateVisualMixSources(
@@ -111,7 +108,7 @@ ${stepBranches}
   width: 100%;
 }
 .vf-block:has(.vf-chart, .vf-table-wrap, .vf-anim) .vf-headline {
-  text-align: left;
+  text-align: center;
 }
 `;
 

@@ -72,6 +72,19 @@ function sanitizeScreenLabel(text: string | undefined, fallback: string, max: nu
   return screenHeadlineForSlot(text, fallback, max);
 }
 
+const NARRATION_LEAK_ON_SCREEN =
+  /第[一二三四五1-5]步|假[設设]|展示趨勢|看完成率|資料顯示|资料显示|口播|第三步|第二步|第一步/;
+
+/** 剝除誤貼進螢幕欄的口播片段（第一步…、假設資料…） */
+export function stripNarrationLeakFromScreen(text: string): string {
+  let t = stripCraftMetadataFromScreen(text);
+  if (!t) return "";
+  const marker = t.search(NARRATION_LEAK_ON_SCREEN);
+  if (marker > 0) t = t.slice(0, marker).trim();
+  const first = t.split(/[。！？.!?；;]/)[0]?.trim() ?? "";
+  return first.length >= 2 ? first : t;
+}
+
 /** 剝除 AI 產碼／craft 上下文誤寫入螢幕欄的後設字串 */
 export function stripCraftMetadataFromScreen(text: string): string {
   let t = compactSpaces(stripEllipsis(text));

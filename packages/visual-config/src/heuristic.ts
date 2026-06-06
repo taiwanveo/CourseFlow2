@@ -63,6 +63,19 @@ function parseChineseInteger(raw: string): number | null {
   return CN_DIGIT[s] ?? null;
 }
 
+function shortDataTitle(text: string, fallback: string): string {
+  if (/完成率/.test(text)) return "完成率趨勢";
+  if (/營收|营收|季度|季營/.test(text)) return "季度營收";
+  if (/方案/.test(text)) return "方案對比";
+  const trimmed = text.trim();
+  if (trimmed.length <= 16) return trimmed;
+  return fallback;
+}
+
+function isPercentDeltaPhrase(prefix: string): boolean {
+  return /增幅|增長|增长|成長|成长|提升|增加|下降|減少|减少|達到|达到/.test(prefix);
+}
+
 function chartFromPairs(
   pairs: { label: string; value: number }[],
   title: string,
@@ -125,21 +138,24 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     });
   }
   if (seasonPairs.length >= 2) {
-    return chartFromPairs(seasonPairs, t.slice(0, 32), "萬", true);
+    return chartFromPairs(seasonPairs, shortDataTitle(t, "季度營收"), "萬", true);
   }
 
-  // 中文百分比：第一週百分之六十五、第四週百分之八十五
+  // 中文百分比：第一週百分之六十五、第四週百分之八十五（排除「增幅達百分之二十」等增量描述）
   const cnPercentPairs: { label: string; value: number }[] = [];
   for (const m of t.matchAll(
     /([^，,。；;]{0,12}?)百分之([一二三四五六七八九十百\d]+)/g,
   )) {
     const val = parseChineseInteger(m[2]!);
     if (val === null) continue;
-    const label = slugLabel((m[1] ?? "").replace(/為|为|達到|达到/g, ""));
+    const prefix = (m[1] ?? "").replace(/為|为|達到|达到/g, "").trim();
+    if (isPercentDeltaPhrase(prefix)) continue;
+    if (prefix && !/週|周|月|季|年|第/.test(prefix)) continue;
+    const label = slugLabel(prefix);
     cnPercentPairs.push({ label, value: val });
   }
   if (cnPercentPairs.length >= 2) {
-    return chartFromPairs(cnPercentPairs, t.slice(0, 32), "%", true);
+    return chartFromPairs(cnPercentPairs, shortDataTitle(t, "完成率趨勢"), "%", true);
   }
 
   // 定性方案對比：方案 A 成本較低…方案 B…（無數字欄位時）
