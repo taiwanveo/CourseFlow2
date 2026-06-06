@@ -725,15 +725,16 @@ export async function patchChapterIllustrationPrompts(
       }
     }
     if (p.animationHtml !== undefined) {
-      steps[idx]!.animationHtml = normalizeAnimationHtml(p.animationHtml);
-      if (steps[idx]!.animationHtml) {
+      const animHtml = normalizeAnimationHtml(p.animationHtml);
+      steps[idx]!.animationHtml = animHtml;
+      if (animHtml) {
         const animPath = craftAnimationStoragePath(
           userId,
           projectId,
           craft.wvp_chapter_id,
           steps[idx]!.stepIndex,
         );
-        await uploadCraftAnimationToStorage(supabase, animPath, steps[idx]!.animationHtml);
+        await uploadCraftAnimationToStorage(supabase, animPath, animHtml);
         steps[idx]!.animationStoragePath = animPath;
         steps[idx]!.imageSource = "animation";
         steps[idx]!.batchSelected = false;
