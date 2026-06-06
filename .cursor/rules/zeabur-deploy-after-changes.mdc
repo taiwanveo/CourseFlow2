@@ -1,0 +1,36 @@
+---
+description: 程式改完後自動 commit、push、部署 Zeabur（Web + Worker）
+alwaysApply: true
+---
+
+# Zeabur 部署流程（每次改完必做）
+
+當使用者要求完成實作、或任務涉及可部署的程式變更且未明確禁止時，**在回報完成前**執行以下流程（除非使用者說「先不要部署」）。
+
+## 1. Git
+
+1. `git status` / `git diff` 確認變更；**不要** add `tmp-*`、`.env*`、密鑰檔。
+2. `git add` 相關檔案 → `git commit`（繁體中文訊息，說明 why）。
+3. `git push origin main`
+4. 記下 `git rev-parse --short HEAD` 作為新 `buildSha`。
+
+## 2. Zeabur 部署（Web + Worker 都要）
+
+專案：**CourseFlow2**（`https://courseflow2.zeabur.app`）
+
+| 服務 | service_id | Dockerfile |
+|------|------------|------------|
+| courseflow-web | `6a22bf03e957fb053c5517ee` | `/Dockerfile.web` |
+| courseflow-worker | `6a22bf03e957fb053c5517f2` | `/Dockerfile.worker` |
+
+- GitHub repo_id：`1249017649`（`taiwanveo/CourseFlow2`）
+- **ref 必須是 `main`**，不要用 commit SHA 當 ref
+- 使用 `deploy-from-specification` 時 **`env` 必須帶完整既有變數**，不可 `env: []`
+- 將 web 的 `COURSEFLOW_BUILD_SHA` 更新為本次 commit 短 SHA
+- environmentId：`6a22beff95b39806d284a82c`
+- 等兩個服務部署狀態 **RUNNING** 後，驗證 `https://courseflow2.zeabur.app/api/health` 的 `buildSha`
+
+## 3. 回報使用者
+
+- commit SHA、部署狀態、health `buildSha`
+- 若功能需重跑試執行／建置預覽，提醒使用者重新操作
