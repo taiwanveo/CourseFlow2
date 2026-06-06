@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { ensureWvpDistLocal } from "@/lib/wvp-dist-storage";
+import { isWvpDistPlayable } from "@/lib/wvp-dist-storage";
 import {
   isPresentationRevisionBuilt,
   wvpEmbedBasePath,
@@ -32,7 +32,7 @@ export default async function WvpPlayPage({
     .single();
   if (!project) redirect("/dashboard");
 
-  const built = await ensureWvpDistLocal(supabase, user.id, id);
+  const built = await isWvpDistPlayable(supabase, user.id, id);
   if (!built) {
     const reason = isPresentationRevisionBuilt(project.presentation_revision)
       ? "build-stale"

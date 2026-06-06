@@ -23,7 +23,7 @@ import {
 } from "@/lib/wvp-craft-illustrations";
 import { syncPresentationStepAnimations } from "@/lib/wvp-animation-sync";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
-import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
+import { invalidateWvpDistCaches, uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 import { makeDefaultStepMotions, pickEnterAnimation } from "@/lib/wvp-motion-utils";
@@ -697,6 +697,7 @@ export async function syncFullWvpProject(
   let audioSyncWarning: string | undefined;
   let illustrationSyncWarning: string | undefined;
   if (opts?.build && entries.length > 0) {
+    invalidateWvpDistCaches(userId, projectId);
     const audioGate = evaluateWvpAudioBuildGate(composition);
     if (!audioGate.ready) {
       throw new Error(audioGate.message ?? "請先完成語音合成");
