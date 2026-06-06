@@ -195,10 +195,13 @@ export async function materializeChapterFromCraft(
     narrations,
     screenContents: currentScreenContents,
   });
+  const dataVisualNeedsVisualBlock =
+    dataVisualChapter && llmTsx.length > 0 && !/VisualBlock/.test(llmTsx);
   const templateKindStale = Boolean(
     (resolvedChapterKind &&
       cachedTemplateKind &&
       resolvedChapterKind !== cachedTemplateKind) ||
+    dataVisualNeedsVisualBlock ||
     (dataVisualChapter &&
       (cachedTemplateKind === "flow" || cachedTemplateKind === "list-reveal")),
   );
@@ -228,6 +231,7 @@ export async function materializeChapterFromCraft(
     !mustRegenerateForPackagedAssets &&
     rawSource?.source === "llm" &&
     !forceTemplate &&
+    !dataVisualNeedsVisualBlock &&
     assets.length === 0 &&
     llmTsx &&
     !llmCacheScreenContentsStale &&
@@ -315,8 +319,9 @@ export async function materializeChapterFromCraft(
     } catch { /* 目錄不存在 */ }
 
     const preferImageTemplate =
-      hasPackagedStepImagesForCraft(craft) ||
-      Object.keys(stepImageExtensions).length > 0;
+      !dataVisualChapter &&
+      (hasPackagedStepImagesForCraft(craft) ||
+        Object.keys(stepImageExtensions).length > 0);
     if (
       !preferImageTemplate &&
       dataVisualChapter &&
@@ -328,7 +333,10 @@ export async function materializeChapterFromCraft(
       );
     }
     const effectiveForceTemplate =
-      dataVisualChapter && forceTemplate === "flow" ? undefined : forceTemplate;
+      dataVisualChapter &&
+      (forceTemplate === "flow" || forceTemplate === "list-reveal")
+        ? undefined
+        : forceTemplate;
     const written = await writeChapterToPresentation(presentationDir, {
       folderName,
       wvpChapterId: craft.wvp_chapter_id,

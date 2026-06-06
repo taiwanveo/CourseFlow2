@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { WvpChapterKind } from "@courseflow/core";
-import { inferChapterKind } from "./router.js";
+import { inferChapterKind, isDataVisualChapter } from "./router.js";
+import { buildHeuristicStepVisualConfigs, type StepVisualEntry } from "./step-visuals.js";
 import { assetsForChapter } from "./hook-slots.js";
 import { generateFlowSources } from "./templates/flow.js";
 import { generateHookSources } from "./templates/hook.js";
@@ -35,16 +36,42 @@ function hasChartOrTableVisuals(
   );
 }
 
+function resolveDataVisualConfigs(input: ChapterCodegenInput): StepVisualEntry[] {
+  const fromInput = input.stepVisualConfigs ?? [];
+  const chartTable = fromInput.filter(
+    (e) => e.config.kind === "chart" || e.config.kind === "table",
+  );
+  if (chartTable.length > 0) return chartTable;
+  return buildHeuristicStepVisualConfigs(input.narrations, input.screenContents ?? []);
+}
+
 export function generateChapterSources(input: ChapterCodegenInput) {
   const hasUploadedAssets =
     assetsForChapter(input.assets, input.wvpChapterId).length > 0;
   const hasPackagedStepImages =
     Object.keys(input.stepImageExtensions ?? {}).length > 0;
+  const dataVisualChapter = isDataVisualChapter({
+    chapterTitle: input.title,
+    narrations: input.narrations,
+    screenContents: input.screenContents,
+  });
   const visualConfigs = input.stepVisualConfigs ?? [];
   const visualConfigCount = visualConfigs.length;
   const chartTableCount = visualConfigs.filter(
     (e) => e.config.kind === "chart" || e.config.kind === "table",
   ).length;
+
+  /** 數據視覺章：無配圖時強制 Visual-Mix（含啟發式 chart/table），不走 list/flow */
+  const dataVisualMixConfigs =
+    dataVisualChapter && !hasPackagedStepImages && !hasUploadedAssets
+      ? resolveDataVisualConfigs(input)
+      : [];
+  if (dataVisualMixConfigs.length > 0) {
+    return {
+      ...generateVisualMixSources(input, dataVisualMixConfigs),
+      templateKind: "visual-mix" as const,
+    };
+  }
 
   /** 有 chart/table config 時優先 Visual-Mix，避免數據章被 flow/list 蓋掉成純文字節點 */
   const preferDataVisualMix =

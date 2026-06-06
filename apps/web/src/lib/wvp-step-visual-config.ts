@@ -2,11 +2,11 @@ import type { LlmProviderId } from "@courseflow/llm";
 import {
   analyzeStepVisualPlan,
   generateVisualConfig,
-  inferVisualConfigFromText,
   loadDesignTokensForTheme,
   shouldStepHaveVisual,
   type VisualConfig,
 } from "@courseflow/visual-config";
+import { buildHeuristicStepVisualConfigs as buildHeuristicFromPresentation } from "@courseflow/presentation";
 import { generateChapterPlan } from "@/lib/wvp-generate-chapter";
 
 export type StepVisualEntry = { step: number; config: VisualConfig };
@@ -16,18 +16,7 @@ export function buildHeuristicStepVisualConfigs(
   narrations: string[],
   screenContents: string[],
 ): StepVisualEntry[] {
-  const out: StepVisualEntry[] = [];
-  for (let step = 0; step < narrations.length; step++) {
-    const script = narrations[step]?.trim() ?? "";
-    const screen = screenContents[step]?.trim() ?? "";
-    const blob = screen ? `${screen}\n${script}` : script;
-    if (blob.length < 6) continue;
-    const config = inferVisualConfigFromText(blob);
-    if (config?.kind === "chart" || config?.kind === "table") {
-      out.push({ step, config });
-    }
-  }
-  return out;
+  return buildHeuristicFromPresentation(narrations, screenContents);
 }
 export type StepRecommendedOutput = "ai-image" | "chart" | "table" | "animation" | "none";
 export type StepVisualDecision = {
