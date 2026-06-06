@@ -1,19 +1,25 @@
 .vf-table-wrap {
   width: 100%;
-  max-width: min(1100px, 94%);
+  max-width: var(--stage-viz-max-w);
   margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(var(--stage-safe-h) - var(--stage-headline-band));
 }
 .vf-table-card {
   border: var(--rule-w) solid var(--rule);
   border-radius: var(--r-card);
-  padding: var(--space-6);
+  padding: var(--space-6) var(--space-7);
   background: var(--surface);
   box-shadow: var(--shadow-card);
+  width: 100%;
+  max-height: var(--stage-table-h);
+  overflow: hidden;
 }
 .vf-table-card > .vf-title {
   text-align: center;
   margin-bottom: var(--space-4);
-  font-size: clamp(32px, 4vw, 48px);
+  font-size: 48px;
 }
 .vf-table {
   width: 100%;
@@ -23,12 +29,12 @@
 .vf-table-compare .vf-th,
 .vf-table-compare .vf-td {
   text-align: center;
-  font-size: clamp(28px, 3.2vw, 42px);
+  font-size: 44px;
   line-height: 1.35;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-5) var(--space-6);
 }
 .vf-table-compare .vf-th {
-  font-size: clamp(24px, 2.8vw, 36px);
+  font-size: 40px;
 }
 .vf-table-compare .vf-td-num,
 .vf-table-compare .vf-td-barcell {

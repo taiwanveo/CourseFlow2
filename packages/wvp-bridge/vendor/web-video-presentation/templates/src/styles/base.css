@@ -76,6 +76,18 @@ body {
   --stage-pad-x: 96px;   /* 幻燈片內容安全左右邊距 — 縮小可讓內容更寬，放大可讓內容更集中 */
   --stage-pad-y: 80px;   /* 幻燈片內容安全上下邊距 — 想把內容整體上移/下移時可連動參考 */
 
+  /* ── 1920×1080 舞台內容區（勿用 vh/vw — 在縮放舞台內會對到瀏覽器視窗） ── */
+  --stage-w: 1920px;
+  --stage-h: 1080px;
+  --stage-safe-w: 1728px;   /* 1920 − 2×--stage-pad-x */
+  --stage-safe-h: 920px;    /* 1080 − 2×--stage-pad-y */
+  --stage-viz-max-w: 1680px; /* 主視覺橫向上限（留右側裝飾／步驟色條） */
+  --stage-headline-band: 100px; /* 標題列 + 下距，圖表區扣除此高度 */
+  --stage-chart-h: 760px;   /* 折線／長條／圓餅主繪圖區 */
+  --stage-anim-h: 760px;    /* 解說動畫 iframe 高度 */
+  --stage-table-h: 720px;   /* 表格卡片主體 */
+  --stage-figure-h: 720px;  /* 雜誌／配圖主區 */
+
   /* ── Radius scale (themes reference these via --r-card; chapters write
         their own radii freely) ── */
   --r-flat:    0;

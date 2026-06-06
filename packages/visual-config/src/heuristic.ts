@@ -4,7 +4,23 @@ const PAIR_RE =
   /([^，,；;\n]+?)\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(%|億|萬|万|千|百|人|元|美元|USD|倍)?/g;
 
 function slugLabel(s: string): string {
-  return s.trim().slice(0, 12) || "項目";
+  const t = s
+    .trim()
+    .replace(/^[「『"'\s]+/, "")
+    .replace(/[」』"'\s]+$/, "");
+  if (!t || /^[從到年至而之]$/.test(t) || /^年到?$/.test(t) || /^從/.test(t)) {
+    return "";
+  }
+  return t.slice(0, 12) || "項目";
+}
+
+function percentSeriesLabel(prefix: string): string {
+  const week = prefix.match(/第([一二三四\d]+)[週周]/);
+  if (week) return `第${week[1]}週`;
+  const season = prefix.match(/第([一二三四\d]+)季/);
+  if (season) return `第${season[1]}季`;
+  const labeled = slugLabel(prefix);
+  return labeled || "項目";
 }
 
 const CN_DIGIT: Record<string, number> = {
@@ -85,8 +101,15 @@ function shortKpiTitle(text: string): string {
   return first.slice(0, 12) || "關鍵指標";
 }
 
+/** 純增量描述略過；「第 N 週成長到」等時間端點保留 */
 function isPercentDeltaPhrase(prefix: string): boolean {
-  return /增幅|增長|增长|成長|成长|提升|增加|下降|減少|减少|達到|达到/.test(prefix);
+  const p = prefix.trim();
+  if (/第\s*[一二三四\d]+\s*[週周月季年]/.test(p)) return false;
+  if (/成長到|成长到|增至|上升至|下降到/.test(p)) return false;
+  return (
+    /^(?:增幅|增長了|增长了|提升了|增加了|下降了|減少了|减少了|達到|达到)/.test(p) ||
+    /增幅達|增幅为|增長達|增长达/.test(p)
+  );
 }
 
 function chartFromPairs(
@@ -163,12 +186,40 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     if (val === null) continue;
     const prefix = (m[1] ?? "").replace(/為|为|達到|达到/g, "").trim();
     if (isPercentDeltaPhrase(prefix)) continue;
-    if (prefix && !/週|周|月|季|年|第/.test(prefix)) continue;
-    const label = slugLabel(prefix);
+    if (prefix && !/週|周|月|季|年|第|完成率|率/.test(prefix)) continue;
+    const label = percentSeriesLabel(prefix);
+    if (!label) continue;
     cnPercentPairs.push({ label, value: val });
   }
   if (cnPercentPairs.length >= 2) {
     return chartFromPairs(cnPercentPairs, shortDataTitle(t, "完成率趨勢"), "%", true);
+  }
+
+  // 年份區間 + 遞減趨勢（例：從 2018 年到 2023 年，出生率就越來越低）
+  const yearDecline = t.match(
+    /(20\d{2}).{0,24}?(20\d{2}).{0,32}?(越低|下降|減少|减少|下滑|遞減|递减|降低|萎縮|萎缩)/,
+  );
+  if (yearDecline) {
+    const y1 = Number.parseInt(yearDecline[1]!, 10);
+    const y2 = Number.parseInt(yearDecline[2]!, 10);
+    const lo = Math.min(y1, y2);
+    const hi = Math.max(y1, y2);
+    const years: number[] = [];
+    for (let y = lo; y <= hi; y++) years.push(y);
+    if (years.length >= 2) {
+      const startVal = 100;
+      const endVal = 35;
+      const pairs = years.map((y, i) => ({
+        label: String(y),
+        value: Math.round(
+          startVal - (i * (startVal - endVal)) / Math.max(1, years.length - 1),
+        ),
+      }));
+      const declineTitle = /出生/.test(t)
+        ? "出生率趨勢"
+        : shortDataTitle(t, "趨勢變化");
+      return chartFromPairs(pairs, declineTitle, "%", true);
+    }
   }
 
   // 定性方案對比：方案 A 成本較低…方案 B…（無數字欄位時）
@@ -190,7 +241,7 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     if (rows.length >= 2) {
       return {
         kind: "table",
-        title: "方案對比",
+        title: shortDataTitle(t, "方案對比"),
         columns: [
           { key: "item", label: "方案" },
           { key: "說明", label: "特點" },
@@ -311,8 +362,13 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
   const re = new RegExp(PAIR_RE.source, PAIR_RE.flags);
   while ((m = re.exec(t)) !== null) {
     const label = slugLabel(m[1]!);
+    if (!label) continue;
     const value = parseFloat(m[2]!);
     if (!Number.isFinite(value)) continue;
+    // 年份數字不當一般數值對（避免「從 2018 年到 2023」誤判）
+    if (/^20\d{2}$/.test(String(Math.round(value))) && /年|從|到/.test(m[1]! + t)) {
+      continue;
+    }
     pairs.push({ label, value, unit: m[3] });
   }
 
@@ -328,7 +384,11 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
 
   const kpi = t.match(/(\d+(?:\.\d+)?)\s*(%|億|萬|万|倍)?/);
   const metricHint = /(?:率|比|達到|达到|為|为)\s*\d/.test(t);
-  if ((kpi && t.length < 80) || (metricHint && kpi)) {
+  const multiPctInScript = (t.match(/百分之/g) ?? []).length >= 2;
+  if (
+    !multiPctInScript &&
+    ((kpi && t.length < 80) || (metricHint && kpi))
+  ) {
     return {
       kind: "chart",
       chartType: "kpi",

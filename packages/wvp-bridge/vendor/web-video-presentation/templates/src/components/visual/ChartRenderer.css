@@ -1,11 +1,14 @@
 .vf-chart {
   width: 100%;
+  max-width: var(--stage-viz-max-w);
+  margin-inline: auto;
   color: var(--text);
+  min-height: 0;
 }
 .vf-chart .vf-title {
   margin: 0 0 var(--space-2);
-  font-size: clamp(56px, 6.5vw, 96px);
-  line-height: 1.12;
+  font-size: 80px;
+  line-height: 1.1;
 }
 .vf-sub {
   margin: 0 0 var(--space-4);
@@ -14,23 +17,26 @@
 }
 .vf-chart-box {
   width: 100%;
-  min-height: min(58vh, 480px);
+  min-height: 480px;
+  max-height: var(--stage-chart-h);
   flex: 1;
 }
 .vf-chart-box > .recharts-responsive-container {
   min-height: inherit !important;
+  max-height: var(--stage-chart-h) !important;
 }
 .vf-kpi {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  min-height: min(52vh, 420px);
+  gap: var(--space-4);
+  min-height: 480px;
+  max-height: var(--stage-chart-h);
   flex: 1;
 }
 .vf-kpi-value {
-  font-size: var(--t-display-1);
+  font-size: 160px;
   color: var(--accent);
   line-height: 1;
 }

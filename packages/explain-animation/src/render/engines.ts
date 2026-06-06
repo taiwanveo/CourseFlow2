@@ -181,12 +181,12 @@ function sparklineScene(points: { label: string; value: number }[], unit: string
 function emphasisScene(text: string, sub?: string, variant: "pulse" | "ring" | "check" | "badge" = "pulse"): SceneParts {
   const extra =
     variant === "ring"
-      ? `<circle cx="280" cy="150" r="80" fill="none" stroke="var(--accent)" stroke-width="4" opacity="0" id="ring" style="transition:opacity .5s, r 1s ease"/><circle cx="280" cy="150" r="40" fill="var(--accent-soft)" opacity="0" id="core" style="transition:opacity .6s"/>`
+      ? `<circle cx="480" cy="210" r="120" fill="none" stroke="var(--accent)" stroke-width="5" opacity="0" id="ring" style="transition:opacity .5s, r 1s ease"/><circle cx="480" cy="210" r="56" fill="var(--accent-soft)" opacity="0" id="core" style="transition:opacity .6s"/>`
       : variant === "check"
-        ? `<path d="M220 150 L250 180 L340 110" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-dasharray="200" stroke-dashoffset="200" id="chk" style="transition:stroke-dashoffset 1s ease"/>`
+        ? `<path d="M380 210 L430 260 L580 170" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="280" stroke-dashoffset="280" id="chk" style="transition:stroke-dashoffset 1s ease"/>`
         : variant === "badge"
-          ? `<polygon points="280,70 310,130 370,130 320,170 340,230 280,195 220,230 240,170 190,130 250,130" fill="var(--accent)" opacity="0" id="star" style="transition:opacity .6s,transform .6s;transform:scale(0.5)"/>`
-          : `<rect x="140" y="110" width="280" height="80" rx="12" fill="var(--accent-soft)" opacity="0" id="box" style="transition:opacity .5s,transform .6s;transform:scale(0.9)"/>`;
+          ? `<polygon points="480,90 520,170 600,170 540,230 560,310 480,270 400,310 420,230 360,170 440,170" fill="var(--accent)" opacity="0" id="star" style="transition:opacity .6s,transform .6s;transform:scale(0.5)"/>`
+          : `<rect x="260" y="160" width="440" height="120" rx="16" fill="var(--accent-soft)" opacity="0" id="box" style="transition:opacity .5s,transform .6s;transform:scale(0.9)"/>`;
   const anim =
     variant === "ring"
       ? [{ delay: 400, code: `document.getElementById('ring').style.opacity='1';document.getElementById('core').style.opacity='1';` }]
@@ -195,11 +195,12 @@ function emphasisScene(text: string, sub?: string, variant: "pulse" | "ring" | "
         : variant === "badge"
           ? [{ delay: 400, code: `var s=document.getElementById('star');s.style.opacity='1';s.style.transform='scale(1)';` }]
           : [{ delay: 400, code: `var b=document.getElementById('box');b.style.opacity='1';b.style.transform='scale(1)';` }];
+  const display = text.length > 10 ? `${text.slice(0, 10)}…` : text;
   return {
     title: text,
     subtitle: sub ?? "",
-    svg: `<svg viewBox="0 0 560 260" xmlns="http://www.w3.org/2000/svg">${extra}
-  <text x="280" y="158" text-anchor="middle" fill="var(--accent)" font-size="42" font-weight="800">${esc(text.slice(0, 8))}</text>
+    svg: `<svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg">${extra}
+  <text x="480" y="230" text-anchor="middle" fill="var(--accent)" font-size="72" font-weight="800">${esc(display)}</text>
 </svg>`,
     script: scheduleScript(anim),
   };
@@ -410,13 +411,13 @@ function vennOverlapScene(p: { leftLabel: string; rightLabel: string; overlapLab
   return {
     title: "交集",
     subtitle: `${p.leftLabel} ∩ ${p.rightLabel}`,
-    svg: `<svg viewBox="0 0 480 260" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="190" cy="130" r="72" fill="#2980b9" opacity="0" id="cL" style="transition:opacity .7s"/>
-  <circle cx="290" cy="130" r="72" fill="#c0392b" opacity="0" id="cR" style="transition:opacity .7s"/>
-  <ellipse cx="240" cy="130" rx="28" ry="60" fill="var(--accent)" opacity="0" id="overlap" style="transition:opacity .8s"/>
-  <text x="150" y="135" text-anchor="middle" fill="white" font-size="14" font-weight="600" opacity="0" id="tL" style="transition:opacity .5s">${esc(p.leftLabel.slice(0, 4))}</text>
-  <text x="330" y="135" text-anchor="middle" fill="white" font-size="14" font-weight="600" opacity="0" id="tR" style="transition:opacity .5s">${esc(p.rightLabel.slice(0, 4))}</text>
-  <text x="240" y="136" text-anchor="middle" fill="white" font-size="13" font-weight="700" opacity="0" id="tO" style="transition:opacity .5s">${overlap}</text>
+    svg: `<svg viewBox="0 0 960 420" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="360" cy="210" r="120" fill="#2980b9" opacity="0" id="cL" style="transition:opacity .7s"/>
+  <circle cx="600" cy="210" r="120" fill="#c0392b" opacity="0" id="cR" style="transition:opacity .7s"/>
+  <ellipse cx="480" cy="210" rx="48" ry="100" fill="var(--accent)" opacity="0" id="overlap" style="transition:opacity .8s"/>
+  <text x="300" y="220" text-anchor="middle" fill="white" font-size="28" font-weight="600" opacity="0" id="tL" style="transition:opacity .5s">${esc(p.leftLabel.slice(0, 6))}</text>
+  <text x="660" y="220" text-anchor="middle" fill="white" font-size="28" font-weight="600" opacity="0" id="tR" style="transition:opacity .5s">${esc(p.rightLabel.slice(0, 6))}</text>
+  <text x="480" y="222" text-anchor="middle" fill="white" font-size="26" font-weight="700" opacity="0" id="tO" style="transition:opacity .5s">${overlap}</text>
 </svg>`,
     script: scheduleScript([
       { delay: 400, code: `document.getElementById('cL').style.opacity='0.55';document.getElementById('tL').style.opacity='1';` },
@@ -431,22 +432,22 @@ function beforeAfterSliderScene(p: {
   afterLabel: string;
   sliderPosition: number;
 }): SceneParts {
-  const pos = Math.round(p.sliderPosition * 320 + 80);
+  const pos = Math.round(p.sliderPosition * 800 + 80);
   return {
     title: "對照",
     subtitle: `${p.beforeLabel} / ${p.afterLabel}`,
-    svg: `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">
-  <rect x="60" y="60" width="360" height="140" rx="10" fill="var(--text-mute)" opacity="0.15"/>
-  <rect x="60" y="60" width="180" height="140" rx="10" fill="#95a5a6" opacity="0.5" id="beforePane"/>
-  <rect x="240" y="60" width="180" height="140" rx="10" fill="var(--accent)" opacity="0" id="afterPane" style="transition:opacity .8s"/>
-  <line x1="${pos}" y1="50" x2="${pos}" y2="210" stroke="var(--accent)" stroke-width="4" id="slider" style="transition:x1 .9s ease,x2 .9s ease"/>
-  <circle cx="${pos}" cy="130" r="16" fill="var(--accent)" stroke="white" stroke-width="3" id="handle" style="transition:cx .9s ease"/>
-  <text x="150" y="135" text-anchor="middle" fill="white" font-size="14" font-weight="600">${esc(p.beforeLabel.slice(0, 4))}</text>
-  <text x="330" y="135" text-anchor="middle" fill="white" font-size="14" font-weight="600" opacity="0" id="afterTxt" style="transition:opacity .6s">${esc(p.afterLabel.slice(0, 4))}</text>
+    svg: `<svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg">
+  <rect x="80" y="80" width="800" height="240" rx="14" fill="var(--text-mute)" opacity="0.15"/>
+  <rect x="80" y="80" width="400" height="240" rx="14" fill="#95a5a6" opacity="0.5" id="beforePane"/>
+  <rect x="480" y="80" width="400" height="240" rx="14" fill="var(--accent)" opacity="0" id="afterPane" style="transition:opacity .8s"/>
+  <line x1="${pos}" y1="60" x2="${pos}" y2="340" stroke="var(--accent)" stroke-width="6" id="slider" style="transition:x1 .9s ease,x2 .9s ease"/>
+  <circle cx="${pos}" cy="200" r="24" fill="var(--accent)" stroke="white" stroke-width="4" id="handle" style="transition:cx .9s ease"/>
+  <text x="280" y="210" text-anchor="middle" fill="white" font-size="28" font-weight="600">${esc(p.beforeLabel.slice(0, 6))}</text>
+  <text x="680" y="210" text-anchor="middle" fill="white" font-size="28" font-weight="600" opacity="0" id="afterTxt" style="transition:opacity .6s">${esc(p.afterLabel.slice(0, 6))}</text>
 </svg>`,
     script: scheduleScript([
-      { delay: 600, code: `var s=document.getElementById('slider'),h=document.getElementById('handle');s.setAttribute('x1','320');s.setAttribute('x2','320');h.setAttribute('cx','320');document.getElementById('afterPane').style.opacity='0.65';document.getElementById('afterTxt').style.opacity='1';` },
-      { delay: 2200, code: `var s=document.getElementById('slider'),h=document.getElementById('handle');s.setAttribute('x1','180');s.setAttribute('x2','180');h.setAttribute('cx','180');` },
+      { delay: 600, code: `var s=document.getElementById('slider'),h=document.getElementById('handle');s.setAttribute('x1','640');s.setAttribute('x2','640');h.setAttribute('cx','640');document.getElementById('afterPane').style.opacity='0.65';document.getElementById('afterTxt').style.opacity='1';` },
+      { delay: 2200, code: `var s=document.getElementById('slider'),h=document.getElementById('handle');s.setAttribute('x1','360');s.setAttribute('x2','360');h.setAttribute('cx','360');` },
     ]),
   };
 }
@@ -456,17 +457,17 @@ function equationBalanceScene(p: { leftExpr: string; rightExpr: string; balanced
   return {
     title: "等式",
     subtitle: "=",
-    svg: `<svg viewBox="0 0 480 240" xmlns="http://www.w3.org/2000/svg">
-  <polygon points="240,50 120,190 360,190" fill="none" stroke="var(--text-mute)" stroke-width="3"/>
-  <line x1="240" y1="50" x2="240" y2="190" stroke="var(--text-mute)" stroke-width="3"/>
-  <g id="beam" style="transition:transform 1.1s ease;transform-origin:240px 190px;transform:rotate(${tilt}deg)">
-    <line x1="100" y1="190" x2="380" y2="190" stroke="var(--accent)" stroke-width="5"/>
-    <rect x="90" y="155" width="80" height="36" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
-    <rect x="310" y="155" width="80" height="36" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
-    <text x="130" y="178" text-anchor="middle" fill="var(--accent)" font-size="14" font-weight="700">${esc(p.leftExpr.slice(0, 8))}</text>
-    <text x="350" y="178" text-anchor="middle" fill="var(--accent)" font-size="14" font-weight="700">${esc(p.rightExpr.slice(0, 8))}</text>
+    svg: `<svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="480,70 220,310 740,310" fill="none" stroke="var(--text-mute)" stroke-width="4"/>
+  <line x1="480" y1="70" x2="480" y2="310" stroke="var(--text-mute)" stroke-width="4"/>
+  <g id="beam" style="transition:transform 1.1s ease;transform-origin:480px 310px;transform:rotate(${tilt}deg)">
+    <line x1="180" y1="310" x2="780" y2="310" stroke="var(--accent)" stroke-width="7"/>
+    <rect x="160" y="260" width="160" height="64" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+    <rect x="640" y="260" width="160" height="64" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+    <text x="240" y="302" text-anchor="middle" fill="var(--accent)" font-size="26" font-weight="700">${esc(p.leftExpr.slice(0, 10))}</text>
+    <text x="720" y="302" text-anchor="middle" fill="var(--accent)" font-size="26" font-weight="700">${esc(p.rightExpr.slice(0, 10))}</text>
   </g>
-  <text x="240" y="225" text-anchor="middle" fill="var(--text-mute)" font-size="22" font-weight="700" opacity="0" id="eqSign" style="transition:opacity .5s">=</text>
+  <text x="480" y="365" text-anchor="middle" fill="var(--text-mute)" font-size="40" font-weight="700" opacity="0" id="eqSign" style="transition:opacity .5s">=</text>
 </svg>`,
     script: scheduleScript([
       { delay: 500, code: `document.getElementById('beam').style.transform='rotate(${tilt}deg)';` },

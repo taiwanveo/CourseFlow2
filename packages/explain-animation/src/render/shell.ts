@@ -71,11 +71,13 @@ export function wrapExplainHtml(parts: {
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{width:100%;height:100%;overflow:hidden;
     background:var(--bg);color:var(--text);font-family:var(--font);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-  .scene{background:var(--surface);border-radius:16px;padding:24px 16px 16px;
-    box-shadow:0 10px 40px rgba(0,0,0,0.12);max-width:min(92vw,640px);width:100%}
-  svg{width:100%;height:auto;display:block}
-  .status{text-align:center;margin-top:12px;font-size:13px;color:var(--text-mute);min-height:18px}
+    display:flex;flex-direction:column;align-items:stretch;justify-content:stretch;padding:0}
+  .scene{background:var(--surface);border-radius:12px;padding:20px 24px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.12);width:100%;height:100%;
+    max-width:1680px;max-height:760px;margin:auto;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box}
+  svg{width:100%;height:100%;max-height:680px;min-height:0;display:block;flex:1;object-fit:contain}
+  .status{text-align:center;margin-top:8px;font-size:18px;color:var(--text-mute);min-height:18px;flex-shrink:0}
 </style>
 </head>
 <body>

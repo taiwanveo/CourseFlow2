@@ -66,12 +66,13 @@ export function generateVisualMixSources(
       if (hasAnim) {
         return stepAnimationEmbedBranch(step, componentName);
       }
+      const fallbackHeadline = visualMixHeadline(input.screenContents?.[step], input.title);
       return `
   if (step === ${step}) {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
       <div className={\`${componentName}-fallback scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <p className="serif-cn">${escapeTsString(input.title)}</p>
+        <p className="serif-cn">${fallbackHeadline}</p>
       </div>
     );
   }`;
@@ -96,60 +97,89 @@ ${stepBranches}
 }
 `;
 
-  const css = `.${componentName}-fallback {
+  const css = `/* 1920×1080 舞台：尺寸一律用 base.css --stage-* token，勿用 vh/vw */
+.${componentName}-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
   height: 100%;
+  max-height: var(--stage-safe-h);
   color: var(--text);
 }
 .${componentName}-fallback p {
   margin: 0;
-  font-size: clamp(56px, 7vw, 96px);
-  line-height: 1.15;
+  font-size: 96px;
+  line-height: 1.1;
   text-align: center;
-  max-width: 92%;
+  max-width: var(--stage-viz-max-w);
 }
 .${componentName}-anim-wrap {
   width: 100%;
-  height: 100%;
+  max-width: var(--stage-viz-max-w);
+  margin-inline: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(var(--stage-safe-h) - var(--stage-headline-band));
   display: flex;
   align-items: stretch;
-  justify-content: center;
-  padding: var(--space-6) var(--space-8);
+  justify-content: stretch;
+  padding: 0;
   box-sizing: border-box;
 }
 .${componentName}-anim-frame {
   width: 100%;
   height: 100%;
-  min-height: min(72vh, 640px);
+  min-height: 520px;
+  max-height: var(--stage-anim-h);
   border: none;
   border-radius: var(--r-card, 12px);
   background: transparent;
 }
 .vf-block {
+  width: 100%;
   height: 100%;
-  min-height: 0;
+  max-height: var(--stage-safe-h);
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  gap: var(--space-4);
-  padding-top: var(--space-6);
-}
-.vf-block:has(.vf-chart, .vf-table-wrap) {
-  flex: 1;
+  gap: var(--space-3);
+  padding: 0;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .vf-headline {
   flex-shrink: 0;
   text-align: center;
   width: 100%;
-  margin-bottom: var(--space-3);
+  max-width: var(--stage-viz-max-w);
+  margin-inline: auto;
+  margin-bottom: var(--space-2);
+}
+.vf-headline-text {
+  font-size: 80px;
 }
 .vf-block:has(.vf-chart) .vf-chart-box {
   flex: 1;
-  min-height: min(58vh, 480px);
+  min-height: 480px;
+  max-height: var(--stage-chart-h);
   display: flex;
   flex-direction: column;
+}
+.vf-block:has(.vf-table-wrap) .vf-table-wrap {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(var(--stage-safe-h) - var(--stage-headline-band));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.vf-block:has(.vf-table-wrap) .vf-table-card {
+  flex: 1;
+  max-height: var(--stage-table-h);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 `;
 

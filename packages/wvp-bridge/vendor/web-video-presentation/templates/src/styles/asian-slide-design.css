@@ -74,7 +74,7 @@ h3::after,
 }
 
 .cf-chapter-figure img {
-  max-height: min(58vh, 560px);
+  max-height: var(--stage-figure-h);
   object-fit: contain;
 }
 

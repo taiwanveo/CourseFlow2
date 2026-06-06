@@ -299,67 +299,77 @@ ${stepBlocks.join("\n")}
 }
 `;
 
-  const css = `.${prefix}-scene {
+  const css = `/* 1920×1080 舞台：使用 base.css --stage-* token */
+.${prefix}-scene {
   height: 100%;
+  max-height: var(--stage-safe-h);
   display: flex;
   flex-direction: column;
   text-align: left;
   justify-content: center;
+  overflow: hidden;
 }
 .${prefix}-chapter-divider {
+  width: 100%;
   height: 100%;
+  max-height: var(--stage-safe-h);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
-  gap: var(--space-6);
-  padding-top: var(--space-8);
-  padding-bottom: var(--space-8);
+  gap: var(--space-5);
+  padding: 0;
+  box-sizing: border-box;
 }
 .${prefix}-chapter-divider:has(.${prefix}-divider-figure img) {
   justify-content: center;
 }
 /* 章節 divider 主標題：調這裡可改章首大標字級、行高、最大寬度。 */
 .${prefix}-divider-title {
-  font-size: clamp(80px, 7vmin, 120px);
-  line-height: 1.08;
+  font-size: 120px;
+  line-height: 1.06;
   margin: 0;
-  max-width: 20ch;
+  max-width: var(--stage-viz-max-w);
   width: 100%;
+  flex-shrink: 0;
 }
 .${prefix}-chapter-divider:has(.${prefix}-divider-figure img) .${prefix}-divider-title {
-  font-size: clamp(56px, 5.5vmin, 88px);
-  max-width: none;
+  font-size: 96px;
+  max-width: var(--stage-viz-max-w);
 }
 .${prefix}-divider-figure {
   flex: 1;
-  width: min(100%, 960px);
-  min-height: 280px;
-  align-self: center;
+  width: 100%;
+  max-width: var(--stage-viz-max-w);
+  min-height: 0;
+  max-height: var(--stage-figure-h);
+  align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .${prefix}-divider-figure img {
-  width: auto;
-  max-width: 100%;
+  width: 100%;
+  max-width: var(--stage-viz-max-w);
   height: auto;
-  max-height: 520px;
+  min-height: 400px;
+  max-height: var(--stage-figure-h);
   object-fit: contain;
   border-radius: var(--r-card);
 }
 .${prefix}-cover-body {
   flex: 1;
   width: 100%;
-  max-width: min(1720px, 94%);
+  max-width: var(--stage-safe-w);
   margin-inline: auto;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
-  gap: var(--space-8);
+  gap: var(--space-7);
   align-items: center;
-  padding-top: var(--space-5);
-  min-height: min(68vh, 720px);
+  padding-top: var(--space-4);
+  min-height: 0;
+  max-height: var(--stage-safe-h);
 }
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) {
   justify-content: center;
@@ -372,7 +382,9 @@ ${stepBlocks.join("\n")}
   justify-items: center;
   align-content: center;
   text-align: center;
-  max-width: min(1200px, 92%);
+  width: 100%;
+  max-width: var(--stage-viz-max-w);
+  max-height: var(--stage-safe-h);
 }
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-split-text,
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-figure-first-copy,
@@ -391,10 +403,10 @@ ${stepBlocks.join("\n")}
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-with-figure,
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-grid {
   width: 100%;
-  max-width: min(1720px, 94%);
+  max-width: var(--stage-safe-w);
   margin-inline: auto;
   text-align: left;
-  min-height: min(68vh, 720px);
+  max-height: var(--stage-safe-h);
 }
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
   grid-template-columns: minmax(0, 1fr) minmax(520px, 50%);
@@ -404,29 +416,29 @@ ${stepBlocks.join("\n")}
 }
 /* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
-  font-size: clamp(72px, 6.5vmin, 104px);
+  font-size: 96px;
   line-height: 1.08;
   text-align: center;
   margin: 0;
 }
-/* headline 長短分級：標題字數越少，用越大的級距。 */
 .${prefix}-headline-short {
-  font-size: clamp(88px, 7.5vmin, 112px);
+  font-size: 112px;
   letter-spacing: 0.01em;
 }
 .${prefix}-headline-mid {
-  font-size: clamp(72px, 6.5vmin, 96px);
+  font-size: 96px;
 }
 .${prefix}-headline-long {
-  font-size: clamp(56px, 5vmin, 80px);
+  font-size: 80px;
 }
-.${prefix}-cover-num { font-size: clamp(96px, 8vmin, 128px); margin-bottom: var(--space-4); }
+.${prefix}-cover-num { font-size: 128px; margin-bottom: var(--space-4); }
 .${prefix}-cover-aside {
   grid-column: 2;
   grid-row: 1 / -1;
   align-self: center;
   width: 100%;
-  min-height: min(56vh, 640px);
+  min-height: 0;
+  max-height: var(--stage-figure-h);
 }
 .${prefix}-cover-body > .${prefix}-cover-num,
 .${prefix}-cover-body > .${prefix}-cover-h {
@@ -435,7 +447,7 @@ ${stepBlocks.join("\n")}
 /* 內文段落：調這裡可改 body 字級、行高、單欄最長寬度。 */
 .${prefix}-body {
   text-align: left;
-  font-size: clamp(28px, 2.4vmin, 36px);
+  font-size: 36px;
   line-height: 1.55;
   max-width: 40ch;
 }
@@ -444,13 +456,13 @@ ${stepBlocks.join("\n")}
 .${prefix}-split {
   flex: 1;
   width: 100%;
-  max-width: min(1720px, 94%);
+  max-width: var(--stage-safe-w);
   margin-inline: auto;
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
-  gap: var(--space-8);
+  gap: var(--space-7);
   align-items: center;
-  min-height: min(68vh, 720px);
+  max-height: var(--stage-safe-h);
 }
 .${prefix}-split-text { display: flex; flex-direction: column; gap: var(--space-4); justify-content: center; }
 .${prefix}-split-h { text-align: left; }
@@ -459,50 +471,51 @@ ${stepBlocks.join("\n")}
 .${prefix}-figure-first-grid {
   flex: 1;
   width: 100%;
-  max-width: min(1720px, 94%);
+  max-width: var(--stage-safe-w);
   margin-inline: auto;
   display: grid;
   grid-template-columns: minmax(480px, 50%) minmax(0, 1fr);
-  gap: var(--space-8);
+  gap: var(--space-7);
   align-items: center;
-  min-height: min(68vh, 720px);
+  max-height: var(--stage-safe-h);
 }
 .${prefix}-figure-first-copy { display: flex; flex-direction: column; gap: var(--space-4); }
 .${prefix}-close-inner {
   flex: 1;
   width: 100%;
-  max-width: min(1720px, 94%);
+  max-width: var(--stage-safe-w);
   margin-inline: auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(520px, 50%);
-  gap: var(--space-8);
+  gap: var(--space-7);
   align-items: center;
-  min-height: min(68vh, 720px);
+  max-height: var(--stage-safe-h);
 }
 .${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); }
-.${prefix}-quote { text-align: left; font-size: clamp(56px, 5vmin, 80px); }
+.${prefix}-quote { text-align: left; font-size: 80px; }
 .${prefix}-figure {
   align-self: stretch;
   width: 100%;
-  min-height: min(56vh, 640px);
+  min-height: 0;
+  max-height: var(--stage-figure-h);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .${prefix}-figure .cf-chapter-figure {
   width: 100%;
-  max-width: min(920px, 100%);
+  max-width: 840px;
   min-width: min(560px, 100%);
-  min-height: min(54vh, 600px);
-  max-height: min(62vh, 680px);
+  min-height: 400px;
+  max-height: var(--stage-figure-h);
 }
 .${prefix}-figure img,
 .${prefix}-figure .cf-chapter-figure img {
   width: 100%;
   max-width: 100%;
   height: auto;
-  max-height: min(58vh, 640px);
-  min-height: min(44vh, 480px);
+  max-height: var(--stage-figure-h);
+  min-height: 400px;
   object-fit: contain;
 }
 `;
