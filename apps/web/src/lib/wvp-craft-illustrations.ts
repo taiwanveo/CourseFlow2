@@ -209,6 +209,54 @@ function readIllustrationsFromChecklist(craft: CraftRow): StepIllustrationEntry[
   return cr?.stepIllustrations ?? [];
 }
 
+/** 本章是否已有至少一步產出 AI 解說動畫（HTML） */
+export function chapterHasStepExplainAnimations(craft: CraftRow): boolean {
+  return readIllustrationsFromChecklist(craft).some(
+    (s) => s.imageSource === "animation" && Boolean(s.animationHtml?.trim()),
+  );
+}
+
+/**
+ * 任一步驟有解說動畫時，整章配圖改回「步進動畫」模式並清除整章固定圖片。
+ */
+export async function applyStepAnimationChapterOverride(
+  supabase: SupabaseClient,
+  userId: string,
+  projectId: string,
+  craft: CraftRow,
+): Promise<void> {
+  if (!chapterHasStepExplainAnimations(craft)) return;
+
+  await deleteExistingChapterImages(supabase, userId, projectId, craft.wvp_chapter_id);
+
+  const prev =
+    craft.checklist_result && typeof craft.checklist_result === "object"
+      ? (craft.checklist_result as Record<string, unknown>)
+      : {};
+  const existing = readChapterIllustrationFromChecklist(craft) ?? {
+    visualMode: "animation" as const,
+    status: "idle" as ChapterIllustrationStatus,
+  };
+  const entry: ChapterIllustrationEntry = {
+    ...existing,
+    visualMode: "animation",
+    imageWritten: false,
+    storagePath: null,
+    imageExt: undefined,
+    error: null,
+    status:
+      existing.status === "done" || existing.status === "generating" || existing.status === "failed"
+        ? "idle"
+        : existing.status,
+  };
+  const merged = mergeChapterIllustrationEntry(prev, entry);
+  await supabase
+    .from("chapter_craft")
+    .update({ checklist_result: merged })
+    .eq("project_id", projectId)
+    .eq("wvp_chapter_id", craft.wvp_chapter_id);
+}
+
 function mergeChecklistIllustrations(
   prev: Record<string, unknown>,
   steps: StepIllustrationEntry[],
@@ -577,6 +625,7 @@ export async function planChapterIllustrationPrompts(
 
 export async function patchChapterIllustrationPrompts(
   supabase: SupabaseClient,
+  userId: string,
   projectId: string,
   craft: CraftRow,
   patches: Array<{
@@ -633,19 +682,46 @@ export async function patchChapterIllustrationPrompts(
       }
     }
     if (p.imageSource !== undefined) {
+      const prevSource = steps[idx]!.imageSource ?? "ai";
       steps[idx]!.imageSource = p.imageSource;
       if (p.imageSource === "upload" || p.imageSource === "animation") {
         steps[idx]!.batchSelected = false;
       }
-      if (p.imageSource === "animation" && !steps[idx]!.animationHtml) {
-        steps[idx]!.status = "prompt-draft";
+      if (p.imageSource === "animation") {
+        if (!steps[idx]!.animationHtml) {
+          steps[idx]!.status =
+            steps[idx]!.needsImage === false ? "skip" : "prompt-draft";
+          steps[idx]!.imageWritten = false;
+          steps[idx]!.storagePath = null;
+        }
+      } else {
+        steps[idx]!.animationHtml = null;
+        if (prevSource === "animation" || p.imageSource !== prevSource) {
+          steps[idx]!.imageWritten = false;
+          steps[idx]!.storagePath = null;
+          if (steps[idx]!.needsImage !== false) {
+            steps[idx]!.status = steps[idx]!.promptForApi.trim()
+              ? steps[idx]!.confirmedAt
+                ? "prompt-ready"
+                : "prompt-draft"
+              : "prompt-draft";
+          }
+        }
       }
     }
     if (p.animationHtml !== undefined) {
       steps[idx]!.animationHtml = p.animationHtml;
-      if (steps[idx]!.imageSource === "animation" && p.animationHtml) {
+      if (p.animationHtml) {
+        steps[idx]!.imageSource = "animation";
+        steps[idx]!.batchSelected = false;
         steps[idx]!.status = "done";
         steps[idx]!.imageWritten = true;
+        steps[idx]!.storagePath = null;
+        steps[idx]!.error = null;
+      } else if (steps[idx]!.imageSource === "animation") {
+        steps[idx]!.imageWritten = false;
+        steps[idx]!.status =
+          steps[idx]!.needsImage === false ? "skip" : "prompt-draft";
       }
     }
     if (p.batchSelected !== undefined) {
@@ -663,6 +739,9 @@ export async function patchChapterIllustrationPrompts(
     .update({ checklist_result: merged })
     .eq("project_id", projectId)
     .eq("wvp_chapter_id", craft.wvp_chapter_id);
+
+  const updatedCraft = { ...craft, checklist_result: merged };
+  await applyStepAnimationChapterOverride(supabase, userId, projectId, updatedCraft);
 
   return {
     wvpChapterId: craft.wvp_chapter_id,
@@ -791,6 +870,7 @@ export async function generateChapterIllustrationSteps(
         storagePath,
         imageExt: ext,
         imageSource: "ai",
+        animationHtml: null,
         error: null,
       };
       generated++;
@@ -876,6 +956,7 @@ export async function setChapterIllustrationUploadedImage(
     imageWritten: true,
     storagePath,
     imageExt: ext,
+    animationHtml: null,
     error: null,
   };
 
@@ -1390,6 +1471,8 @@ export async function syncChapterIllustrationToStepImages(
   craft: CraftRow,
   stepCount: number,
 ): Promise<number> {
+  if (chapterHasStepExplainAnimations(craft)) return 0;
+
   const entry = readChapterIllustrationFromChecklist(craft);
   if (!entry || entry.visualMode === "animation") return 0;
   if (!entry.imageWritten && !entry.storagePath) return 0;

@@ -13,8 +13,9 @@ import { catalogEntryToSelection } from "@/lib/image-style";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
 import { CraftChapterIllustration } from "@/components/CraftChapterIllustration";
+import { CraftIllustrationStudio } from "@/components/CraftIllustrationStudio";
 import type { CourseComposition } from "@courseflow/core";
-import { chapterScriptSteps } from "@/lib/chapter-script-reference";
+import { chapterScriptSteps, type ChapterScriptStep } from "@/lib/chapter-script-reference";
 import {
   resolveCraftTemplateKind,
   templateKindDisplayLabel,
@@ -66,6 +67,48 @@ type BatchSummary = {
   generated: number;
   failed: number;
 };
+
+function ChapterIllustrationBlock({
+  projectId,
+  wvpChapterId,
+  chapterTitle,
+  scriptSteps,
+  craftLocked,
+  hasImageStyle,
+  onOpenStylePicker,
+}: {
+  projectId: string;
+  wvpChapterId: string;
+  chapterTitle: string;
+  scriptSteps: ChapterScriptStep[];
+  craftLocked: boolean;
+  hasImageStyle: boolean;
+  onOpenStylePicker: () => void;
+}) {
+  const [reloadKey, setReloadKey] = useState(0);
+  return (
+    <div className="space-y-2">
+      <CraftChapterIllustration
+        projectId={projectId}
+        wvpChapterId={wvpChapterId}
+        chapterTitle={chapterTitle}
+        scriptSteps={scriptSteps}
+        disabled={craftLocked}
+        reloadKey={reloadKey}
+        onOpenStylePicker={onOpenStylePicker}
+      />
+      <CraftIllustrationStudio
+        projectId={projectId}
+        wvpChapterId={wvpChapterId}
+        chapterTitle={chapterTitle}
+        disabled={craftLocked}
+        hasImageStyle={hasImageStyle}
+        onOpenStylePicker={onOpenStylePicker}
+        onMutate={() => setReloadKey((k) => k + 1)}
+      />
+    </div>
+  );
+}
 
 const JOB_POLL_INTERVAL_MS = 2000;
 const JOB_POLL_MAX_ATTEMPTS = 900;
@@ -905,7 +948,7 @@ export function CraftPhaseClient({
             <div className="space-y-3">
               <h3 className="text-xs font-medium text-zinc-400">章節配圖</h3>
               {chapters.map((ch, i) => (
-                <CraftChapterIllustration
+                <ChapterIllustrationBlock
                   key={ch.wvp_chapter_id}
                   projectId={projectId}
                   wvpChapterId={ch.wvp_chapter_id}
@@ -915,7 +958,8 @@ export function CraftPhaseClient({
                     ch.wvp_chapter_id,
                     i,
                   )}
-                  disabled={locks.craft}
+                  craftLocked={locks.craft}
+                  hasImageStyle={hasImageStyle}
                   onOpenStylePicker={() => setStylePickerOpen(true)}
                 />
               ))}

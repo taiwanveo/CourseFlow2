@@ -2,17 +2,34 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { assertWvpPhaseEditable } from "@courseflow/core";
+import type { StepIllustrationEntry } from "@/lib/wvp-craft-illustrations";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { generateChapterIllustrationImageEntry } from "@/lib/wvp-craft-illustrations";
+import {
+  generateChapterIllustrationImageEntry,
+  generateChapterIllustrationSteps,
+} from "@/lib/wvp-craft-illustrations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** 依已確認提示詞為整章生一張圖片 */
+function stepIndicesForBatch(craft: { checklist_result?: unknown }): number[] {
+  const cr = craft.checklist_result as { stepIllustrations?: StepIllustrationEntry[] } | null;
+  return (cr?.stepIllustrations ?? [])
+    .filter(
+      (s) =>
+        s.needsImage !== false &&
+        (s.imageSource ?? "ai") === "ai" &&
+        s.batchSelected !== false &&
+        s.promptForApi.trim(),
+    )
+    .map((s) => s.stepIndex);
+}
+
+/** 整章生一張圖，或依 stepIndex / allConfirmed 逐步生圖 */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
 ) {
   const { id, wvpChapterId } = await params;
@@ -56,14 +73,55 @@ export async function POST(
     styleGuard.imageStyleId === "theme-default"
       ? `theme-default:${themeId}`
       : styleGuard.imageStyleId;
+  const genOpts = { styleFragment, imageStyleId };
+
+  const body = (await req.json().catch(() => ({}))) as {
+    stepIndex?: number;
+    allConfirmed?: boolean;
+  };
 
   try {
+    if (typeof body.stepIndex === "number") {
+      const result = await generateChapterIllustrationSteps(
+        supabase,
+        user.id,
+        id,
+        craft,
+        [body.stepIndex],
+        genOpts,
+      );
+      return NextResponse.json({
+        ok: true,
+        wvpChapterId,
+        steps: result.steps,
+        generated: result.generated,
+      });
+    }
+
+    if (body.allConfirmed) {
+      const indices = stepIndicesForBatch(craft);
+      const result = await generateChapterIllustrationSteps(
+        supabase,
+        user.id,
+        id,
+        craft,
+        indices,
+        genOpts,
+      );
+      return NextResponse.json({
+        ok: true,
+        wvpChapterId,
+        steps: result.steps,
+        generated: result.generated,
+      });
+    }
+
     const entry = await generateChapterIllustrationImageEntry(
       supabase,
       user.id,
       id,
       craft,
-      { styleFragment, imageStyleId },
+      genOpts,
     );
     return NextResponse.json({ ok: true, wvpChapterId, chapterIllustration: entry });
   } catch (e) {

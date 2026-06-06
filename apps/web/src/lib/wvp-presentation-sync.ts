@@ -14,7 +14,11 @@ import {
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { syncPresentationAudioFromComposition } from "@/lib/wvp-audio-sync";
 import { syncPresentationIllustrations } from "@/lib/wvp-illustration-sync";
-import { craftPackIllustrationOpts, syncChapterIllustrationToStepImages } from "@/lib/wvp-craft-illustrations";
+import {
+  chapterHasStepExplainAnimations,
+  craftPackIllustrationOpts,
+  syncChapterIllustrationToStepImages,
+} from "@/lib/wvp-craft-illustrations";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
@@ -650,6 +654,8 @@ export async function syncFullWvpProject(
     // 先把「章節配圖」（整章一張圖）複製成各步驟本機圖片，
     // 讓後續 syncPresentationIllustrations 的 reuseExistingFiles 路徑能掃到
     for (const craft of (crafts ?? []) as CraftRow[]) {
+      if (chapterHasStepExplainAnimations(craft)) continue;
+
       const cr = craft.checklist_result as { chapterIllustration?: { visualMode?: string } } | null;
       if (cr?.chapterIllustration?.visualMode && cr.chapterIllustration.visualMode !== "animation") {
         const chapter2 = resolveCompositionChapterForCraft(composition, craft);

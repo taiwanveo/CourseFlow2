@@ -514,7 +514,7 @@ export async function POST(
   }
 
   // Persist animation HTML in DB
-  await patchChapterIllustrationPrompts(supabase, id, craft, [
+  await patchChapterIllustrationPrompts(supabase, user.id, id, craft, [
     {
       stepIndex,
       imageSource: "animation",

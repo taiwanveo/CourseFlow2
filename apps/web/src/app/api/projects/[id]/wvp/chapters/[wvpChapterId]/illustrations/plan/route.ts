@@ -6,14 +6,17 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { planChapterIllustrationPromptEntry } from "@/lib/wvp-craft-illustrations";
+import {
+  planChapterIllustrationPromptEntry,
+  planChapterIllustrationPrompts,
+} from "@/lib/wvp-craft-illustrations";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-/** AI 產生整章生圖提示詞（一章一個 prompt，不生成圖片） */
+/** AI 產生生圖提示詞：無 stepIndex → 整章；有 stepIndex → 單步或全步 */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; wvpChapterId: string }> },
 ) {
   const { id, wvpChapterId } = await params;
@@ -64,7 +67,28 @@ export async function POST(
       ? `theme-default:${themeId}`
       : styleGuard.imageStyleId;
 
+  const body = (await req.json().catch(() => ({}))) as {
+    stepIndex?: number;
+    forSteps?: boolean;
+  };
+
   try {
+    if (typeof body.stepIndex === "number" || body.forSteps) {
+      const state = await planChapterIllustrationPrompts(
+        supabase,
+        user.id,
+        id,
+        project.title ?? "Course",
+        craft,
+        composition,
+        themeId,
+        imageStyleId,
+        styleFragment,
+        typeof body.stepIndex === "number" ? [body.stepIndex] : undefined,
+      );
+      return NextResponse.json({ ok: true, ...state });
+    }
+
     const entry = await planChapterIllustrationPromptEntry(
       supabase,
       user.id,

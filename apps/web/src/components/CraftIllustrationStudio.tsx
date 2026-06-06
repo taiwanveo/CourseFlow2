@@ -21,6 +21,7 @@ export function CraftIllustrationStudio({
   disabled,
   hasImageStyle,
   onOpenStylePicker,
+  onMutate,
 }: {
   projectId: string;
   wvpChapterId: string;
@@ -28,6 +29,7 @@ export function CraftIllustrationStudio({
   disabled?: boolean;
   hasImageStyle: boolean;
   onOpenStylePicker?: () => void;
+  onMutate?: () => void;
 }) {
   const { toast } = useToast();
   const [state, setState] = useState<ChapterState | null>(null);
@@ -130,7 +132,7 @@ export function CraftIllustrationStudio({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            typeof stepIndex === "number" ? { stepIndex } : {},
+            typeof stepIndex === "number" ? { stepIndex } : { forSteps: true },
           ),
         },
       );
@@ -223,6 +225,7 @@ export function CraftIllustrationStudio({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "生成動畫失敗");
       setState(data as ChapterState);
+      onMutate?.();
       toast(`步驟 ${stepIndex + 1} 解說動畫生成完成`, "success");
     } catch (e) {
       toast(e instanceof Error ? e.message : "生成動畫失敗", "error");
@@ -269,7 +272,7 @@ export function CraftIllustrationStudio({
   };
 
   return (
-    <div className="mt-4 space-y-3 rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+    <div className="space-y-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 p-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h4 className="text-sm font-medium text-zinc-200">AI 配圖工作室</h4>

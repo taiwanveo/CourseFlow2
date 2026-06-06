@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type { ChapterIllustrationEntry } from "@/lib/wvp-craft-illustrations";
 import type { ChapterScriptStep } from "@/lib/chapter-script-reference";
 
@@ -10,6 +10,7 @@ interface Props {
   chapterTitle: string;
   scriptSteps?: ChapterScriptStep[];
   disabled?: boolean;
+  reloadKey?: number;
   onOpenStylePicker?: () => void;
 }
 
@@ -53,9 +54,11 @@ export function CraftChapterIllustration({
   chapterTitle,
   scriptSteps = [],
   disabled = false,
+  reloadKey = 0,
   onOpenStylePicker,
 }: Props) {
   const [entry, setEntry] = useState<ChapterIllustrationEntry | null>(null);
+  const [stepAnimationActive, setStepAnimationActive] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -67,10 +70,15 @@ export function CraftChapterIllustration({
     setLoadError(null);
     try {
       const res = await fetch(`${BASE(projectId, wvpChapterId)}/illustrations`);
-      const json = (await res.json()) as { chapterIllustration?: ChapterIllustrationEntry; error?: string };
+      const json = (await res.json()) as {
+        chapterIllustration?: ChapterIllustrationEntry;
+        stepAnimationActive?: boolean;
+        error?: string;
+      };
       if (!res.ok) throw new Error(json.error ?? "載入失敗");
       const e = json.chapterIllustration ?? { visualMode: "animation" as const, status: "idle" as const };
       setEntry(e);
+      setStepAnimationActive(Boolean(json.stepAnimationActive));
       if (e.imageWritten) {
         setImageUrl(
           `${BASE(projectId, wvpChapterId)}/illustration/image?t=${Date.now()}`,
@@ -83,12 +91,9 @@ export function CraftChapterIllustration({
     }
   }, [projectId, wvpChapterId]);
 
-  // 首次掛載時載入
-  const [mounted, setMounted] = useState(false);
-  if (!mounted) {
-    setMounted(true);
+  useEffect(() => {
     void load();
-  }
+  }, [load, reloadKey]);
 
   // ── API 呼叫 helpers ─────────────────────────────────────────
   async function patch(body: object) {
@@ -122,7 +127,7 @@ export function CraftChapterIllustration({
 
   // ── 按鈕動作 ──────────────────────────────────────────────────
   async function handleSwitchToAi() {
-    if (disabled) return;
+    if (disabled || stepAnimationActive) return;
     setLoading(true);
     try {
       const e = await patch({ visualMode: "ai-image" });
@@ -185,7 +190,7 @@ export function CraftChapterIllustration({
   }
 
   async function handleUploadFile(file: File) {
-    if (disabled) return;
+    if (disabled || stepAnimationActive) return;
     const formData = new FormData();
     formData.append("file", file);
     setLoading(true);
@@ -252,8 +257,14 @@ export function CraftChapterIllustration({
         </p>
       )}
 
+      {stepAnimationActive ? (
+        <p className="rounded border border-amber-800/50 bg-amber-950/30 px-2 py-1.5 text-amber-200/90">
+          本章已有步驟解說動畫，整章 AI 生圖／上傳圖片已停用。請在下方「步驟配圖／解說動畫」管理各步驟。
+        </p>
+      ) : null}
+
       {/* ── 動畫模式（預設） ── */}
-      {isAnimation && (
+      {isAnimation && !stepAnimationActive && (
         <div className="space-y-2">
           <p className="text-zinc-400">目前使用「步驟步進動畫（預設）」，無固定配圖。</p>
           <ChapterScriptReference steps={scriptSteps} />
@@ -290,7 +301,7 @@ export function CraftChapterIllustration({
       )}
 
       {/* ── AI 生圖模式 ── */}
-      {isAiImage && (
+      {isAiImage && !stepAnimationActive && (
         <div className="space-y-2.5">
           <p className="text-zinc-400">
             AI 生圖模式：本章所有步驟將顯示同一張固定圖片背景。
@@ -366,7 +377,7 @@ export function CraftChapterIllustration({
       )}
 
       {/* ── 上傳圖片模式 ── */}
-      {isUpload && (
+      {isUpload && !stepAnimationActive && (
         <div className="space-y-2.5">
           <p className="text-zinc-400">
             上傳圖片模式：本章所有步驟將顯示同一張固定圖片背景。
