@@ -196,7 +196,7 @@ export function DashboardClient({ initialProjects }: { initialProjects: Project[
                           setEditTitle(p.title);
                         }}
                       >
-                        <Pencil className="h-[7px] w-[7px]" aria-hidden />
+                        <Pencil className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         重新命名
                       </Button>
                       <Button
@@ -206,7 +206,7 @@ export function DashboardClient({ initialProjects }: { initialProjects: Project[
                         className="min-h-0 gap-[0.1875rem] px-[0.375rem] py-[0.1875rem] text-[0.40625rem] leading-tight"
                         onClick={() => setDeletingProject(p)}
                       >
-                        <Trash2 className="h-[7px] w-[7px]" aria-hidden />
+                        <Trash2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
                         刪除
                       </Button>
                     </div>

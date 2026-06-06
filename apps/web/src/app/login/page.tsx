@@ -41,7 +41,13 @@ export default function LoginPage() {
           <BrandMark size="lg" className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold tracking-tight">CourseFlow 教學影片製作平台</h1>
           </div>
-        <div className="space-y-4">
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!loading) void handleAuth("signIn");
+          }}
+        >
           <div>
             <label className="cf-label" htmlFor="email">
               Email
@@ -70,14 +76,20 @@ export default function LoginPage() {
           </div>
           {error ? <p className="text-sm text-red-400">{error}</p> : null}
           <div className="flex gap-2 pt-2">
-            <Button className="flex-1" disabled={loading} onClick={() => handleAuth("signIn")}>
+            <Button type="submit" className="flex-1" disabled={loading}>
               {loading ? "處理中…" : "登入"}
             </Button>
-            <Button className="flex-1" variant="secondary" disabled={loading} onClick={() => handleAuth("signUp")}>
+            <Button
+              type="button"
+              className="flex-1"
+              variant="secondary"
+              disabled={loading}
+              onClick={() => handleAuth("signUp")}
+            >
               註冊
             </Button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );
