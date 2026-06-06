@@ -7,12 +7,15 @@ import { WvpPhaseBottomActions, WvpPhaseNav } from "@/components/ProjectPhaseNav
 import { ExportMp4Button } from "@/components/ExportMp4Button";
 import { useToast } from "@/components/Toast";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
+import { stepCountForChapter } from "@/lib/wvp-chapters";
+import { resolveCompositionChapterForCraft } from "@/lib/wvp-chapter-meta";
 
 type CraftRow = {
   wvp_chapter_id: string;
   title: string;
   craft_status: string;
   step_count: number;
+  sort_order: number;
 };
 
 type ExportReadiness = {
@@ -226,7 +229,16 @@ export function PublishPhaseClient({
           (ch.wvp_chapter_id && c.wvp_chapter_id === ch.wvp_chapter_id),
       );
       const status = row?.craft_status ?? "—";
-      const steps = row?.step_count ?? 0;
+      const compChapter = row
+        ? resolveCompositionChapterForCraft(composition, {
+            title: row.title,
+            wvp_chapter_id: row.wvp_chapter_id,
+            sort_order: row.sort_order,
+          })
+        : null;
+      const steps = compChapter
+        ? stepCountForChapter(composition, compChapter.id)
+        : row?.step_count ?? 0;
       const checklistSkipped = !!ch.checklistSkipped;
       const checklistOk = ch.checklistOk ?? status === "approved";
       const failedItems = ch.failedItems?.length ? ch.failedItems : [];
@@ -243,7 +255,7 @@ export function PublishPhaseClient({
         failedItems,
       };
     });
-  }, [readiness?.chapters, chapters]);
+  }, [readiness?.chapters, chapters, composition]);
 
   const failedChapterCount = chapterStatuses.filter(
     (c) => !c.checklistOk && !c.checklistSkipped,
@@ -315,8 +327,8 @@ export function PublishPhaseClient({
     <div className="space-y-6">
       <WvpPhaseNav projectId={projectId} current="publish" locks={locks} onLocksChange={setLocks} />
 
-      <section className="cf-card cf-card-padded space-y-3">
-        <h2 className="cf-section-title">打包與預覽</h2>
+      <section className="cf-card cf-card-padded space-y-4">
+        <h2 className="cf-section-title">打包、預覽與匯出</h2>
         <p
           className={`text-xs ${audioGate.ready ? "text-emerald-600/90" : "text-amber-500/90"}`}
           role="status"
@@ -324,9 +336,11 @@ export function PublishPhaseClient({
           語音進度：{audioGate.synthesizedSteps}/{audioGate.totalSteps} 步
           {audioGate.ready ? "（可打包）" : "（請先完成「3. 語音生成」）"}
         </p>
-        <p className="text-xs text-zinc-500">
-          將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。打包只重建版面與語音，不會重算或覆寫「視覺動效」階段的上傳／AI 配圖。
-        </p>
+        <div className="space-y-1 text-xs text-zinc-500">
+          <p>打包：將文稿、視覺動效與語音編譯成可播放課程（須先完成全部語音）。</p>
+          <p>預覽：打包完成後可手動播放預覽或自動播放預覽。</p>
+          <p>匯出：匯出影片成品（可勾選）。</p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -350,41 +364,39 @@ export function PublishPhaseClient({
               target="_blank"
               rel="noopener noreferrer"
             >
-              開啟預覽播放
+              手動播放預覽
             </Link>
           ) : (
             <span
               className="cf-btn cf-btn-secondary cursor-not-allowed opacity-50"
               title="請先打包"
             >
-              開啟預覽播放
+              手動播放預覽
             </span>
           )}
-          <Link href={`/projects/${projectId}/audio`} className="cf-btn cf-btn-secondary">
-            ← 語音生成
-          </Link>
+          {previewBuilt ? (
+            <Link
+              href={`/projects/${projectId}/wvp-play?auto=1`}
+              className="cf-btn cf-btn-secondary"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              自動播放預覽
+            </Link>
+          ) : (
+            <span
+              className="cf-btn cf-btn-secondary cursor-not-allowed opacity-50"
+              title="請先打包"
+            >
+              自動播放預覽
+            </span>
+          )}
+          <ExportMp4Button projectId={projectId} />
         </div>
       </section>
 
       <section className="cf-card cf-card-padded space-y-4">
-        <h2 className="cf-section-title">預覽與匯出</h2>
-        <p className="text-sm text-zinc-500">
-          完成上方打包後可互動預覽。MP4 匯出使用與預覽相同的 WVP build + Playwright（?auto=1）；需本機
-          ffmpeg（轉 webm→mp4）。
-        </p>
-
-        <div className="flex flex-wrap gap-3">
-          <Link href={`/projects/${projectId}/wvp-play`} className="cf-btn cf-btn-primary">
-            互動預覽
-          </Link>
-          <Link
-            href={`/projects/${projectId}/wvp-play?auto=1`}
-            className="cf-btn cf-btn-secondary"
-          >
-            自動播放預覽
-          </Link>
-          <ExportMp4Button projectId={projectId} />
-        </div>
+        <h2 className="cf-section-title">自檢結果</h2>
 
         {checklistBlocker ? (
           <div
@@ -400,15 +412,15 @@ export function PublishPhaseClient({
                 前往視覺動效重做（{failedChapterCount} 章未通過）→
               </Link>
               <button
-                  type="button"
-                  className="text-sm text-lime-400/95 hover:text-lime-300 hover:underline disabled:opacity-50"
-                  disabled={skippingChapterId !== null}
-                  onClick={() => skipAllFailedChecklists()}
-                >
-                  {skippingChapterId === "__all__"
-                    ? "略過中…"
-                    : "略過全部未通過自檢"}
-                </button>
+                type="button"
+                className="text-sm text-lime-400/95 hover:text-lime-300 hover:underline disabled:opacity-50"
+                disabled={skippingChapterId !== null}
+                onClick={() => skipAllFailedChecklists()}
+              >
+                {skippingChapterId === "__all__"
+                  ? "略過中…"
+                  : "略過全部未通過自檢"}
+              </button>
             </div>
           </div>
         ) : null}
@@ -420,7 +432,7 @@ export function PublishPhaseClient({
               className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2 first:pt-0 last:pb-0"
             >
               <span className="min-w-0 flex-1">
-                {ch.title} — {ch.status} ({ch.steps} steps)
+                {ch.title} — {ch.status}（{ch.steps} 步）
                 {ch.checklistSkipped ? (
                   <span className="text-lime-500/90"> · 略過自檢結果</span>
                 ) : ch.checklistOk ? (

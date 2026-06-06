@@ -143,6 +143,9 @@ export function AudioPhaseClient({
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [recordingSaving, setRecordingSaving] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | null>(null);
+  const isFirstRender = useRef(true);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { toast } = useToast();
   const router = useRouter();
   const locked = locks.audio;
@@ -718,23 +721,51 @@ export function AudioPhaseClient({
     }
   };
 
-  const save = useCallback(async () => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/composition`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phase: "audio", composition }),
-      });
-      if (!res.ok) {
-        toast((await res.json()).error ?? "儲存失敗", "error");
-        return;
+  const save = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      setSaving(true);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/composition`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phase: "audio", composition }),
+        });
+        if (!res.ok) {
+          const msg = (await res.json()).error ?? "儲存失敗";
+          if (!opts?.silent) toast(msg, "error");
+          return;
+        }
+        if (!opts?.silent) toast("語音設定已儲存", "success");
+      } finally {
+        setSaving(false);
       }
-      toast("語音設定已儲存", "success");
-    } finally {
-      setSaving(false);
+    },
+    [projectId, composition, toast],
+  );
+
+  const saveRef = useRef(save);
+  useEffect(() => {
+    saveRef.current = save;
+  }, [save]);
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
     }
-  }, [projectId, composition, toast]);
+    if (locked) return;
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    setSaveStatus("saving");
+    autoSaveTimer.current = setTimeout(() => {
+      void saveRef.current({ silent: true }).then(() => {
+        setSaveStatus("saved");
+        window.setTimeout(() => setSaveStatus(null), 2000);
+      });
+    }, 1500);
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [composition, locked]);
 
   const unlockPhase = async () => {
     const res = await fetch(`/api/projects/${projectId}/wvp/phases/audio/lock`, {
@@ -759,19 +790,30 @@ export function AudioPhaseClient({
         current="audio"
         locks={locks}
         onLocksChange={setLocks}
-        onBeforeLock={save}
+        onBeforeLock={() => save()}
       />
 
       <section className="cf-card cf-card-padded space-y-3">
-        <p
-          className={`text-xs ${audioGate.ready ? "text-emerald-600/90" : "text-amber-500/90"}`}
-          role="status"
-        >
-          語音進度：{audioGate.synthesizedSteps}/{audioGate.totalSteps} 步
+        <div className="flex flex-wrap items-center gap-2">
+          <p
+            className={`text-xs ${audioGate.ready ? "text-emerald-600/90" : "text-amber-500/90"}`}
+            role="status"
+          >
+            語音進度：{audioGate.synthesizedSteps}/{audioGate.totalSteps} 步
           {audioGate.ready
             ? "（已完成，可前往「4. 預覽匯出」打包）"
             : "（完成後請至「4. 預覽匯出」打包預覽）"}
-        </p>
+          </p>
+          {saveStatus ? (
+            <span
+              className={`text-xs ${
+                saveStatus === "saving" ? "text-zinc-400" : "text-emerald-600/90"
+              }`}
+            >
+              {saveStatus === "saving" ? "儲存中…" : "已儲存"}
+            </span>
+          ) : null}
+        </div>
       </section>
 
       <section className="cf-card cf-card-padded">
@@ -1084,7 +1126,6 @@ export function AudioPhaseClient({
         phase="audio"
         locks={locks}
         saving={saving}
-        onSave={!locked ? save : undefined}
         onUnlock={unlockPhase}
       />
     </div>

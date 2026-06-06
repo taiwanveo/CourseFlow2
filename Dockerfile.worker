@@ -45,9 +45,16 @@ ENV NODE_ENV=development
 COPY . .
 RUN pnpm turbo build --filter=@courseflow/worker...
 
+# 必須用 node_modules 內實際的 playwright 版本安裝瀏覽器（不可硬編碼舊版 npx playwright@x）
+FROM builder AS playwright-browsers
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN mkdir -p /ms-playwright \
+  && pnpm --filter @courseflow/presentation exec playwright install chromium
+
 FROM base AS runner
 ENV NODE_ENV=production
 ENV COURSEFLOW_PRESENTATION_ROOT=/tmp/cf-presentations
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 WORKDIR /app
 
 COPY --from=builder /app/node_modules ./node_modules
@@ -57,8 +64,6 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
-
-# WVP MP4：Playwright Chromium（與 ffmpeg 搭配）
-RUN npx --yes playwright@1.52.0 install chromium
+COPY --from=playwright-browsers /ms-playwright /ms-playwright
 
 CMD ["node", "apps/worker/dist/index.js"]

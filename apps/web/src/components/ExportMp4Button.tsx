@@ -179,7 +179,7 @@ export function ExportMp4Button({
           onChange={(e) => setQuickDraft(e.target.checked)}
           className="rounded border-zinc-600"
         />
-        快速匯出（draft）
+        快速匯出（畫質較低）
       </label>
       <button
         type="button"
@@ -196,10 +196,8 @@ export function ExportMp4Button({
             <LottieMark variant="loading" size={16} ariaLabel="匯出中" />
             <span>匯出中…</span>
           </span>
-        ) : quickDraft ? (
-          "快速匯出"
         ) : (
-          "匯出"
+          "匯出為 MP4 影片"
         )}
       </button>
       <AnimatePresence mode="popLayout" initial={false}>

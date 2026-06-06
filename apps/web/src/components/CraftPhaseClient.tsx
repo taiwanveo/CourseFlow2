@@ -120,113 +120,6 @@ function toBatchSummary(payload: ResponsePayload, fallbackTotal: number): BatchS
   };
 }
 
-// ─── self-check report types ──────────────────────────────────────────────
-type SelfCheckSeverity = "ok" | "warn" | "fail";
-interface SelfCheckFinding { level: SelfCheckSeverity; message: string }
-interface SelfCheckStepResult {
-  pageLabel: string;
-  chapterId: string;
-  narration: string;
-  largestVisibleFontPx: number;
-  hasOverflow: boolean;
-  pageNumberOk: boolean | null;
-  subtitleVisible: boolean;
-  subtitleTextMatches: boolean;
-  findings: SelfCheckFinding[];
-}
-type SelfCheckReport =
-  | { exists: false }
-  | { exists: true; totals: { ok: number; warn: number; fail: number }; results: SelfCheckStepResult[] };
-
-function worstLevel(findings: SelfCheckFinding[]): SelfCheckSeverity {
-  if (findings.some((f) => f.level === "fail")) return "fail";
-  if (findings.some((f) => f.level === "warn")) return "warn";
-  return "ok";
-}
-
-function SelfCheckPanel({ report }: { report: SelfCheckReport | null }) {
-  const [expanded, setExpanded] = useState(false);
-  if (!report) {
-    return (
-      <p className="text-[11px] text-zinc-500">
-        排版自檢尚未執行。在本機 presentation 目錄執行{" "}
-        <code className="rounded bg-zinc-800 px-1 py-0.5 text-zinc-300">npm run self-check</code>
-        {" "}後重新整理即可查看結果。
-      </p>
-    );
-  }
-  if (!report.exists) {
-    return (
-      <p className="text-[11px] text-zinc-500">
-        尚無排版自檢報告。在本機 presentation 目錄執行{" "}
-        <code className="rounded bg-zinc-800 px-1 py-0.5 text-zinc-300">npm run self-check</code>
-        {" "}後重新整理即可查看結果。
-      </p>
-    );
-  }
-
-  const { totals, results } = report;
-  const hasFail = totals.fail > 0;
-  const hasWarn = totals.warn > 0;
-  const summaryColor = hasFail
-    ? "text-red-400"
-    : hasWarn
-      ? "text-amber-400"
-      : "text-emerald-400";
-
-  const failItems = results.filter((r) => worstLevel(r.findings) === "fail");
-  const warnItems = results.filter((r) => worstLevel(r.findings) === "warn");
-  const showItems = expanded ? [...failItems, ...warnItems] : failItems.slice(0, 3);
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className={`text-xs font-medium ${summaryColor}`}>
-          {hasFail ? "✗" : hasWarn ? "△" : "✓"}{" "}
-          ok {totals.ok} / warn {totals.warn} / fail {totals.fail}
-        </span>
-        {(hasFail || hasWarn) ? (
-          <button
-            type="button"
-            className="text-[11px] text-zinc-400 underline hover:text-zinc-200"
-            onClick={() => setExpanded((v) => !v)}
-          >
-            {expanded ? "收起" : "查看詳情"}
-          </button>
-        ) : null}
-      </div>
-
-      {showItems.length > 0 ? (
-        <ul className="space-y-1.5">
-          {showItems.map((r) => {
-            const level = worstLevel(r.findings);
-            const failMsgs = r.findings.filter((f) => f.level !== "ok");
-            return (
-              <li
-                key={`${r.chapterId}-${r.pageLabel}`}
-                className={`rounded border px-2 py-1 text-[11px] ${
-                  level === "fail"
-                    ? "border-red-800/50 bg-red-950/30 text-red-300"
-                    : "border-amber-800/50 bg-amber-950/30 text-amber-300"
-                }`}
-              >
-                <span className="font-mono font-semibold">{r.pageLabel}</span>
-                {" — "}
-                {failMsgs.map((f) => f.message).join("；")}
-              </li>
-            );
-          })}
-          {!expanded && failItems.length > 3 ? (
-            <li className="text-[11px] text-zinc-500">
-              … 還有 {failItems.length - 3} 項 fail，按「查看詳情」展開
-            </li>
-          ) : null}
-        </ul>
-      ) : null}
-    </div>
-  );
-}
-
 /** 避免 React Strict Mode 重掛載時重複自動 scaffold */
 const autoScaffoldAttemptedForProject = new Set<string>();
 
@@ -316,29 +209,11 @@ export function CraftPhaseClient({
       )
     : null;
 
-  // ── self-check report ──────────────────────────────────────────────────
-  const [selfCheckReport, setSelfCheckReport] = useState<SelfCheckReport | null>(null);
-
-  const refreshSelfCheck = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/wvp/self-check-report`);
-      if (!res.ok) return;
-      const data = (await res.json()) as SelfCheckReport;
-      setSelfCheckReport(data);
-    } catch {
-      // report not available — not an error
-    }
-  }, [projectId]);
-
   useEffect(() => {
     fetch("/api/themes")
       .then((r) => r.json())
       .then((d) => setThemes(d.themes ?? []));
   }, []);
-
-  useEffect(() => {
-    void refreshSelfCheck();
-  }, [refreshSelfCheck]);
 
   const refreshWvp = useCallback(async () => {
     const res = await fetch(`/api/projects/${projectId}/wvp`);
@@ -1029,22 +904,6 @@ export function CraftPhaseClient({
             </div>
           ) : null}
 
-          {chapters.length > 0 ? (
-            <div className="space-y-1.5 border-t border-zinc-800 pt-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-medium text-zinc-400">排版自檢報告</h3>
-                <button
-                  type="button"
-                  className="text-[11px] text-zinc-500 hover:text-zinc-300"
-                  onClick={() => void refreshSelfCheck()}
-                  title="重新整理自檢報告"
-                >
-                  ↻ 重新整理
-                </button>
-              </div>
-              <SelfCheckPanel report={selfCheckReport} />
-            </div>
-          ) : null}
           </div>
         </aside>
       </div>
