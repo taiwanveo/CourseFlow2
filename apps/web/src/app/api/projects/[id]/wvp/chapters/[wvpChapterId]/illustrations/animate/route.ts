@@ -25,6 +25,7 @@ import {
   inspectAnimationHtml,
 } from "@/lib/wvp-animation-html";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
+import { inferExplainAnimation, renderExplainAnimationHtml } from "@courseflow/explain-animation";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -523,7 +524,27 @@ export async function POST(
 
   let animationHtml = "";
   let lastIssue: ReturnType<typeof inspectAnimationHtml> = "not-html";
+  let dslSource: "infer" | "llm" | null = null;
+
+  // DSL 優先：啟發式匹配成功則用規則引擎渲染，跳過 LLM
+  if (!body.animationPrompt?.trim()) {
+    const inferred = inferExplainAnimation(script, screen, visualHint);
+    if (inferred) {
+      animationHtml = renderExplainAnimationHtml(inferred.config, { themeId });
+      lastIssue = inspectAnimationHtml(animationHtml, { script, screen });
+      if (!lastIssue) {
+        dslSource = "infer";
+      } else {
+        animationHtml = "";
+        lastIssue = "not-html";
+      }
+    }
+  }
+
   try {
+    if (dslSource === "infer") {
+      // 已由 DSL 產出，略過 LLM
+    } else {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       { role: "system", content: ANIMATION_SYSTEM_PROMPT },
       { role: "user", content: userPrompt },
@@ -551,6 +572,8 @@ export async function POST(
         { error: animationHtmlIssueMessage(lastIssue) },
         { status: 422 },
       );
+    }
+    if (!dslSource) dslSource = "llm";
     }
   } catch (e) {
     return NextResponse.json(
@@ -595,5 +618,5 @@ export async function POST(
     updatedCraft,
     composition,
   );
-  return NextResponse.json({ ok: true, animationHtml, ...state });
+  return NextResponse.json({ ok: true, animationHtml, dslSource, ...state });
 }

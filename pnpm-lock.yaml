@@ -29,6 +29,9 @@ importers:
       '@courseflow/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@courseflow/explain-animation':
+        specifier: workspace:*
+        version: link:../../packages/explain-animation
       '@courseflow/hf-bridge':
         specifier: workspace:*
         version: link:../../packages/hf-bridge
@@ -246,6 +249,19 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.49.8
         version: 2.106.1
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
+  packages/explain-animation:
+    dependencies:
+      zod:
+        specifier: ^3.25.28
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.15.21
