@@ -16,6 +16,7 @@ import {
   formatChapterTsxValidationFeedback,
   checkStepsHaveVisuals,
 } from "@courseflow/presentation";
+import { isDataVisualChapter } from "@courseflow/presentation/router";
 import type { WvpChapterKind } from "@courseflow/core";
 import { parseWvpSettings, type WvpAnchorProfile } from "@/lib/wvp-settings";
 import {
@@ -310,8 +311,20 @@ export async function generateChapterCraft(
           ...(await resolveStepImageExtMapLocal(projectId, craft)),
           ...(await resolveStepImageExtMapFromLocalDir(projectId, wvpChapterId)),
         };
+        const dataVisualChapter = isDataVisualChapter({
+          chapterTitle: craft.title,
+          narrations: opts.narrations,
+          screenContents,
+        });
         const preferImageTemplate =
-          Object.keys(stepImageExtensions).length > 0 || craftHasCompletedIllustrations(craft);
+          !dataVisualChapter &&
+          (Object.keys(stepImageExtensions).length > 0 ||
+            craftHasCompletedIllustrations(craft));
+        const effectiveForceTemplate =
+          dataVisualChapter &&
+          (opts.forceTemplate === "flow" || opts.forceTemplate === "list-reveal")
+            ? undefined
+            : opts.forceTemplate;
         const gen = generateChapterSources({
           folderName,
           wvpChapterId,
@@ -322,7 +335,7 @@ export async function generateChapterCraft(
           stepBeats,
           stepVisuals: stepVisuals as { step: number; vizType?: string; concept?: string }[],
           chapterKind,
-          forceTemplate: opts.forceTemplate,
+          forceTemplate: effectiveForceTemplate,
           assets: chapterAssets.length ? chapterAssets : undefined,
           stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,
           stepImageExtensions,
