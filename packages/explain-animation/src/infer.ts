@@ -305,9 +305,9 @@ export function inferExplainAnimation(
   }
 
   // 前後對照滑桿
-  if (/改造前|改造後|之前|之後|前後對照|before|after/i.test(t)) {
-    const beforeM = t.match(/(?:改造前|之前|以前)[：:]?\s*([^\s，,。]{1,8})/);
-    const afterM = t.match(/(?:改造後|之後|以後)[：:]?\s*([^\s，,。]{1,8})/);
+  if (/改造之前|改造之後|改造前|改造後|之前|之後|前後對照|before|after/i.test(t)) {
+    const beforeM = t.match(/(?:改造之前|改造前|之前|以前)[，,。\s]*(?:相當|十分|非常)?([^，,。]{0,8})?/);
+    const afterM = t.match(/(?:改造之後|改造後|之後|以後)[，,。\s]*(?:變得|變成|十分|非常)?([^，,。]{1,8})?/);
     return wrap({
       version: 1,
       pattern: "before_after_slider",
@@ -321,13 +321,16 @@ export function inferExplainAnimation(
 
   // 等式平衡
   const eqM = t.match(/([^\s=＝]{1,10})\s*[=＝]\s*([^\s，,。]{1,10})/);
-  if (eqM || /方程式|等式|左右兩邊|兩邊相等/.test(t)) {
+  const eqCn = t.match(/([^\s，,。]{1,8})\s*等於\s*([^\s，,。]{1,12})/);
+  if (eqM || eqCn || /方程式|等式|左右兩邊|兩邊相等/.test(t)) {
+    const left = eqCn?.[1] ?? eqM?.[1] ?? "收入";
+    const right = eqCn?.[2] ?? eqM?.[2] ?? "成本+利潤";
     return wrap({
       version: 1,
       pattern: "equation_balance",
       params: {
-        leftExpr: eqM?.[1]?.slice(0, 12) || "左式",
-        rightExpr: eqM?.[2]?.slice(0, 12) || "右式",
+        leftExpr: left.slice(0, 12),
+        rightExpr: right.slice(0, 12),
         balanced: true,
       },
     }, "medium", "等式平衡");

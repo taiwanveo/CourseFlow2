@@ -22,7 +22,10 @@ import {
   craftPackIllustrationOpts,
   syncChapterIllustrationToStepImages,
 } from "@/lib/wvp-craft-illustrations";
-import { syncPresentationStepAnimations } from "@/lib/wvp-animation-sync";
+import {
+  syncHeuristicExplainAnimations,
+  syncPresentationStepAnimations,
+} from "@/lib/wvp-animation-sync";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
 import { invalidateWvpDistCaches, uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
@@ -617,6 +620,20 @@ export async function buildSingleChapterPreview(
     console.warn("[wvp-chapter-preview] step animation sync failed:", (e as Error).message),
   );
 
+  const previewChapter = resolveCompositionChapterForCraft(composition, target);
+  const previewScreens = previewChapter
+    ? screenContentsForChapter(composition, previewChapter.id)
+    : [];
+  await syncHeuristicExplainAnimations(presentationDir, {
+    wvpChapterId: target.wvp_chapter_id,
+    narrations,
+    screenContents: previewScreens,
+    themeId,
+    craft: target,
+  }).catch((e) =>
+    console.warn("[wvp-chapter-preview] heuristic explain animation sync failed:", (e as Error).message),
+  );
+
   const entries = await rebuildRegistryForProject(
     presentationDir,
     [target],
@@ -859,6 +876,25 @@ export async function syncFullWvpProject(
       ).catch((e) =>
         console.warn("[wvp-build] step animation sync failed:", (e as Error).message),
       );
+
+      for (const craft of (crafts ?? []) as CraftRow[]) {
+        const ch = resolveCompositionChapterForCraft(composition, craft);
+        const chNarrations = ch ? narrationsForChapter(composition, ch.id) : [];
+        const chScreens = ch ? screenContentsForChapter(composition, ch.id) : [];
+        if (chNarrations.length === 0) continue;
+        await syncHeuristicExplainAnimations(presentationDir, {
+          wvpChapterId: craft.wvp_chapter_id,
+          narrations: chNarrations,
+          screenContents: chScreens,
+          themeId,
+          craft,
+        }).catch((e) =>
+          console.warn(
+            `[wvp-build] heuristic explain animation sync failed for ${craft.wvp_chapter_id}:`,
+            (e as Error).message,
+          ),
+        );
+      }
 
       await rebuildRegistryForProject(
         presentationDir,

@@ -72,6 +72,19 @@ function shortDataTitle(text: string, fallback: string): string {
   return fallback;
 }
 
+/** KPI／圖表標題：禁止口播步驟說明外洩 */
+function shortKpiTitle(text: string): string {
+  let t = text.trim();
+  const leakAt = t.search(
+    /第[一二三四五1-5]步|假[設设]|看完成率|資料顯示|假设资料|假設資料|口播/,
+  );
+  if (leakAt > 0) t = t.slice(0, leakAt).trim();
+  const first = t.split(/[。！？.!?；;]/)[0]?.trim() ?? t;
+  if (/學員完成率|完成率/.test(first)) return "學員完成率";
+  if (/營收|营收/.test(first)) return "季度營收";
+  return first.slice(0, 12) || "關鍵指標";
+}
+
 function isPercentDeltaPhrase(prefix: string): boolean {
   return /增幅|增長|增长|成長|成长|提升|增加|下降|減少|减少|達到|达到/.test(prefix);
 }
@@ -319,7 +332,7 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     return {
       kind: "chart",
       chartType: "kpi",
-      title: t.replace(kpi[0], "").trim().slice(0, 24) || "關鍵指標",
+      title: shortKpiTitle(t.replace(kpi[0], "").trim() || t),
       xKey: "label",
       yKey: "value",
       data: [{ label: "value", value: parseFloat(kpi[1]!) }],

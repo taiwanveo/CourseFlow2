@@ -31,6 +31,8 @@
 }
 /* VisualBlock 已有 headline 時，圖表內重複標題隱藏 */
 .vf-block:has(.vf-headline) .vf-chart > .vf-title,
-.vf-block:has(.vf-headline) .vf-table-card > .vf-title {
+.vf-block:has(.vf-headline) .vf-table-card > .vf-title,
+.vf-block:has(.vf-headline) .vf-kpi-title,
+.vf-block:has(.vf-headline) .vf-sub {
   display: none;
 }

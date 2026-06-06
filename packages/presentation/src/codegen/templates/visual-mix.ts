@@ -3,12 +3,13 @@ import { chapterComponentName } from "../chapter-types.js";
 import type { StepVisualEntry } from "../step-visuals.js";
 import { screenHeadlineForSlot, screenTextOnly, stripNarrationLeakFromScreen } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
+import { buildCodegenStepAnimationBlock } from "../step-image-codegen.js";
 
 /**
  * Visual Mix / VisualBlock 版型 codegen。
  *
  * 這一型不是手寫 JSX 佈局，而是把 stepVisual config 丟給 `VisualBlock` 去渲染。
- * 所以標題大小主要看 VisualBlock.css，這個檔案則只決定每一步吃哪份 config。
+ * 無 chart/table config 時，若有解說動畫 HTML 則嵌入 iframe。
  */
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
@@ -23,36 +24,54 @@ function visualMixHeadline(screen: string | undefined, title: string): string {
   return escapeTsString(headline);
 }
 
+function stepAnimationEmbedBranch(step: number, componentName: string): string {
+  return `
+  if (step === ${step}) {
+    const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
+    return (
+      <div className={\`${componentName}-anim-wrap scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        <iframe className="${componentName}-anim-frame" src={stepAnimationUrl(${step})} title="" loading="eager" />
+      </div>
+    );
+  }`;
+}
+
 export function generateVisualMixSources(
   input: ChapterCodegenInput,
   stepVisuals: StepVisualEntry[],
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
+  const animIndices = input.stepAnimationIndices ?? [];
+  const stepAnimationBlock = buildCodegenStepAnimationBlock(input.wvpChapterId, animIndices);
   const configLiteral = stepVisuals
     .map((e) => `  ${e.step}: ${JSON.stringify(e.config)},`)
     .join("\n");
 
   const stepBranches = input.narrations
-    .map((narration, step) => {
+    .map((_narration, step) => {
       const cfg = stepVisuals.find((e) => e.step === step);
-      if (!cfg) {
+      const hasAnim = animIndices.includes(step);
+      if (cfg) {
+        const headline = visualMixHeadline(input.screenContents?.[step], input.title);
         return `
-  if (step === ${step}) {
-    const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
-    return (
-      <div className={\`${componentName}-fallback scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <p className="serif-cn">${escapeTsString(input.title)}</p>
-      </div>
-    );
-  }`;
-      }
-      const headline = visualMixHeadline(input.screenContents?.[step], input.title);
-      return `
   if (step === ${step}) {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
       <div className={\`cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <VisualBlock step={step} headline="${headline}" config={STEP_VISUALS[${step}]!} />
+      </div>
+    );
+  }`;
+      }
+      if (hasAnim) {
+        return stepAnimationEmbedBranch(step, componentName);
+      }
+      return `
+  if (step === ${step}) {
+    const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
+    return (
+      <div className={\`${componentName}-fallback scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        <p className="serif-cn">${escapeTsString(input.title)}</p>
       </div>
     );
   }`;
@@ -64,6 +83,7 @@ import type { VisualConfigProp } from "../../components/VisualBlock";
 import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
+${stepAnimationBlock}
 const STEP_VISUALS: Record<number, VisualConfigProp> = {
 ${configLiteral}
 };
@@ -90,25 +110,46 @@ ${stepBranches}
   text-align: center;
   max-width: 92%;
 }
-.vf-block {
+.${componentName}-anim-wrap {
+  width: 100%;
   height: 100%;
   display: flex;
-  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
-  gap: var(--space-5);
+  padding: var(--space-6) var(--space-8);
+  box-sizing: border-box;
 }
-.vf-block:has(.vf-chart, .vf-table-wrap, .vf-anim) {
+.${componentName}-anim-frame {
+  width: 100%;
+  height: 100%;
+  min-height: min(72vh, 640px);
+  border: none;
+  border-radius: var(--r-card, 12px);
+  background: transparent;
+}
+.vf-block {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   justify-content: flex-start;
-  padding-top: var(--space-8);
+  gap: var(--space-4);
+  padding-top: var(--space-6);
 }
-/* 這裡只管 visual-mix 內標題區對齊；真正字級在 VisualBlock.css。 */
+.vf-block:has(.vf-chart, .vf-table-wrap) {
+  flex: 1;
+}
 .vf-headline {
   flex-shrink: 0;
   text-align: center;
   width: 100%;
+  margin-bottom: var(--space-3);
 }
-.vf-block:has(.vf-chart, .vf-table-wrap, .vf-anim) .vf-headline {
-  text-align: center;
+.vf-block:has(.vf-chart) .vf-chart-box {
+  flex: 1;
+  min-height: min(58vh, 480px);
+  display: flex;
+  flex-direction: column;
 }
 `;
 

@@ -117,18 +117,18 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
     }
     if (config.chartType === "line") {
       return (
-        <LineChart data={config.data} margin={{ top: 28, right: 16, left: 4, bottom: 0 }}>
+        <LineChart data={config.data} margin={{ top: 36, right: 20, left: 8, bottom: 8 }}>
           <CartesianGrid stroke={grid} strokeDasharray="4 4" />
-          <XAxis dataKey={config.xKey} tick={{ fill: axis, fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: axis, fontSize: 11 }} axisLine={false} tickLine={false} unit={config.unit} width={44} />
+          <XAxis dataKey={config.xKey} tick={{ fill: axis, fontSize: 16 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: axis, fontSize: 15 }} axisLine={false} tickLine={false} unit={config.unit} width={52} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Line type="monotone" dataKey={config.yKey} stroke={colors[0]} strokeWidth={2.5} dot={{ r: 5, fill: colors[0] }} isAnimationActive animationDuration={900}>
+          <Line type="monotone" dataKey={config.yKey} stroke={colors[0]} strokeWidth={3} dot={{ r: 7, fill: colors[0] }} isAnimationActive animationDuration={900}>
             <LabelList
               dataKey={config.yKey}
               position="top"
-              offset={14}
+              offset={18}
               formatter={(value) => formatLabel(value as number)}
-              style={{ fill: textColor, fontSize: 14, fontWeight: 600 }}
+              style={{ fill: textColor, fontSize: 18, fontWeight: 700 }}
             />
           </Line>
         </LineChart>
@@ -172,7 +172,7 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
       <h3 className="vf-title serif-cn">{config.title}</h3>
       {subtitle ? <p className="vf-sub">{subtitle}</p> : null}
       <div className="vf-chart-box">
-        <ResponsiveContainer width="100%" height={260}>
+        <ResponsiveContainer width="100%" height={420}>
           {inner()}
         </ResponsiveContainer>
       </div>

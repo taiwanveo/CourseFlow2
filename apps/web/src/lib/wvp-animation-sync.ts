@@ -81,6 +81,11 @@ export type StepAnimationSyncResult = {
   attempted: number;
 };
 
+export type HeuristicExplainAnimationSyncResult = {
+  written: number;
+  skippedCraft: number;
+};
+
 /**
  * 打包前：從 checklist / Storage 還原各步解說動畫 HTML 至 presentation/public/animations/。
  */
@@ -138,4 +143,56 @@ export async function syncPresentationStepAnimations(
   }
 
   return { written, reused, attempted };
+}
+
+/**
+ * 打包前：對無手動解說動畫的步驟，以 explain-animation DSL 啟發式產 HTML。
+ * 讓 Visual-Mix 隱喻步（交集、前後對照、等式等）不必逐格點「AI 畫面」也能預覽。
+ */
+export async function syncHeuristicExplainAnimations(
+  presentationDir: string,
+  opts: {
+    wvpChapterId: string;
+    narrations: string[];
+    screenContents: string[];
+    themeId: string;
+    craft?: CraftRow;
+  },
+): Promise<HeuristicExplainAnimationSyncResult> {
+  const { inferExplainAnimation, renderExplainAnimationHtml } = await import(
+    "@courseflow/explain-animation"
+  );
+  const craftAnimated = new Set(
+    readStepIllustrations(opts.craft ?? { wvp_chapter_id: opts.wvpChapterId })
+      .filter(
+        (s) =>
+          s.imageSource === "animation" &&
+          Boolean(s.animationHtml?.trim() || s.animationStoragePath?.trim()),
+      )
+      .map((s) => s.stepIndex),
+  );
+
+  let written = 0;
+  let skippedCraft = 0;
+  const n = Math.max(opts.narrations.length, opts.screenContents.length);
+  for (let step = 0; step < n; step++) {
+    if (craftAnimated.has(step)) {
+      skippedCraft++;
+      continue;
+    }
+    const script = opts.narrations[step]?.trim() ?? "";
+    const screen = opts.screenContents[step]?.trim() ?? "";
+    if (!script && !screen) continue;
+    const inferred = inferExplainAnimation(script, screen);
+    if (!inferred) continue;
+    const html = renderExplainAnimationHtml(inferred.config, { themeId: opts.themeId });
+    await writePresentationAnimationFile(
+      presentationDir,
+      opts.wvpChapterId,
+      step,
+      html,
+    );
+    written++;
+  }
+  return { written, skippedCraft };
 }

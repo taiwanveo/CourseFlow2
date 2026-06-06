@@ -14,7 +14,11 @@
 }
 .vf-chart-box {
   width: 100%;
-  min-height: 260px;
+  min-height: min(58vh, 480px);
+  flex: 1;
+}
+.vf-chart-box > .recharts-responsive-container {
+  min-height: inherit !important;
 }
 .vf-kpi {
   display: flex;
@@ -22,7 +26,8 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-3);
-  min-height: 240px;
+  min-height: min(52vh, 420px);
+  flex: 1;
 }
 .vf-kpi-value {
   font-size: var(--t-display-1);
