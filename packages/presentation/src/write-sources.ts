@@ -65,9 +65,31 @@ export interface WriteChapterSourcesInput {
   chapterCss: string;
 }
 
+/** WVP 模板元件皆為 named export；LLM 常誤寫 default import */
+const NAMED_TEMPLATE_COMPONENTS = [
+  "MaskReveal",
+  "ListRevealGrid",
+  "FlowDiagram",
+  "HookImageStrip",
+  "VisualBlock",
+  "ChapterFigure",
+  "NarrationBeat",
+] as const;
+
+function fixDefaultComponentImports(tsx: string): string {
+  let out = tsx;
+  for (const symbol of NAMED_TEMPLATE_COMPONENTS) {
+    out = out.replace(
+      new RegExp(`import\\s+${symbol}\\s+from\\s+(["'])([^"']+)\\1;`, "g"),
+      `import { ${symbol} } from $1$2$1;`,
+    );
+  }
+  return out;
+}
+
 /** 修正 LLM 常見錯誤：Chapter.css、函式名稱與檔名不一致 */
 export function normalizeChapterTsx(tsx: string, componentName: string): string {
-  let out = tsx.trim();
+  let out = fixDefaultComponentImports(tsx.trim());
 
   out = out.replace(
     /import\s+["']\.\/Chapter\.css["']\s*;/g,
