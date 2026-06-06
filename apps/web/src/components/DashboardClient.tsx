@@ -171,7 +171,7 @@ export function DashboardClient({ initialProjects }: { initialProjects: Project[
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          互動預覽
+                          播放
                         </Link>
                         <Link
                           href={`/projects/${p.id}/wvp-play?auto=1`}
@@ -179,32 +179,34 @@ export function DashboardClient({ initialProjects }: { initialProjects: Project[
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          自動播放預覽
+                          自動播放
                         </Link>
                       </div>
                     ) : (
                       <div className="min-w-[260px]" />
                     )}
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex shrink-0 flex-col gap-1">
                       <Button
                         size="sm"
                         variant="secondary"
                         disabled={busyId === p.id}
+                        className="min-h-0 gap-[0.1875rem] px-[0.375rem] py-[0.1875rem] text-[0.40625rem] leading-tight"
                         onClick={() => {
                           setEditingId(p.id);
                           setEditTitle(p.title);
                         }}
                       >
-                        <Pencil className="h-3.5 w-3.5" aria-hidden />
+                        <Pencil className="h-[7px] w-[7px]" aria-hidden />
                         重新命名
                       </Button>
                       <Button
                         size="sm"
                         variant="danger"
                         disabled={busyId === p.id}
+                        className="min-h-0 gap-[0.1875rem] px-[0.375rem] py-[0.1875rem] text-[0.40625rem] leading-tight"
                         onClick={() => setDeletingProject(p)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        <Trash2 className="h-[7px] w-[7px]" aria-hidden />
                         刪除
                       </Button>
                     </div>
