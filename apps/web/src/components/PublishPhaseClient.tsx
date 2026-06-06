@@ -8,7 +8,29 @@ import { ExportMp4Button } from "@/components/ExportMp4Button";
 import { useToast } from "@/components/Toast";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { stepCountForChapter } from "@/lib/wvp-chapters";
-import { resolveCompositionChapterForCraft } from "@/lib/wvp-chapter-meta";
+import { titleToWvpChapterId } from "@/lib/wvp-slug";
+
+function resolveCompositionChapterForCraft(
+  composition: CourseComposition,
+  craft: { title: string; wvp_chapter_id: string; sort_order?: number },
+) {
+  const normalizedTitle = craft.title.trim();
+  const byExactTitle = composition.chapters.find((c) => c.title.trim() === normalizedTitle);
+  if (byExactTitle) return byExactTitle;
+
+  const rootChapters = composition.chapters
+    .filter((c) => !c.parentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const byWvpId = rootChapters.find(
+    (ch, index) => titleToWvpChapterId(ch.title, index) === craft.wvp_chapter_id,
+  );
+  if (byWvpId) return byWvpId;
+
+  if (typeof craft.sort_order === "number" && craft.sort_order >= 0) {
+    return rootChapters[craft.sort_order] ?? null;
+  }
+  return null;
+}
 
 type CraftRow = {
   wvp_chapter_id: string;
