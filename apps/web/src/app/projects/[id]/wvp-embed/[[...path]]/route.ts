@@ -41,6 +41,20 @@ function relPathFromSegments(segments: string[] | undefined): string {
   return segments?.length ? segments.join("/") : "index.html";
 }
 
+/** 僅根路徑 index 為 SPA 入口；dist 內 animations/*.html 等為靜態資源 */
+function isSpaIndexRequest(relPath: string): boolean {
+  return relPath === "index.html";
+}
+
+function isDistStaticAsset(lastSeg: string, relPath: string): boolean {
+  if (/\.html$/i.test(lastSeg)) {
+    return !isSpaIndexRequest(relPath);
+  }
+  return /\.(mp3|wav|m4a|ogg|css|js|map|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|json|bmp)$/i.test(
+    lastSeg,
+  );
+}
+
 /** Vite 產物與媒體可快取；index.html 維持 no-cache 以便改版後能拿到新入口 */
 function cacheControlForPath(relPath: string, isAsset: boolean): string {
   if (!isAsset || relPath === "index.html" || relPath.endsWith("/index.html")) {
@@ -80,10 +94,8 @@ export async function GET(
 
   const relPath = relPathFromSegments(segments);
   const lastSeg = segments?.length ? segments[segments.length - 1]! : "index.html";
-  const isAsset =
-    /\.(mp3|wav|m4a|ogg|css|js|map|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|json)$/i.test(
-      lastSeg,
-    );
+  const isAsset = isDistStaticAsset(lastSeg, relPath);
+  const isSpaEntry = isSpaIndexRequest(relPath);
 
   const useStorageCdn = shouldServeWvpAssetsViaStorage();
 
@@ -99,7 +111,7 @@ export async function GET(
     }
   }
 
-  if (!isAsset && useStorageCdn) {
+  if (isSpaEntry && useStorageCdn) {
     const indexBuf = await readWvpDistIndexFromStorage(supabase, user.id, id);
     if (indexBuf) {
       return new NextResponse(new Uint8Array(indexBuf), {

@@ -571,6 +571,12 @@ function cachedChapterSourceMissingPackagedAssets(
     /stepAnimationUrl|STEP_ANIMATION_SET|introAnimationUrl|animationUrl\s*:/.test(llmTsx);
   if (hasImagesOnDisk && !referencesStepImages) return true;
   if (animationStepsOnDisk.length > 0 && !referencesStepAnimations) return true;
+  if (
+    llmTsx.includes("stepAnimationUrl") &&
+    !/function stepAnimationUrl|STEP_ANIMATION_SET/.test(llmTsx)
+  ) {
+    return true;
+  }
   return false;
 }
 
