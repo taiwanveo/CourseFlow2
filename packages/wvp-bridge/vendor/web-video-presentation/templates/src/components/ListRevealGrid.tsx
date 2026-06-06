@@ -104,11 +104,9 @@ export function ListRevealGrid({
   if (!items[activeIdx]) return null;
 
   const cols = Math.min(Math.max(items.length, 1), 4);
+  // step >= 1 為同頁累積揭示：勿重跑整頁 cf-enter，僅更新各 slot 狀態與動畫
   return (
-    <div
-      className={`lr-scene scene-pad lr-list-reveal cf-enter-${enterAnimationId}`}
-      data-cf-transition={transitionId}
-    >
+    <div className="lr-scene scene-pad lr-list-reveal" data-cf-transition="none">
       <header className="lr-masthead">
         <span className="lr-rule" />
         <span className="lr-kicker">{kicker ?? chapterTitle}</span>

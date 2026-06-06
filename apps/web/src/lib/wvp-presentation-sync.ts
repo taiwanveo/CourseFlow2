@@ -130,6 +130,7 @@ export async function materializeChapterFromCraft(
   craft: CraftRow,
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
+  opts?: { preserveApprovedAnchorChapter?: boolean },
 ): Promise<RegistryChapterEntry> {
   const chapter = resolveCompositionChapterForCraft(composition, craft);
   const narrationsFromComposition = chapter
@@ -203,7 +204,11 @@ export async function materializeChapterFromCraft(
   // 模板 TSX 由 applyChapterTemplate 依螢幕欄位產生；驗證失敗時仍優先沿用，避免重產時退回口播稿
   const useCachedTemplateSource =
     rawSource?.source === "template" && llmTsx && !llmCacheScreenContentsStale;
-  if (useCachedLlmSource || useCachedTemplateSource) {
+  const preserveApprovedAnchor =
+    opts?.preserveApprovedAnchorChapter === true &&
+    craft.sort_order === 0 &&
+    Boolean(llmTsx);
+  if (preserveApprovedAnchor || useCachedLlmSource || useCachedTemplateSource) {
     await writeChapterSourcesRaw(presentationDir, {
       folderName,
       componentName,
@@ -316,6 +321,7 @@ export async function rebuildRegistryForProject(
   crafts: CraftRow[],
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
+  opts?: { preserveApprovedAnchorChapter?: boolean },
 ): Promise<RegistryChapterEntry[]> {
   const entries: RegistryChapterEntry[] = [];
   const sorted = [...crafts].sort((a, b) => a.sort_order - b.sort_order);
@@ -331,6 +337,7 @@ export async function rebuildRegistryForProject(
         craft,
         composition,
         projectAssets,
+        opts,
       ),
     );
   }
@@ -600,11 +607,13 @@ export async function syncFullWvpProject(
     .eq("project_id", projectId)
     .order("sort_order");
 
+  const preserveApprovedAnchorChapter = Boolean(wvpSettings.anchorChapterApproved);
   const entries = await rebuildRegistryForProject(
     presentationDir,
     (crafts ?? []) as CraftRow[],
     composition,
     wvpSettings.assets,
+    { preserveApprovedAnchorChapter },
   );
 
   let built = false;
@@ -704,6 +713,7 @@ export async function syncFullWvpProject(
         (crafts ?? []) as CraftRow[],
         composition,
         wvpSettings.assets,
+        { preserveApprovedAnchorChapter },
       );
     }
 

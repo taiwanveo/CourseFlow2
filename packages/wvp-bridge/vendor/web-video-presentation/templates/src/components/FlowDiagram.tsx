@@ -73,11 +73,9 @@ export function FlowDiagram({
     );
   }
 
+  // step >= 1 為同頁流程推進：勿重跑整頁 cf-enter
   return (
-    <div
-      className={`cf-flow-scene scene-pad cf-flow-split cf-enter-${enterAnimationId}`}
-      data-cf-transition={transitionId}
-    >
+    <div className="cf-flow-scene scene-pad cf-flow-split" data-cf-transition="none">
       <div className="cf-flow-main">
         <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
         <svg

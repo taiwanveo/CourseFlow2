@@ -363,7 +363,7 @@ export function PublishPhaseClient({
           <p>預覽：打包完成後可手動播放預覽或自動播放預覽。</p>
           <p>匯出：匯出影片成品（可勾選）。</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-start gap-2">
           <button
             type="button"
             className="cf-btn cf-btn-primary"

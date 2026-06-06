@@ -163,75 +163,87 @@ export function ExportMp4Button({
 
   const busy = status === "pending" || status === "processing";
 
+  const statusTone =
+    status === "failed"
+      ? "text-red-900/90 dark:text-red-400/95"
+      : status === "completed"
+        ? "text-emerald-600/90"
+        : statusMessage
+          ? "text-amber-400"
+          : "";
+
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      <label
-        className={cn(
-          "flex cursor-pointer items-center gap-1.5 text-sm text-zinc-400",
-          compact && "text-xs text-white/80",
-        )}
-        title="使用 HyperFrames draft 品質，渲染較快、暫存占用較少，適合先確認流程"
-      >
-        <input
-          type="checkbox"
-          checked={quickDraft}
+    <div className={cn("inline-flex min-w-0 flex-col gap-2", className)}>
+      <div className="flex flex-wrap items-center gap-2">
+        <label
+          className={cn(
+            "flex cursor-pointer items-center gap-1.5 text-sm text-zinc-400",
+            compact && "text-xs text-white/80",
+          )}
+          title="使用 HyperFrames draft 品質，渲染較快、暫存占用較少，適合先確認流程"
+        >
+          <input
+            type="checkbox"
+            checked={quickDraft}
+            disabled={busy}
+            onChange={(e) => setQuickDraft(e.target.checked)}
+            className="rounded border-zinc-600"
+          />
+          快速匯出（畫質較低）
+        </label>
+        <button
+          type="button"
           disabled={busy}
-          onChange={(e) => setQuickDraft(e.target.checked)}
-          className="rounded border-zinc-600"
-        />
-        快速匯出（畫質較低）
-      </label>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={startExport}
-        className={cn(
-          compact ? "play-page-btn play-page-btn-accent" : "cf-btn cf-btn-sm cf-btn-secondary",
-          busy && "opacity-60",
-          buttonClassName,
-        )}
-      >
-        {busy ? (
-          <span className="inline-flex items-center gap-2">
-            <LottieMark variant="loading" size={16} ariaLabel="匯出中" />
-            <span>匯出中…</span>
-          </span>
-        ) : (
-          "匯出為 MP4 影片"
-        )}
-      </button>
+          onClick={startExport}
+          className={cn(
+            compact ? "play-page-btn play-page-btn-accent" : "cf-btn cf-btn-sm cf-btn-secondary",
+            busy && "opacity-60",
+            buttonClassName,
+          )}
+        >
+          {busy ? (
+            <span className="inline-flex items-center gap-2">
+              <LottieMark variant="loading" size={16} ariaLabel="匯出中" />
+              <span>匯出中…</span>
+            </span>
+          ) : (
+            "匯出為 MP4 影片"
+          )}
+        </button>
+        {downloadUrl ? (
+          <a
+            href={downloadUrl}
+            download
+            className={cn(
+              compact ? "play-page-btn" : "cf-btn cf-btn-sm cf-btn-primary",
+            )}
+          >
+            <span className="inline-flex items-center gap-2">
+              <LottieMark variant="success" size={16} ariaLabel="完成" loop={false} />
+              <span>下載</span>
+            </span>
+          </a>
+        ) : null}
+      </div>
       <AnimatePresence mode="popLayout" initial={false}>
         {statusMessage ? (
-          <motion.span
+          <motion.p
             key={statusMessage}
             variants={fadeSlide}
             initial="hidden"
             animate="show"
             exit="exit"
+            role="status"
             className={cn(
-              "text-sm",
-              status === "failed" ? "text-red-400" : "text-zinc-400",
-              compact && "text-xs text-white/80",
+              "w-full text-sm leading-relaxed",
+              statusTone,
+              compact && "text-xs",
             )}
           >
             {statusMessage}
-          </motion.span>
+          </motion.p>
         ) : null}
       </AnimatePresence>
-      {downloadUrl ? (
-        <a
-          href={downloadUrl}
-          download
-          className={cn(
-            compact ? "play-page-btn" : "cf-btn cf-btn-sm cf-btn-primary",
-          )}
-        >
-          <span className="inline-flex items-center gap-2">
-            <LottieMark variant="success" size={16} ariaLabel="完成" loop={false} />
-            <span>下載</span>
-          </span>
-        </a>
-      ) : null}
     </div>
   );
 }

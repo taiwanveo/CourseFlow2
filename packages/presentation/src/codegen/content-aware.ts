@@ -103,11 +103,11 @@ export function pickContentAwareStepMotion(
     };
   }
   if (chapterKind === "list-reveal") {
-    const cycle = ["fade-up", "slide-left", "blur-in", "wipe-up", "drop-in", "overshoot"];
-    return {
-      enterAnimationId: cycle[(stepIndex - 1) % cycle.length] ?? "fade-up",
-      transitionId: "crossfade",
-    };
+    if (stepIndex === 0) {
+      return { enterAnimationId: "scale-in", transitionId: "crossfade" };
+    }
+    // step >= 1：ListRevealGrid 同頁累積揭示，整頁不重跑 cf-enter
+    return { enterAnimationId: "fade-in", transitionId: "none" };
   }
   if (/強調|關鍵|核心|重點|金句/.test(blob)) {
     return { enterAnimationId: "blur-in", transitionId: "crossfade" };
