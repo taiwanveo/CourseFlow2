@@ -105,7 +105,7 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
   // 中文季度營收：第一季一百萬、第二季一百二十萬…
   const seasonPairs: { label: string; value: number }[] = [];
   for (const m of t.matchAll(
-    /第([一二三四1-4])季\s*([一二三四五六七八九十百\d]+)\s*萬?/g,
+    /第([一二三四1-4])季\s*([一二三四五六七八九十百\d]+|\d+)\s*萬?/g,
   )) {
     const val = parseChineseInteger(m[2]!);
     if (val === null) continue;
@@ -143,7 +143,10 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
   }
 
   // 定性方案對比：方案 A 成本較低…方案 B…（無數字欄位時）
-  if (/方案\s*[ABCＡＢＣ]/i.test(t) && /對比|对比|對照|比较|三種方案/.test(t)) {
+  if (
+    (/方案\s*[ABCＡＢＣ]/i.test(t) || /三種方案/.test(t)) &&
+    /對比|对比|對照|比较|三種方案/.test(t)
+  ) {
     const rows: Record<string, string>[] = [];
     for (const m of t.matchAll(
       /方案\s*([ABCＡＢＣ])\s*([^，,。；;]*?)(?=(?:，|,|。|;|；|方案\s*[ABCＡＢＣ]|$))/gi,
@@ -313,7 +316,12 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     .split(/[；;]\s*|\n+/)
     .map((s) => s.replace(/^第[一二三四五六七八九十\d]+[、.．]\s*/, "").trim())
     .filter((s) => s.length >= 4 && s.length <= 80);
-  if (listItems.length >= 2 && listItems.length <= 8 && !/\d{2,}/.test(t)) {
+  if (
+    listItems.length >= 2 &&
+    listItems.length <= 8 &&
+    !/\d{2,}/.test(t) &&
+    !/第[一二三四1-4]季|季度|營收|营收|折線|折线|成長曲線|成长曲线/.test(t)
+  ) {
     return {
       kind: "animation",
       title: listItems[0]!.slice(0, 20),

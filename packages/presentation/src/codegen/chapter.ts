@@ -37,12 +37,15 @@ function hasChartOrTableVisuals(
 }
 
 function resolveDataVisualConfigs(input: ChapterCodegenInput): StepVisualEntry[] {
-  const fromInput = input.stepVisualConfigs ?? [];
-  const chartTable = fromInput.filter(
+  const heuristic = buildHeuristicStepVisualConfigs(
+    input.narrations,
+    input.screenContents ?? [],
+  );
+  /** 啟發式優先：LLM 常把季度折線放到方案步、或把營收步做成 reveal-list 動畫 */
+  if (heuristic.length > 0) return heuristic;
+  return (input.stepVisualConfigs ?? []).filter(
     (e) => e.config.kind === "chart" || e.config.kind === "table",
   );
-  if (chartTable.length > 0) return chartTable;
-  return buildHeuristicStepVisualConfigs(input.narrations, input.screenContents ?? []);
 }
 
 export function generateChapterSources(input: ChapterCodegenInput) {

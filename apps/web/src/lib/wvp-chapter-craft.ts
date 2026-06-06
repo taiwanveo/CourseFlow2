@@ -17,6 +17,7 @@ import {
   checkStepsHaveVisuals,
 } from "@courseflow/presentation";
 import { isDataVisualChapter } from "@courseflow/presentation/router";
+import { buildHeuristicStepVisualConfigs } from "@courseflow/presentation";
 import type { WvpChapterKind } from "@courseflow/core";
 import { parseWvpSettings, type WvpAnchorProfile } from "@/lib/wvp-settings";
 import {
@@ -320,6 +321,12 @@ export async function generateChapterCraft(
           !dataVisualChapter &&
           (Object.keys(stepImageExtensions).length > 0 ||
             craftHasCompletedIllustrations(craft));
+        if (!preferImageTemplate && dataVisualChapter) {
+          const heuristic = buildHeuristicStepVisualConfigs(opts.narrations, screenContents);
+          if (heuristic.length > 0) {
+            stepVisualConfigs = heuristic;
+          }
+        }
         const effectiveForceTemplate =
           dataVisualChapter &&
           (opts.forceTemplate === "flow" || opts.forceTemplate === "list-reveal")

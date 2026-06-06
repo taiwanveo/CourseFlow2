@@ -197,6 +197,9 @@ export async function materializeChapterFromCraft(
   });
   const dataVisualNeedsVisualBlock =
     dataVisualChapter && llmTsx.length > 0 && !/VisualBlock/.test(llmTsx);
+  /** 數據章每次打包重產 TSX，避免沿用 checklist 內錯誤的 LLM stepVisualConfigs */
+  const dataVisualForceRegenerate =
+    dataVisualChapter && !hasPackagedStepImagesForCraft(craft);
   const templateKindStale = Boolean(
     (resolvedChapterKind &&
       cachedTemplateKind &&
@@ -229,6 +232,7 @@ export async function materializeChapterFromCraft(
     hasPackagedStepImagesForCraft(craft) || chapterHasStepExplainAnimations(craft);
   const useCachedLlmSource =
     !mustRegenerateForPackagedAssets &&
+    !dataVisualForceRegenerate &&
     rawSource?.source === "llm" &&
     !forceTemplate &&
     !dataVisualNeedsVisualBlock &&
@@ -245,6 +249,7 @@ export async function materializeChapterFromCraft(
   // 模板 TSX 由 applyChapterTemplate 依螢幕欄位產生；驗證失敗時仍優先沿用，避免重產時退回口播稿
   const useCachedTemplateSource =
     !mustRegenerateForPackagedAssets &&
+    !dataVisualForceRegenerate &&
     rawSource?.source === "template" &&
     llmTsx &&
     !llmCacheScreenContentsStale &&
@@ -322,15 +327,14 @@ export async function materializeChapterFromCraft(
       !dataVisualChapter &&
       (hasPackagedStepImagesForCraft(craft) ||
         Object.keys(stepImageExtensions).length > 0);
-    if (
-      !preferImageTemplate &&
-      dataVisualChapter &&
-      (!stepVisualConfigs || stepVisualConfigs.length === 0)
-    ) {
-      stepVisualConfigs = buildHeuristicStepVisualConfigs(
+    if (!preferImageTemplate && dataVisualChapter) {
+      const heuristic = buildHeuristicStepVisualConfigs(
         narrations,
         chapter ? currentScreenContents : [],
       );
+      if (heuristic.length > 0) {
+        stepVisualConfigs = heuristic;
+      }
     }
     const effectiveForceTemplate =
       dataVisualChapter &&
