@@ -13,6 +13,10 @@
     "./record": {
       "types": "./dist/record.d.ts",
       "import": "./dist/record.js"
+    },
+    "./router": {
+      "types": "./dist/codegen/router.d.ts",
+      "import": "./dist/codegen/router.js"
     }
   },
   "scripts": {

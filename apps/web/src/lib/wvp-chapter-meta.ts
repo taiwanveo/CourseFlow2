@@ -1,6 +1,6 @@
 import type { CourseComposition, WvpChapterKind } from "@courseflow/core";
 import { isChapterStep } from "@courseflow/core";
-import { inferChapterKind } from "@courseflow/presentation";
+import { inferChapterKind } from "@courseflow/presentation/router";
 import { titleToWvpChapterId } from "@/lib/wvp-slug";
 import { orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 
