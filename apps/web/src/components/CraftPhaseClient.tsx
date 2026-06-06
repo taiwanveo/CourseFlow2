@@ -20,6 +20,11 @@ import {
   resolveCraftTemplateKind,
   templateKindDisplayLabel,
 } from "@/lib/wvp-template-kind-label";
+import type { WvpChapterKind } from "@courseflow/core";
+import {
+  CRAFT_TEMPLATE_OPTIONS,
+  resolveChapterTemplateSelectState,
+} from "@/lib/wvp-chapter-template";
 import {
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
@@ -227,6 +232,7 @@ export function CraftPhaseClient({
   const [locks, setLocks] = useState(initialLocks);
   const [settings, setSettings] = useState(initialSettings);
   const [chapters, setChapters] = useState(initialChapters);
+  const [composition, setComposition] = useState(initialComposition);
   const [selectedWvpId, setSelectedWvpId] = useState<string | null>(
     initialChapters[0]?.wvp_chapter_id ?? null,
   );
@@ -351,6 +357,38 @@ export function CraftPhaseClient({
     autoScaffoldAttemptedForProject.add(projectId);
     void scaffold({ auto: true });
   }, [wvpHydrated, craftAccessible, locks.craft, chapters.length, projectId, scaffold]);
+
+  const saveChapterTemplate = async (
+    wvpChapterId: string,
+    next: WvpChapterKind | "auto",
+  ) => {
+    const craft = chapters.find((c) => c.wvp_chapter_id === wvpChapterId);
+    if (!craft) throw new Error("找不到章節");
+    const { contentChapterId } = resolveChapterTemplateSelectState(composition, craft);
+    if (!contentChapterId) throw new Error("找不到對應文稿章節");
+
+    const res = await fetch(
+      `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/chapter-kind`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          next === "auto" ? { auto: true } : { chapterKind: next },
+        ),
+      },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "版型儲存失敗");
+
+    const nextKind = next === "auto" ? undefined : next;
+    setComposition((prev) => ({
+      ...prev,
+      chapters: prev.chapters.map((ch) =>
+        ch.id === contentChapterId ? { ...ch, chapterKind: nextKind } : ch,
+      ),
+    }));
+    return data as { inferredKind?: WvpChapterKind; isAuto?: boolean };
+  };
 
   const syncChapter = async (wvpChapterId: string) => {
     setBusy(`sync-${wvpChapterId}`);
@@ -869,7 +907,7 @@ export function CraftPhaseClient({
               {chapters.length > 0 ? (
                 <p className="mt-0.5 text-[11px] text-zinc-500">
                   正常使用上方「開始執行」即可，無需手動逐章操作。
-                  若修改了某章文稿，可用「匯入口播」重新同步口播內容，再用「AI 畫面」重新產生該章視覺。
+                  若修改了某章文稿，可調整版型、用「匯入口播」重新同步口播，再用「AI 畫面」重新產生視覺。
                 </p>
               ) : null}
             </div>
@@ -889,6 +927,7 @@ export function CraftPhaseClient({
                 const isSelected = selectedWvpId === ch.wvp_chapter_id;
                 const isSyncing = busy === `sync-${ch.wvp_chapter_id}`;
                 const isGenerating = busy === `gen-${ch.wvp_chapter_id}`;
+                const templateState = resolveChapterTemplateSelectState(composition, ch);
 
                 return (
                   <div
@@ -913,16 +952,60 @@ export function CraftPhaseClient({
                         {ch.checklist_result?.chapterSource &&
                         resolveCraftTemplateKind(ch.checklist_result)
                           ? `（${templateKindDisplayLabel(resolveCraftTemplateKind(ch.checklist_result)!)}）`
-                          : ""}
+                          : templateState.isAuto
+                            ? `（推斷：${templateKindDisplayLabel(templateState.inferredKind)}）`
+                            : `（指定：${templateKindDisplayLabel(templateState.selectValue)}）`}
                         {i === 0 ? " · 第 1 章" : ""}
                       </span>
                     </button>
                     {!locks.craft ? (
-                      <>
+                      <div className="flex shrink-0 items-stretch gap-1">
+                        <select
+                          className="cf-select w-[4.75rem] shrink-0 py-0.5 text-[10px] leading-tight"
+                          disabled={!!busy || !templateState.contentChapterId}
+                          title={
+                            templateState.isAuto
+                              ? `依內容推斷為「${templateKindDisplayLabel(templateState.inferredKind)}」，可改為其他版型`
+                              : "已手動指定版型，選「自動」可改回依內容推斷"
+                          }
+                          value={templateState.selectValue}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={async (e) => {
+                            const raw = e.target.value;
+                            const next =
+                              raw === "__auto__"
+                                ? ("auto" as const)
+                                : (raw as WvpChapterKind);
+                            setBusy(`tpl-${ch.wvp_chapter_id}`);
+                            try {
+                              await saveChapterTemplate(ch.wvp_chapter_id, next);
+                              toast(
+                                next === "auto"
+                                  ? `已改為自動推斷（${templateKindDisplayLabel(templateState.inferredKind)}）`
+                                  : `已指定版型：${templateKindDisplayLabel(next)}`,
+                                "success",
+                              );
+                            } catch (err) {
+                              toast(
+                                err instanceof Error ? err.message : "版型儲存失敗",
+                                "error",
+                              );
+                            } finally {
+                              setBusy(null);
+                            }
+                          }}
+                        >
+                          <option value="__auto__">自動</option>
+                          {CRAFT_TEMPLATE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                         <button
                           type="button"
                           title="從文稿重新匯入本章口播內容（文稿有修改時用）"
-                          className="cf-btn cf-btn-secondary shrink-0 basis-1/4 px-1 py-1 text-center text-[10px] leading-tight"
+                          className="cf-btn cf-btn-secondary w-[3.35rem] shrink-0 px-0.5 py-1 text-center text-[10px] leading-tight"
                           disabled={!!busy}
                           onClick={() => syncChapter(ch.wvp_chapter_id)}
                         >
@@ -931,13 +1014,13 @@ export function CraftPhaseClient({
                         <button
                           type="button"
                           title="用 AI 重新產生本章視覺動效程式（口播已匯入後才有效果）"
-                          className="cf-btn cf-btn-secondary shrink-0 basis-1/4 px-1 py-1 text-center text-[10px] leading-tight"
+                          className="cf-btn cf-btn-secondary w-[3.35rem] shrink-0 px-0.5 py-1 text-center text-[10px] leading-tight"
                           disabled={!!busy || !providers.length}
                           onClick={() => generateChapter(ch.wvp_chapter_id)}
                         >
                           {isGenerating ? "…" : "AI 畫面"}
                         </button>
-                      </>
+                      </div>
                     ) : null}
                   </div>
                 );
@@ -954,7 +1037,7 @@ export function CraftPhaseClient({
                   wvpChapterId={ch.wvp_chapter_id}
                   chapterTitle={ch.title}
                   scriptSteps={chapterScriptSteps(
-                    initialComposition,
+                    composition,
                     ch.wvp_chapter_id,
                     i,
                   )}
