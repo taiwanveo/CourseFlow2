@@ -312,7 +312,7 @@ ${stepBlocks.join("\n")}
   padding-bottom: var(--space-8);
 }
 .${prefix}-chapter-divider:has(.${prefix}-divider-figure img) {
-  justify-content: flex-start;
+  justify-content: center;
 }
 /* 章節 divider 主標題：調這裡可改章首大標字級、行高、最大寬度。 */
 .${prefix}-divider-title {
@@ -330,12 +330,17 @@ ${stepBlocks.join("\n")}
   flex: 1;
   width: min(100%, 960px);
   min-height: min(280px, 36vh);
-  align-self: stretch;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .${prefix}-divider-figure img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(55vh, 520px);
+  object-fit: contain;
   border-radius: var(--r-card, 12px);
 }
 .${prefix}-cover-body {
@@ -371,8 +376,18 @@ ${stepBlocks.join("\n")}
 }
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body,
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split,
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
-  align-items: start;
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-grid {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-items: center;
+  text-align: center;
+}
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-text,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-copy,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-copy {
+  align-items: center;
+  text-align: center;
 }
 /* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
@@ -425,8 +440,22 @@ ${stepBlocks.join("\n")}
 }
 .${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); }
 .${prefix}-quote { text-align: left; font-size: clamp(2rem, 3.6vw, 3.5rem); }
-.${prefix}-figure { align-self: stretch; width: 100%; min-height: min(380px, 40vh); }
-.${prefix}-figure img { min-height: min(380px, 40vh); object-fit: cover; }
+.${prefix}-figure {
+  align-self: center;
+  width: min(100%, 960px);
+  min-height: min(280px, 36vh);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.${prefix}-figure img {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: min(55vh, 520px);
+  min-height: 0;
+  object-fit: contain;
+}
 `;
 
   return {

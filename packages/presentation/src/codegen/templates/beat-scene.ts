@@ -144,6 +144,25 @@ ${scenes.join("\n")}
   align-items: center;
   min-height: 100%;
 }
+.${prefix}-scene:has(.${prefix}-figure-wrap img) {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(240px, 1fr);
+  justify-items: center;
+  align-content: center;
+  text-align: center;
+}
+.${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-main {
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+.${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-headline {
+  max-width: none;
+  text-align: center;
+}
+.${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-contrast {
+  margin-inline: auto;
+}
 .${prefix}-main { display: flex; flex-direction: column; gap: var(--space-4, 1.25rem); }
 .${prefix}-kicker { opacity: 0.72; }
 .${prefix}-headline {
@@ -180,7 +199,14 @@ ${scenes.join("\n")}
   animation: ${prefix}-pulse 2.4s ease-in-out infinite;
 }
 .${prefix}-figure-wrap { display: flex; align-items: center; justify-content: center; }
+.${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure-wrap {
+  width: min(100%, 960px);
+  min-height: min(42vh, 480px);
+}
 .${prefix}-figure { max-width: 100%; max-height: min(52vh, 420px); object-fit: contain; border-radius: var(--radius-md, 8px); }
+.${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure {
+  max-height: min(55vh, 520px);
+}
 @keyframes ${prefix}-grow {
   from { transform: scaleX(0); }
   to { transform: scaleX(1); }

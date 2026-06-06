@@ -99,9 +99,25 @@ export function ListRevealGrid({
     );
   }
 
-  // step >= 1: cumulative grid reveal — items appear one by one in the grid
+  // step >= 1: 有配圖／動畫時用 FeaturedCard 全屏置中；否則維持累積格狀揭示
   const activeIdx = step - 1;
-  if (!items[activeIdx]) return null;
+  const activeItem = items[activeIdx];
+  if (!activeItem) return null;
+
+  const anyItemVisual = items.some((it) => itemHasVisual(it));
+
+  if (anyItemVisual) {
+    return (
+      <div className="lr-scene scene-pad lr-featured lr-list-reveal" data-cf-transition="none">
+        <header className="lr-masthead">
+          <span className="lr-rule" />
+          <span className="lr-kicker">{kicker ?? chapterTitle}</span>
+          <span className="lr-rule" />
+        </header>
+        <FeaturedCard item={activeItem} />
+      </div>
+    );
+  }
 
   const cols = Math.min(Math.max(items.length, 1), 4);
   // step >= 1 為同頁累積揭示：勿重跑整頁 cf-enter，僅更新各 slot 狀態與動畫
@@ -123,6 +139,12 @@ export function ListRevealGrid({
         ))}
       </div>
     </div>
+  );
+}
+
+function itemHasVisual(item: ListRevealItem): boolean {
+  return Boolean(
+    item.imageUrl?.trim() || item.animationHtml?.trim() || item.animationUrl?.trim(),
   );
 }
 

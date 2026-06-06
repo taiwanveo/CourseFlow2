@@ -26,11 +26,20 @@
   align-items: center;
 }
 .cf-flow-split:has(.cf-flow-aside img) {
-  align-items: start;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(240px, 1fr);
+  justify-items: center;
+  align-items: center;
+  text-align: center;
 }
 .cf-flow-split:has(.cf-flow-aside img) .cf-flow-main {
-  align-items: flex-start;
-  text-align: left;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+.cf-flow-split:has(.cf-flow-aside img) .cf-flow-aside {
+  width: min(100%, 960px);
+  min-height: min(42vh, 480px);
 }
 
 .cf-flow-main {
