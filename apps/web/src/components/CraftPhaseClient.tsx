@@ -73,6 +73,38 @@ type BatchSummary = {
   failed: number;
 };
 
+/** 點擊當下先開分頁，避免 async 打包完成後 window.open 被瀏覽器擋下 */
+function openChapterPreviewPlaceholderTab(chapterTitle: string): Window | null {
+  const tab = window.open("", "_blank");
+  if (!tab) return null;
+  try {
+    tab.document.title = "預覽打包中…";
+    const main = tab.document.createElement("main");
+    main.style.cssText =
+      "margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#0a0a0a;color:#e4e4e7;padding:2rem;text-align:center";
+    const p = tab.document.createElement("p");
+    p.textContent = `正在打包「${chapterTitle}」預覽，約需 1–3 分鐘，請保持此分頁開啟…`;
+    main.appendChild(p);
+    tab.document.body.replaceChildren(main);
+  } catch {
+    // 若無法寫入佔位頁，仍保留分頁供稍後導向
+  }
+  return tab;
+}
+
+function navigateChapterPreviewTab(tab: Window | null, url: string): boolean {
+  if (tab && !tab.closed) {
+    try {
+      tab.location.href = url;
+      tab.focus();
+      return true;
+    } catch {
+      // fall through
+    }
+  }
+  return window.open(url, "_blank", "noopener,noreferrer") !== null;
+}
+
 function ChapterIllustrationBlock({
   projectId,
   wvpChapterId,
@@ -573,6 +605,13 @@ export function CraftPhaseClient({
       toast("請先選擇並儲存簡報主題", "error");
       return;
     }
+    const previewTab = openChapterPreviewPlaceholderTab(chapterTitle);
+    if (!previewTab) {
+      toast(
+        "瀏覽器阻擋新分頁。請允許 courseflow2.zeabur.app 開啟彈出視窗後再按「預覽」。",
+        "warning",
+      );
+    }
     setBusy(`preview-${wvpChapterId}`);
     try {
       const res = await fetch(
@@ -581,21 +620,27 @@ export function CraftPhaseClient({
       );
       const data = await readResponsePayload(res);
       if (!res.ok) {
+        if (previewTab && !previewTab.closed) previewTab.close();
         throw new Error(getResponseErrorMessage(res, data, "預覽打包失敗"));
-      }
-      if (
-        typeof data.illustrationSyncWarning === "string" &&
-        data.illustrationSyncWarning
-      ) {
-        toast(`「${chapterTitle}」預覽已打包。${data.illustrationSyncWarning}`, "info");
-      } else {
-        toast(`「${chapterTitle}」預覽已打包，正在開啟…`, "success");
       }
       const previewUrl =
         typeof data.previewUrl === "string" && data.previewUrl
           ? data.previewUrl
           : `/projects/${projectId}/wvp-play?chapterPreview=1`;
-      window.open(previewUrl, "_blank", "noopener,noreferrer");
+      const opened = navigateChapterPreviewTab(previewTab, previewUrl);
+      if (
+        typeof data.illustrationSyncWarning === "string" &&
+        data.illustrationSyncWarning
+      ) {
+        toast(`「${chapterTitle}」預覽已打包。${data.illustrationSyncWarning}`, "info");
+      } else if (opened) {
+        toast(`「${chapterTitle}」預覽已打包，已開啟新分頁。`, "success");
+      } else {
+        toast(
+          `「${chapterTitle}」預覽已打包，但無法自動開啟分頁。請允許彈出視窗，或手動開啟：${previewUrl}`,
+          "warning",
+        );
+      }
     } catch (e) {
       toast(e instanceof Error ? e.message : "預覽打包失敗", "error");
     } finally {
