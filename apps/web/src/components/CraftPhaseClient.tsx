@@ -13,7 +13,7 @@ import { catalogEntryToSelection } from "@/lib/image-style";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
 import { CraftChapterIllustration } from "@/components/CraftChapterIllustration";
-import { CraftIllustrationStudio } from "@/components/CraftIllustrationStudio";
+import { CraftStepIllustrationModal } from "@/components/CraftStepIllustrationModal";
 import type { CourseComposition } from "@courseflow/core";
 import { chapterScriptSteps, type ChapterScriptStep } from "@/lib/chapter-script-reference";
 import {
@@ -79,18 +79,17 @@ function ChapterIllustrationBlock({
   chapterTitle,
   scriptSteps,
   craftLocked,
-  hasImageStyle,
-  onOpenStylePicker,
+  reloadKey,
+  onOpenStepStudio,
 }: {
   projectId: string;
   wvpChapterId: string;
   chapterTitle: string;
   scriptSteps: ChapterScriptStep[];
   craftLocked: boolean;
-  hasImageStyle: boolean;
-  onOpenStylePicker: () => void;
+  reloadKey: number;
+  onOpenStepStudio: () => void;
 }) {
-  const [reloadKey, setReloadKey] = useState(0);
   return (
     <div className="space-y-2">
       <CraftChapterIllustration
@@ -100,17 +99,15 @@ function ChapterIllustrationBlock({
         scriptSteps={scriptSteps}
         disabled={craftLocked}
         reloadKey={reloadKey}
-        onOpenStylePicker={onOpenStylePicker}
       />
-      <CraftIllustrationStudio
-        projectId={projectId}
-        wvpChapterId={wvpChapterId}
-        chapterTitle={chapterTitle}
+      <button
+        type="button"
+        className="cf-btn cf-btn-secondary cf-btn-sm w-full"
         disabled={craftLocked}
-        hasImageStyle={hasImageStyle}
-        onOpenStylePicker={onOpenStylePicker}
-        onMutate={() => setReloadKey((k) => k + 1)}
-      />
+        onClick={onOpenStepStudio}
+      >
+        步驟配圖
+      </button>
     </div>
   );
 }
@@ -242,6 +239,13 @@ export function CraftPhaseClient({
   const [savingTheme, setSavingTheme] = useState(false);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [savingImageStyle, setSavingImageStyle] = useState(false);
+  const [stepStudioChapter, setStepStudioChapter] = useState<{
+    wvpChapterId: string;
+    title: string;
+  } | null>(null);
+  const [illustrationReloadByChapter, setIllustrationReloadByChapter] = useState<
+    Record<string, number>
+  >({});
   const autoScaffoldAttempted = useRef(false);
   const { toast } = useToast();
   const { providers, defaultProvider } = useConfiguredLlmProviders();
@@ -822,7 +826,7 @@ export function CraftPhaseClient({
                   </div>
                   {hasImageStyle ? (
                     <p className="text-[11px] leading-snug text-zinc-600">
-                      配圖請在下方各章「AI 配圖工作室」確認提示詞後生圖；打包階段不再自動生圖。
+                      配圖請在下方「配圖工作室」各章確認提示詞後生圖；打包階段不再自動生圖。
                     </p>
                   ) : null}
                 </div>
@@ -961,7 +965,7 @@ export function CraftPhaseClient({
                     {!locks.craft ? (
                       <div className="flex shrink-0 items-stretch gap-1">
                         <select
-                          className="cf-select w-[4.75rem] shrink-0 py-0.5 text-[10px] leading-tight"
+                          className="cf-select w-[6.25rem] shrink-0 py-1.5 text-[10px] leading-normal"
                           disabled={!!busy || !templateState.contentChapterId}
                           title={
                             templateState.isAuto
@@ -1028,8 +1032,13 @@ export function CraftPhaseClient({
             </div>
           )}
           {chapters.length > 0 ? (
-            <div className="space-y-3">
-              <h3 className="text-xs font-medium text-zinc-400">章節配圖</h3>
+            <div className="space-y-3 border-t border-zinc-800 pt-4">
+              <div>
+                <h3 className="text-sm font-medium text-zinc-300">配圖工作室</h3>
+                <p className="mt-0.5 text-[11px] text-zinc-500">
+                  設定各章節配圖；若要調整各步驟的配圖或解說動畫，請點「步驟配圖」。
+                </p>
+              </div>
               {chapters.map((ch, i) => (
                 <ChapterIllustrationBlock
                   key={ch.wvp_chapter_id}
@@ -1042,8 +1051,13 @@ export function CraftPhaseClient({
                     i,
                   )}
                   craftLocked={locks.craft}
-                  hasImageStyle={hasImageStyle}
-                  onOpenStylePicker={() => setStylePickerOpen(true)}
+                  reloadKey={illustrationReloadByChapter[ch.wvp_chapter_id] ?? 0}
+                  onOpenStepStudio={() =>
+                    setStepStudioChapter({
+                      wvpChapterId: ch.wvp_chapter_id,
+                      title: ch.title,
+                    })
+                  }
                 />
               ))}
             </div>
@@ -1060,6 +1074,24 @@ export function CraftPhaseClient({
         onClose={() => setStylePickerOpen(false)}
         onSelect={(entry) => void selectImageStyle(entry)}
       />
+
+      {stepStudioChapter ? (
+        <CraftStepIllustrationModal
+          open
+          projectId={projectId}
+          wvpChapterId={stepStudioChapter.wvpChapterId}
+          chapterTitle={stepStudioChapter.title}
+          disabled={locks.craft}
+          onClose={() => setStepStudioChapter(null)}
+          onMutate={() =>
+            setIllustrationReloadByChapter((prev) => ({
+              ...prev,
+              [stepStudioChapter.wvpChapterId]:
+                (prev[stepStudioChapter.wvpChapterId] ?? 0) + 1,
+            }))
+          }
+        />
+      ) : null}
 
       <WvpPhaseBottomActions
         projectId={projectId}

@@ -259,7 +259,7 @@ export function CraftChapterIllustration({
 
       {stepAnimationActive ? (
         <p className="rounded border border-amber-800/50 bg-amber-950/30 px-2 py-1.5 text-amber-200/90">
-          本章已有步驟解說動畫，整章 AI 生圖／上傳圖片已停用。請在下方「步驟配圖／解說動畫」管理各步驟。
+          本章已有步驟解說動畫，整章 AI 生圖／上傳圖片已停用。請點「步驟配圖」管理各步驟。
         </p>
       ) : null}
 

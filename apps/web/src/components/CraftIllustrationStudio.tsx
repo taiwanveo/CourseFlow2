@@ -17,18 +17,12 @@ function imageUrl(projectId: string, wvpChapterId: string, stepIndex: number, bu
 export function CraftIllustrationStudio({
   projectId,
   wvpChapterId,
-  chapterTitle,
   disabled,
-  hasImageStyle,
-  onOpenStylePicker,
   onMutate,
 }: {
   projectId: string;
   wvpChapterId: string;
-  chapterTitle: string;
   disabled?: boolean;
-  hasImageStyle: boolean;
-  onOpenStylePicker?: () => void;
   onMutate?: () => void;
 }) {
   const { toast } = useToast();
@@ -272,12 +266,11 @@ export function CraftIllustrationStudio({
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-zinc-800/80 bg-zinc-950/40 p-3">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h4 className="text-sm font-medium text-zinc-200">AI 配圖工作室</h4>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
-            {chapterTitle} — 先確認生圖提示詞，再逐張或批次生圖；生成後即時顯示，可排隊重新生成。
+          <p className="text-[11px] leading-relaxed text-zinc-500">
+            先確認生圖提示詞，再逐張或批次生圖；生成後即時顯示，可排隊重新生成。
           </p>
           {aiSteps.length > 0 ? (
             <p className="mt-1 text-[11px] text-zinc-600">
@@ -350,7 +343,7 @@ export function CraftIllustrationStudio({
                       需要配圖
                     </label>
                     <select
-                      className="cf-input h-8 text-xs"
+                      className="cf-select min-w-[5.75rem] shrink-0 py-1.5 text-xs leading-normal"
                       value={step.imageSource ?? "ai"}
                       disabled={
                         disabled ||
