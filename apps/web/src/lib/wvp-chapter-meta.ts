@@ -87,6 +87,7 @@ export function chapterKindForCraft(
   return inferChapterKind({
     chapterTitle,
     narrations,
+    screenContents: screenContentsForChapter(composition, chapterId),
     stepVisuals: (aiPlan?.stepVisuals as { step: number; vizType?: string }[]) ?? [],
     planChapterKind: planKind,
   });

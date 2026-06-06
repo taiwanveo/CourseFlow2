@@ -1,7 +1,9 @@
 import type { CourseComposition, WvpChapterKind } from "@courseflow/core";
+import { isDataVisualChapter } from "@courseflow/presentation";
 import {
   chapterKindForCraft,
   resolveCompositionChapterForCraft,
+  screenContentsForChapter,
 } from "@/lib/wvp-chapter-meta";
 import { narrationsForChapter, type ChapterCraftRow } from "@/lib/wvp-chapters";
 import { templateKindDisplayLabel } from "@/lib/wvp-template-kind-label";
@@ -18,6 +20,8 @@ export type ChapterTemplateSelectState = {
   contentChapterId: string | null;
   storedKind: WvpChapterKind | undefined;
   inferredKind: WvpChapterKind;
+  /** 使用者看到的推斷版型（數據視覺章為 visual-mix，與 inferredKind 可能不同） */
+  inferredDisplayKind: string;
   /** 下拉選單顯示值：未覆寫時為推斷結果，否則為使用者指定 */
   selectValue: WvpChapterKind;
   isAuto: boolean;
@@ -38,6 +42,9 @@ export function resolveChapterTemplateSelectState(
     typeof craft.checklist_result.aiPlan === "object"
       ? (craft.checklist_result.aiPlan as Record<string, unknown>)
       : undefined;
+  const screenContents = contentChapter
+    ? screenContentsForChapter(composition, contentChapter.id)
+    : [];
   const inferredKind: WvpChapterKind = contentChapter
     ? chapterKindForCraft(
         composition,
@@ -47,11 +54,18 @@ export function resolveChapterTemplateSelectState(
         aiPlan,
       )
     : "magazine";
+  const dataVisual = isDataVisualChapter({
+    chapterTitle: craft.title,
+    narrations,
+    screenContents,
+  });
+  const inferredDisplayKind = dataVisual ? "visual-mix" : inferredKind;
   const storedKind = contentChapter?.chapterKind;
   return {
     contentChapterId: contentChapter?.id ?? null,
     storedKind,
     inferredKind,
+    inferredDisplayKind,
     selectValue: storedKind ?? inferredKind,
     isAuto: !storedKind,
   };

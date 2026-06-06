@@ -205,6 +205,21 @@ export const GOLDEN_CASES: GoldenCase[] = [
     input: "方案對照：方案A：轉換率 12、成本 100；方案B：轉換率 18、成本 80",
     expectKind: "table",
   },
+  {
+    id: "cn-percent-line",
+    input: "第一週完成率為百分之六十五，第四週成長到百分之八十五",
+    expectKind: "chart",
+  },
+  {
+    id: "cn-season-line",
+    input: "第一季一百萬、第二季一百二十萬、第三季一百五十萬、第四季一百八十萬",
+    expectKind: "chart",
+  },
+  {
+    id: "scheme-qualitative-table",
+    input: "方案 A 成本較低但功能少，方案 B 平衡性佳，方案 C 功能最全但價格較高",
+    expectKind: "table",
+  },
 ];
 
 export function runGoldenCaseHeuristics(): {

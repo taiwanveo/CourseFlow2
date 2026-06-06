@@ -30,9 +30,13 @@ function enrichGeneratedChapterKinds(
     const narrations = ch.steps
       .map((st) => st.script?.trim() || st.screenContent?.trim() || "")
       .filter(Boolean);
+    const screenContents = ch.steps
+      .map((st) => st.screenContent?.trim() || "")
+      .filter((s) => s.length > 0);
     const inferred = inferChapterKind({
       chapterTitle: ch.title,
       narrations,
+      screenContents,
       planChapterKind: ch.chapterKind,
     });
     return { ...ch, chapterKind: inferred };

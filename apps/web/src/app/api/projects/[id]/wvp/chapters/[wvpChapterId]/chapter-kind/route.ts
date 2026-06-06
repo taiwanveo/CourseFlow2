@@ -80,6 +80,7 @@ export async function PATCH(
     ok: true,
     chapterKind: state.storedKind ?? null,
     inferredKind: state.inferredKind,
+    inferredDisplayKind: state.inferredDisplayKind,
     selectValue: state.selectValue,
     isAuto: state.isAuto,
   });

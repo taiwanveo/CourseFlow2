@@ -1,7 +1,7 @@
 /** 是否含與口播綁定的視覺演示（概念圖解／清單／流程） */
 export function hasVisualDemoInSources(tsx: string, css: string): boolean {
   const blob = `${tsx}\n${css}`;
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock|vf-chart|hk-solo-frame|cf-flow-svg|lr-slot-active|bs-scene|bs-contrast|bs-metric/i.test(blob)) return true;
+  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock|vf-chart|hk-solo-frame|cf-flow-track|cf-flow-svg|lr-slot-active|bs-scene|bs-contrast|bs-metric/i.test(blob)) return true;
   if (/ChapterFigure|hero-num|MaskReveal\s+show/i.test(blob)) return true;
   if (/NarrationBeat|cf-narration-beat/i.test(blob)) return true;
   if (/<svg|<canvas/i.test(blob)) return true;

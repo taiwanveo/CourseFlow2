@@ -1,4 +1,4 @@
-/* ══ FlowDiagram 版型根容器 ══ 縦向置中，橫排分割佈局 */
+/* ══ FlowDiagram 版型根容器 ══ 縱向置中，橫排分割佈局 */
 .cf-flow-scene {
   height: 100%;
   display: flex;
@@ -7,10 +7,7 @@
   gap: var(--space-5);
 }
 
-/* ══ 左文右圖分割佈局 ══
-   左欄 1.1fr(文字)，右欄 0.9fr(圖片)
-  無圖時自動切成單欄置中局
-  若要調整文字區 / 圖片區比例，改 `grid-template-columns`。 */
+/* ══ 左文右圖分割佈局 ══ */
 .cf-flow-split {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
@@ -43,17 +40,16 @@
 
 .cf-flow-main {
   min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
 }
 
-/* ══ 右側圖片區 ══ 包裹 hero 圖片，毛玻璃背景 */
 .cf-flow-aside {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0;
   min-height: 240px;
   padding: var(--space-2);
   border-radius: calc(var(--r-card) - 2px);
@@ -63,7 +59,7 @@
 .cf-flow-hero-img {
   max-width: 100%;
   height: auto;
-  max-height: 460px;    /* 直接用 stage-px 上限，不依賴 100% */
+  max-height: 460px;
   object-fit: contain;
   border-radius: var(--r-card);
   border: var(--rule-w) solid var(--rule);
@@ -84,8 +80,6 @@
   letter-spacing: 0.12em;
 }
 
-/* ══ 導言大段落文字 ══
-  可修改 font-size / line-height / max-width 調整導言大小、密度與換行寬度。 */
 .cf-flow-intro {
   margin: 0;
   font-size: clamp(72px, 7vmin, 120px);
@@ -98,45 +92,203 @@
   font-style: italic;
 }
 
-.cf-flow-svg {
+/* ══ 流程軌道（HTML 節點，文字可換行） ══ */
+.cf-flow-track {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
   width: 100%;
-  max-height: 140px;
+  max-width: min(1320px, 100%);
+  padding: var(--space-5) var(--space-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cf-flow-track::-webkit-scrollbar {
+  display: none;
 }
 
-.cf-flow-svg--preview {
-  opacity: 0.55;
-  max-height: 120px;
+.cf-flow-track--preview {
+  opacity: 0.62;
+  filter: saturate(0.85);
 }
 
-.cf-flow-box {
-  fill: color-mix(in srgb, var(--surface, #14141c) 92%, transparent);
-  stroke: var(--rule, rgba(255, 255, 255, 0.38));
-  stroke-width: 2;
-  transition: stroke var(--dur-base) var(--ease-quart);
+.cf-flow-segment {
+  display: flex;
+  align-items: center;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
-.cf-flow-node--on .cf-flow-box {
-  stroke: var(--accent);
-  fill: color-mix(in srgb, var(--accent) 12%, var(--surface));
+/* ══ 節點卡片 ══ */
+.cf-flow-card {
+  position: relative;
+  box-sizing: border-box;
+  min-width: clamp(168px, 17vw, 260px);
+  max-width: min(300px, 30vw);
+  min-height: clamp(104px, 13vmin, 140px);
+  padding: var(--space-4) var(--space-5);
+  border-radius: calc(var(--r-card) + 4px);
+  border: 2px solid color-mix(in srgb, var(--rule, rgba(255, 255, 255, 0.38)) 85%, transparent);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--surface, #14141c) 96%, transparent) 0%,
+    color-mix(in srgb, var(--surface, #14141c) 78%, transparent) 100%
+  );
+  box-shadow:
+    0 6px 28px color-mix(in srgb, var(--bg, #000) 35%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--text, #f4f4f5) 10%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-2);
+  transition:
+    border-color var(--dur-base, 0.35s) var(--ease-quart, ease),
+    box-shadow var(--dur-base, 0.35s) var(--ease-quart, ease),
+    transform var(--dur-base, 0.35s) var(--ease-quart, ease),
+    opacity var(--dur-base, 0.35s) ease;
 }
 
-.cf-flow-edge {
-  stroke: var(--accent, #d4a853);
-  stroke-width: 2;
-  transition: stroke-dashoffset 0.9s var(--ease-quart);
+.cf-flow-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent, #d4a853) 0%, transparent) 0%,
+    color-mix(in srgb, var(--accent, #d4a853) 55%, transparent) 50%,
+    color-mix(in srgb, var(--accent, #d4a853) 0%, transparent) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-base, 0.35s) ease;
 }
 
-.cf-flow-label {
-  fill: var(--text, #f4f4f5);
-  font-family: var(--font-mono);
-  font-size: 22px;
+.cf-flow-card--on {
+  border-color: var(--accent, #d4a853);
+  transform: translateY(-3px);
+  background: linear-gradient(
+    155deg,
+    color-mix(in srgb, var(--accent, #d4a853) 16%, var(--surface, #14141c)) 0%,
+    color-mix(in srgb, var(--accent, #d4a853) 6%, var(--surface, #14141c)) 100%
+  );
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent, #d4a853) 40%, transparent),
+    0 12px 40px color-mix(in srgb, var(--accent, #d4a853) 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--accent, #d4a853) 18%, transparent);
+}
+
+.cf-flow-card--on::before {
+  opacity: 1;
+}
+
+.cf-flow-card--done {
+  border-color: color-mix(in srgb, var(--accent, #d4a853) 50%, var(--rule, rgba(255, 255, 255, 0.38)));
+  opacity: 0.94;
+}
+
+.cf-flow-card--pending {
+  opacity: 0.45;
+}
+
+.cf-flow-card-num {
+  flex-shrink: 0;
+  font-size: clamp(13px, 1.4vmin, 16px);
+  letter-spacing: 0.14em;
+  color: var(--accent, #d4a853);
+  opacity: 0.92;
+}
+
+.cf-flow-card-label {
+  width: 100%;
+  margin: 0;
+  font-size: clamp(22px, 2.5vmin, 32px);
+  line-height: 1.38;
+  font-weight: 500;
+  color: var(--text, #f4f4f5);
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ══ 連接箭頭 ══ */
+.cf-flow-connector {
+  position: relative;
+  flex: 0 0 clamp(40px, 5.5vw, 72px);
+  width: clamp(40px, 5.5vw, 72px);
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 calc(var(--space-1) * -0.5);
+}
+
+.cf-flow-connector-line {
+  position: absolute;
+  left: 4px;
+  right: 14px;
+  top: 50%;
+  height: 3px;
+  transform: translateY(-50%) scaleX(0);
+  transform-origin: left center;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--rule, rgba(255, 255, 255, 0.38)) 30%, transparent),
+    var(--accent, #d4a853)
+  );
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent, #d4a853) 35%, transparent);
+  transition: transform 0.9s var(--ease-quart, cubic-bezier(0.25, 1, 0.5, 1));
+}
+
+.cf-flow-connector[data-lit="true"] .cf-flow-connector-line {
+  transform: translateY(-50%) scaleX(1);
+}
+
+.cf-flow-connector-head {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  transform: translateY(-50%);
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid color-mix(in srgb, var(--rule, rgba(255, 255, 255, 0.38)) 70%, transparent);
+  opacity: 0.35;
+  transition:
+    border-left-color 0.5s ease,
+    opacity 0.5s ease,
+    filter 0.5s ease;
+}
+
+.cf-flow-connector[data-lit="true"] .cf-flow-connector-head {
+  border-left-color: var(--accent, #d4a853);
+  opacity: 1;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent, #d4a853) 50%, transparent));
 }
 
 .cf-flow-detail-wrap {
   max-width: min(720px, 100%);
 }
 
-/* 流程節點細節說明文字：若覺得每步說明太擠或太稀，可調這裡。 */
 .cf-flow-detail {
   margin: 0;
   font-size: clamp(40px, 4vmin, 56px);
@@ -153,4 +305,15 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* 節點較多時略縮卡片，避免擠爆 */
+.cf-flow-track:has(.cf-flow-segment:nth-child(5)) .cf-flow-card {
+  min-width: clamp(140px, 14vw, 220px);
+  min-height: clamp(92px, 11vmin, 120px);
+  padding: var(--space-3) var(--space-4);
+}
+.cf-flow-track:has(.cf-flow-segment:nth-child(5)) .cf-flow-card-label {
+  font-size: clamp(18px, 2.1vmin, 26px);
+  -webkit-line-clamp: 3;
 }

@@ -3,6 +3,53 @@ import "./FlowDiagram.css";
 
 export type FlowNode = { id: string; label: string; detail: string };
 
+type FlowTrackProps = {
+  nodes: FlowNode[];
+  /** 目前點亮的節點索引；-1 表示全部待亮（分隔頁預覽） */
+  active: number;
+  preview?: boolean;
+};
+
+function FlowTrack({ nodes, active, preview = false }: FlowTrackProps) {
+  if (nodes.length === 0) return null;
+
+  return (
+    <div
+      className={`cf-flow-track${preview ? " cf-flow-track--preview" : ""}`}
+      role="list"
+      aria-label="流程步驟"
+      data-no-advance
+    >
+      {nodes.map((n, i) => {
+        const state = i < active ? "done" : i === active ? "on" : "pending";
+        const connectorLit = i > 0 && i <= active;
+        return (
+          <div key={n.id} className="cf-flow-segment" role="listitem">
+            {i > 0 ? (
+              <div
+                className="cf-flow-connector"
+                data-lit={connectorLit ? "true" : "false"}
+                aria-hidden
+              >
+                <span className="cf-flow-connector-line" />
+                <span className="cf-flow-connector-head" />
+              </div>
+            ) : null}
+            <div className={`cf-flow-card cf-flow-card--${state}`}>
+              <span className="cf-flow-card-num label-mono">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="cf-flow-card-label serif-cn" title={n.label}>
+                {n.label}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FlowDiagram({
   step,
   chapterTitle,
@@ -74,36 +121,7 @@ export function FlowDiagram({
               </>
             ) : null}
           </h1>
-          {nodes.length > 0 ? (
-            <svg
-              className="cf-flow-svg cf-flow-svg--preview"
-              viewBox={`0 0 ${Math.max(nodes.length * 200, 400)} 120`}
-              aria-hidden
-              data-no-advance
-            >
-              {nodes.map((n, i) => {
-                const x = 80 + i * 180;
-                return (
-                  <g key={n.id} className="cf-flow-node">
-                    {i < nodes.length - 1 && (
-                      <line
-                        x1={x + 50}
-                        y1={50}
-                        x2={x + 130}
-                        y2={50}
-                        className="cf-flow-edge"
-                        style={{ strokeDasharray: "120", strokeDashoffset: "120" }}
-                      />
-                    )}
-                    <rect x={x - 40} y={20} width={100} height={60} rx={6} className="cf-flow-box" />
-                    <text x={x + 10} y={55} className="cf-flow-label">
-                      {n.label}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-          ) : null}
+          <FlowTrack nodes={nodes} active={-1} preview />
         </div>
         {figure}
       </div>
@@ -115,39 +133,7 @@ export function FlowDiagram({
     <div className="cf-flow-scene scene-pad cf-flow-split" data-cf-transition="none">
       <div className="cf-flow-main">
         <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
-        <svg
-          className="cf-flow-svg"
-          viewBox={`0 0 ${Math.max(nodes.length * 200, 400)} 120`}
-          aria-hidden
-          data-no-advance
-        >
-          {nodes.map((n, i) => {
-            const x = 80 + i * 180;
-            const on = i === active;
-            const edgeOn = i < active;
-            return (
-              <g key={n.id} className={on ? "cf-flow-node cf-flow-node--on" : "cf-flow-node"}>
-                {i < nodes.length - 1 && (
-                  <line
-                    x1={x + 50}
-                    y1={50}
-                    x2={x + 130}
-                    y2={50}
-                    className="cf-flow-edge"
-                    style={{
-                      strokeDasharray: "120",
-                      strokeDashoffset: edgeOn ? "0" : "120",
-                    }}
-                  />
-                )}
-                <rect x={x - 40} y={20} width={100} height={60} rx={6} className="cf-flow-box" />
-                <text x={x + 10} y={55} className="cf-flow-label">
-                  {n.label}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
+        <FlowTrack nodes={nodes} active={active} />
         {current?.detail?.trim() ? (
           <div className="cf-flow-detail-wrap">
             <MaskReveal show duration={900}>

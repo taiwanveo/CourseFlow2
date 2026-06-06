@@ -7,10 +7,168 @@ function slugLabel(s: string): string {
   return s.trim().slice(0, 12) || "項目";
 }
 
+const CN_DIGIT: Record<string, number> = {
+  零: 0,
+  〇: 0,
+  一: 1,
+  二: 2,
+  三: 3,
+  四: 4,
+  五: 5,
+  六: 6,
+  七: 7,
+  八: 8,
+  九: 9,
+};
+
+/** 解析簡體中文數字（0–9999），例：六十五→65、一百二十→120 */
+function parseChineseInteger(raw: string): number | null {
+  const s = raw.trim();
+  if (!s) return null;
+  if (/^\d+$/.test(s)) return Number.parseInt(s, 10);
+  if (s === "十") return 10;
+  if (s.startsWith("十")) {
+    const rest = s.slice(1);
+    return 10 + (rest ? (parseChineseInteger(rest) ?? CN_DIGIT[rest] ?? 0) : 0);
+  }
+  let total = 0;
+  if (s.includes("百")) {
+    const [before, after] = s.split("百");
+    const bai = before
+      ? (parseChineseInteger(before) ?? CN_DIGIT[before] ?? null)
+      : 1;
+    if (bai === null) return null;
+    total += bai * 100;
+    if (after) {
+      const tail = parseChineseInteger(after);
+      if (tail === null) return null;
+      total += tail;
+    }
+    return total;
+  }
+  if (s.includes("十")) {
+    const [before, after] = s.split("十");
+    const shi = before
+      ? (parseChineseInteger(before) ?? CN_DIGIT[before] ?? null)
+      : 1;
+    if (shi === null) return null;
+    total += shi * 10;
+    if (after) {
+      const tail = CN_DIGIT[after] ?? parseChineseInteger(after);
+      if (tail === null) return null;
+      total += tail;
+    }
+    return total;
+  }
+  return CN_DIGIT[s] ?? null;
+}
+
+function chartFromPairs(
+  pairs: { label: string; value: number }[],
+  title: string,
+  unit?: string,
+  forceLine?: boolean,
+): VisualConfig {
+  const xKey = "label";
+  const yKey = "value";
+  const data = pairs.map((p) => ({ [xKey]: p.label, [yKey]: p.value }));
+  const hasPercent = unit === "%" || pairs.every((p) => title.includes("%"));
+  if (hasPercent && pairs.length <= 6 && !forceLine) {
+    return {
+      kind: "chart",
+      chartType: "pie",
+      title: title.slice(0, 32),
+      xKey,
+      yKey,
+      data,
+      unit: "%",
+      colorRole: "categorical",
+    };
+  }
+  return {
+    kind: "chart",
+    chartType: forceLine || pairs.length >= 4 ? "line" : "bar",
+    title: title.slice(0, 32),
+    xKey,
+    yKey,
+    data,
+    unit,
+    colorRole: "categorical",
+  };
+}
+
 /** 從口播／畫面文字啟發式產出 VisualConfig（無 LLM） */
 export function inferVisualConfigFromText(text: string): VisualConfig | null {
   const t = text.trim();
   if (t.length < 6) return null;
+
+  // 中文季度營收：第一季一百萬、第二季一百二十萬…
+  const seasonPairs: { label: string; value: number }[] = [];
+  for (const m of t.matchAll(
+    /第([一二三四1-4])季\s*([一二三四五六七八九十百\d]+)\s*萬?/g,
+  )) {
+    const val = parseChineseInteger(m[2]!);
+    if (val === null) continue;
+    const seasonMap: Record<string, string> = {
+      一: "Q1",
+      二: "Q2",
+      三: "Q3",
+      四: "Q4",
+      1: "Q1",
+      2: "Q2",
+      3: "Q3",
+      4: "Q4",
+    };
+    seasonPairs.push({
+      label: seasonMap[m[1]!] ?? `Q${m[1]}`,
+      value: val,
+    });
+  }
+  if (seasonPairs.length >= 2) {
+    return chartFromPairs(seasonPairs, t.slice(0, 32), "萬", true);
+  }
+
+  // 中文百分比：第一週百分之六十五、第四週百分之八十五
+  const cnPercentPairs: { label: string; value: number }[] = [];
+  for (const m of t.matchAll(
+    /([^，,。；;]{0,12}?)百分之([一二三四五六七八九十百\d]+)/g,
+  )) {
+    const val = parseChineseInteger(m[2]!);
+    if (val === null) continue;
+    const label = slugLabel((m[1] ?? "").replace(/為|为|達到|达到/g, ""));
+    cnPercentPairs.push({ label, value: val });
+  }
+  if (cnPercentPairs.length >= 2) {
+    return chartFromPairs(cnPercentPairs, t.slice(0, 32), "%", true);
+  }
+
+  // 定性方案對比：方案 A 成本較低…方案 B…（無數字欄位時）
+  if (/方案\s*[ABCＡＢＣ]/i.test(t) && /對比|对比|對照|比较|三種方案/.test(t)) {
+    const rows: Record<string, string>[] = [];
+    for (const m of t.matchAll(
+      /方案\s*([ABCＡＢＣ])\s*([^，,。；;]*?)(?=(?:，|,|。|;|；|方案\s*[ABCＡＢＣ]|$))/gi,
+    )) {
+      const desc = m[2]!.trim().replace(/^[：:\s]+/, "");
+      if (!desc) continue;
+      rows.push({
+        item: `方案 ${m[1]!.toUpperCase()}`,
+        說明: desc.slice(0, 48),
+      });
+    }
+    if (rows.length >= 2) {
+      return {
+        kind: "table",
+        title: "方案對比",
+        columns: [
+          { key: "item", label: "方案" },
+          { key: "說明", label: "特點" },
+        ],
+        rows,
+        reveal: "row",
+        emphasis: "row",
+      } as unknown as VisualConfig;
+    }
+  }
 
   // Table heuristic（簡單版）：偵測「欄:值、欄:值」的多欄多列情境
   // 例：「方案A：成本 12K、速度 80、品質 92；方案B：成本 9K、速度 70、品質 88」
@@ -127,32 +285,13 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
   }
 
   if (pairs.length >= 2) {
-    const hasPercent = pairs.every((p) => p.unit === "%" || t.includes("%"));
-    const xKey = "label";
-    const yKey = "value";
-    const data = pairs.map((p) => ({ [xKey]: p.label, [yKey]: p.value }));
-    if (hasPercent && pairs.length <= 6) {
-      return {
-        kind: "chart",
-        chartType: "pie",
-        title: t.slice(0, 32),
-        xKey,
-        yKey,
-        data,
-        unit: "%",
-        colorRole: "categorical",
-      };
-    }
-    return {
-      kind: "chart",
-      chartType: pairs.length >= 4 ? "line" : "bar",
-      title: t.slice(0, 32),
-      xKey,
-      yKey,
-      data,
-      unit: pairs[0]?.unit,
-      colorRole: "categorical",
-    };
+    const unit = pairs.every((p) => p.unit === "%") ? "%" : pairs[0]?.unit;
+    return chartFromPairs(
+      pairs.map((p) => ({ label: p.label, value: p.value })),
+      t.slice(0, 32),
+      unit,
+      pairs.length >= 4 || /曲線|曲线|趨勢|趋势/.test(t),
+    );
   }
 
   const kpi = t.match(/(\d+(?:\.\d+)?)\s*(%|億|萬|万|倍)?/);

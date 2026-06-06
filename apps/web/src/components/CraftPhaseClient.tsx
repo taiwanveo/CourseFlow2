@@ -382,7 +382,11 @@ export function CraftPhaseClient({
         ch.id === contentChapterId ? { ...ch, chapterKind: nextKind } : ch,
       ),
     }));
-    return data as { inferredKind?: WvpChapterKind; isAuto?: boolean };
+    return data as {
+      inferredKind?: WvpChapterKind;
+      inferredDisplayKind?: string;
+      isAuto?: boolean;
+    };
   };
 
   const syncChapter = async (wvpChapterId: string) => {
@@ -948,7 +952,7 @@ export function CraftPhaseClient({
                         resolveCraftTemplateKind(ch.checklist_result)
                           ? `（${templateKindDisplayLabel(resolveCraftTemplateKind(ch.checklist_result)!)}）`
                           : templateState.isAuto
-                            ? `（推斷：${templateKindDisplayLabel(templateState.inferredKind)}）`
+                            ? `（推斷：${templateKindDisplayLabel(templateState.inferredDisplayKind)}）`
                             : `（指定：${templateKindDisplayLabel(templateState.selectValue)}）`}
                         {i === 0 ? " · 第 1 章" : ""}
                       </span>
@@ -960,10 +964,10 @@ export function CraftPhaseClient({
                           disabled={!!busy || !templateState.contentChapterId}
                           title={
                             templateState.isAuto
-                              ? `依內容推斷為「${templateKindDisplayLabel(templateState.inferredKind)}」，可改為其他版型`
+                              ? `依內容推斷為「${templateKindDisplayLabel(templateState.inferredDisplayKind)}」，可改為其他版型`
                               : "已手動指定版型，選「自動」可改回依內容推斷"
                           }
-                          value={templateState.selectValue}
+                          value={templateState.isAuto ? "__auto__" : templateState.selectValue}
                           onClick={(e) => e.stopPropagation()}
                           onChange={async (e) => {
                             const raw = e.target.value;
@@ -973,10 +977,12 @@ export function CraftPhaseClient({
                                 : (raw as WvpChapterKind);
                             setBusy(`tpl-${ch.wvp_chapter_id}`);
                             try {
-                              await saveChapterTemplate(ch.wvp_chapter_id, next);
+                              const saved = await saveChapterTemplate(ch.wvp_chapter_id, next);
                               toast(
                                 next === "auto"
-                                  ? `已改為自動推斷（${templateKindDisplayLabel(templateState.inferredKind)}）`
+                                  ? `已改為自動推斷（${templateKindDisplayLabel(
+                                      saved.inferredDisplayKind ?? templateState.inferredDisplayKind,
+                                    )}）`
                                   : `已指定版型：${templateKindDisplayLabel(next)}`,
                                 "success",
                               );

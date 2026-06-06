@@ -3,6 +3,7 @@ import type { WvpChapterKind } from "@courseflow/core";
 import {
   buildPresentation,
   chapterComponentName,
+  isDataVisualChapter,
   scaffoldPresentation,
   validateChapterTsx,
   writeChapterSourcesRaw,
@@ -11,6 +12,7 @@ import {
   type RegistryChapterEntry,
   type StepVisualEntry,
 } from "@courseflow/presentation";
+import { buildHeuristicStepVisualConfigs } from "@/lib/wvp-step-visual-config";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { syncPresentationAudioFromComposition } from "@/lib/wvp-audio-sync";
 import { syncPresentationIllustrations } from "@/lib/wvp-illustration-sync";
@@ -188,10 +190,17 @@ export async function materializeChapterFromCraft(
       screenContentsFingerprint(currentScreenContents);
   const cachedTemplateKind =
     checklist?.chapterSource?.templateKind?.trim() ?? detectTsxTemplateKind(llmTsx);
+  const dataVisualChapter = isDataVisualChapter({
+    chapterTitle: craft.title,
+    narrations,
+    screenContents: currentScreenContents,
+  });
   const templateKindStale = Boolean(
-    resolvedChapterKind &&
+    (resolvedChapterKind &&
       cachedTemplateKind &&
-      resolvedChapterKind !== cachedTemplateKind,
+      resolvedChapterKind !== cachedTemplateKind) ||
+    (dataVisualChapter &&
+      (cachedTemplateKind === "flow" || cachedTemplateKind === "list-reveal")),
   );
   const templateNarrationLeakedOnScreen =
     rawSource?.source === "template" &&
@@ -250,7 +259,7 @@ export async function materializeChapterFromCraft(
       chapterCss: rawSource?.chapterCss?.trim() || "/* CourseFlow LLM chapter */\n",
     });
   } else {
-    const stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
+    let stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
     const stepMotions = chapter
       ? (() => {
           const steps = orderedWvpStepsForChapter(composition, chapter.id);
@@ -308,6 +317,18 @@ export async function materializeChapterFromCraft(
     const preferImageTemplate =
       hasPackagedStepImagesForCraft(craft) ||
       Object.keys(stepImageExtensions).length > 0;
+    if (
+      !preferImageTemplate &&
+      dataVisualChapter &&
+      (!stepVisualConfigs || stepVisualConfigs.length === 0)
+    ) {
+      stepVisualConfigs = buildHeuristicStepVisualConfigs(
+        narrations,
+        chapter ? currentScreenContents : [],
+      );
+    }
+    const effectiveForceTemplate =
+      dataVisualChapter && forceTemplate === "flow" ? undefined : forceTemplate;
     const written = await writeChapterToPresentation(presentationDir, {
       folderName,
       wvpChapterId: craft.wvp_chapter_id,
@@ -318,7 +339,7 @@ export async function materializeChapterFromCraft(
       stepVisuals: (aiPlan?.stepVisuals as { step: number; vizType?: string }[]) ?? undefined,
       screenContents: chapter ? currentScreenContents : [],
       chapterKind: resolvedChapterKind,
-      forceTemplate,
+      forceTemplate: effectiveForceTemplate,
       assets: assets.length ? assets : undefined,
       stepVisualConfigs: preferImageTemplate ? undefined : stepVisualConfigs,
       stepMotions,

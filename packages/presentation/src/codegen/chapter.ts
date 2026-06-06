@@ -13,7 +13,7 @@ import type { ChapterCodegenInput } from "./chapter-types.js";
 
 export type { ChapterCodegenInput } from "./chapter-types.js";
 export { chapterComponentName } from "./chapter-types.js";
-export { inferChapterKind } from "./router.js";
+export { inferChapterKind, isDataVisualChapter } from "./router.js";
 
 export function resolveChapterTemplate(input: ChapterCodegenInput): WvpChapterKind {
   if (input.forceTemplate) return input.forceTemplate;
@@ -23,10 +23,42 @@ export function resolveChapterTemplate(input: ChapterCodegenInput): WvpChapterKi
     narrations: input.narrations,
     stepVisuals: input.stepVisuals,
     planChapterKind: undefined,
+    screenContents: input.screenContents,
   });
 }
 
+function hasChartOrTableVisuals(
+  configs: ChapterCodegenInput["stepVisualConfigs"],
+): boolean {
+  return (
+    configs?.some((e) => e.config.kind === "chart" || e.config.kind === "table") ?? false
+  );
+}
+
 export function generateChapterSources(input: ChapterCodegenInput) {
+  const hasUploadedAssets =
+    assetsForChapter(input.assets, input.wvpChapterId).length > 0;
+  const hasPackagedStepImages =
+    Object.keys(input.stepImageExtensions ?? {}).length > 0;
+  const visualConfigs = input.stepVisualConfigs ?? [];
+  const visualConfigCount = visualConfigs.length;
+  const chartTableCount = visualConfigs.filter(
+    (e) => e.config.kind === "chart" || e.config.kind === "table",
+  ).length;
+
+  /** 有 chart/table config 時優先 Visual-Mix，避免數據章被 flow/list 蓋掉成純文字節點 */
+  const preferDataVisualMix =
+    !hasPackagedStepImages &&
+    !hasUploadedAssets &&
+    hasChartOrTableVisuals(visualConfigs) &&
+    chartTableCount >= 1;
+  if (preferDataVisualMix) {
+    return {
+      ...generateVisualMixSources(input, visualConfigs),
+      templateKind: "visual-mix" as const,
+    };
+  }
+
   const kind = resolveChapterTemplate(input);
   /** 已指定版型或 Beat-Scene／Magazine 觸發條件時，不得被 visual-mix 覆蓋 */
   const isBeatSceneDividerOne =
@@ -40,13 +72,8 @@ export function generateChapterSources(input: ChapterCodegenInput) {
     isBeatSceneDividerOne ||
     isSingleStepMagazine ||
     Boolean(input.forceTemplate);
-  const hasUploadedAssets =
-    assetsForChapter(input.assets, input.wvpChapterId).length > 0;
-  const hasPackagedStepImages =
-    Object.keys(input.stepImageExtensions ?? {}).length > 0;
-  const visualConfigCount = input.stepVisualConfigs?.length ?? 0;
   const animationConfigCount =
-    input.stepVisualConfigs?.filter((e) => e.config.kind === "animation").length ?? 0;
+    visualConfigs.filter((e) => e.config.kind === "animation").length;
   const minStepsForVisualMix = Math.min(1, input.narrations.length);
   /** 有工作室配圖或強制模板時，不得用 visual-mix（否則畫面完全沒有 step 配圖） */
   const useVisualMix =
@@ -58,7 +85,7 @@ export function generateChapterSources(input: ChapterCodegenInput) {
       visualConfigCount >= Math.max(1, Math.ceil(input.narrations.length * 0.2)));
   if (useVisualMix) {
     return {
-      ...generateVisualMixSources(input, input.stepVisualConfigs!),
+      ...generateVisualMixSources(input, visualConfigs),
       templateKind: "visual-mix" as const,
     };
   }
