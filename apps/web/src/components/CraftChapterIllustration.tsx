@@ -2,13 +2,46 @@
 
 import { useState, useRef, useCallback } from "react";
 import type { ChapterIllustrationEntry } from "@/lib/wvp-craft-illustrations";
+import type { ChapterScriptStep } from "@/lib/chapter-script-reference";
 
 interface Props {
   projectId: string;
   wvpChapterId: string;
   chapterTitle: string;
+  scriptSteps?: ChapterScriptStep[];
   disabled?: boolean;
   onOpenStylePicker?: () => void;
+}
+
+function ChapterScriptReference({ steps }: { steps: ChapterScriptStep[] }) {
+  const hasContent = steps.some((s) => s.screen || s.script);
+  if (!hasContent) {
+    return (
+      <p className="text-[11px] text-zinc-500">尚無文稿內容，請先在「1. 文稿」階段填寫。</p>
+    );
+  }
+  return (
+    <div className="max-h-40 space-y-2 overflow-y-auto rounded border border-zinc-700/80 bg-zinc-950/60 p-2">
+      <p className="text-[10px] font-medium text-zinc-500">本章文稿參考（生圖／上傳時請對照）</p>
+      {steps.map((step) => (
+        <div key={step.label} className="space-y-0.5 border-t border-zinc-800 pt-1.5 first:border-0 first:pt-0">
+          <span className="text-[10px] text-zinc-500">{step.label}</span>
+          {step.screen ? (
+            <p className="text-[11px] leading-snug text-zinc-300">
+              <span className="text-zinc-500">螢幕：</span>
+              {step.screen}
+            </p>
+          ) : null}
+          {step.script ? (
+            <p className="text-[11px] leading-snug text-zinc-400">
+              <span className="text-zinc-500">口播：</span>
+              {step.script}
+            </p>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const BASE = (projectId: string, wvpChapterId: string) =>
@@ -18,6 +51,7 @@ export function CraftChapterIllustration({
   projectId,
   wvpChapterId,
   chapterTitle,
+  scriptSteps = [],
   disabled = false,
   onOpenStylePicker,
 }: Props) {
@@ -222,6 +256,7 @@ export function CraftChapterIllustration({
       {isAnimation && (
         <div className="space-y-2">
           <p className="text-zinc-400">目前使用「步驟步進動畫（預設）」，無固定配圖。</p>
+          <ChapterScriptReference steps={scriptSteps} />
           <div className="flex gap-2">
             <button
               type="button"
@@ -260,6 +295,7 @@ export function CraftChapterIllustration({
           <p className="text-zinc-400">
             AI 生圖模式：本章所有步驟將顯示同一張固定圖片背景。
           </p>
+          <ChapterScriptReference steps={scriptSteps} />
 
           {/* 提示詞區 */}
           <div className="space-y-1">
@@ -335,6 +371,7 @@ export function CraftChapterIllustration({
           <p className="text-zinc-400">
             上傳圖片模式：本章所有步驟將顯示同一張固定圖片背景。
           </p>
+          <ChapterScriptReference steps={scriptSteps} />
 
           {hasImage && imageUrl && (
             <img

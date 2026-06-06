@@ -56,6 +56,7 @@ export default async function CraftPage({
         initialSettings={parseWvpSettings(project.wvp_settings)}
         initialThemeId={project.theme_id}
         initialChapters={chapters ?? []}
+        initialComposition={composition}
       />
     </AppShell>
   );

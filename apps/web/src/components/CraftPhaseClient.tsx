@@ -13,6 +13,12 @@ import { catalogEntryToSelection } from "@/lib/image-style";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
 import { CraftChapterIllustration } from "@/components/CraftChapterIllustration";
+import type { CourseComposition } from "@courseflow/core";
+import { chapterScriptSteps } from "@/lib/chapter-script-reference";
+import {
+  resolveCraftTemplateKind,
+  templateKindDisplayLabel,
+} from "@/lib/wvp-template-kind-label";
 import {
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
@@ -28,7 +34,8 @@ type CraftRow = {
   checklist_result?: {
     narrations?: string[];
     aiPlan?: unknown;
-    chapterSource?: { source?: "llm" | "template" };
+    chapterSource?: { source?: "llm" | "template"; templateKind?: string };
+    appliedTemplate?: string;
   };
 };
 
@@ -165,12 +172,14 @@ export function CraftPhaseClient({
   initialSettings,
   initialThemeId,
   initialChapters,
+  initialComposition,
 }: {
   projectId: string;
   initialLocks: WvpPhaseLocks;
   initialSettings: WvpSettings;
   initialThemeId: string | null;
   initialChapters: CraftRow[];
+  initialComposition: CourseComposition;
 }) {
   const [locks, setLocks] = useState(initialLocks);
   const [settings, setSettings] = useState(initialSettings);
@@ -858,6 +867,10 @@ export function CraftPhaseClient({
                         {ch.step_count > 0 ? ` · ${ch.step_count} 步` : ""}
                         {(ch.checklist_result?.narrations?.length ?? 0) > 0 ? " · 已匯入" : ""}
                         {ch.checklist_result?.chapterSource ? " · 有畫面" : ""}
+                        {ch.checklist_result?.chapterSource &&
+                        resolveCraftTemplateKind(ch.checklist_result)
+                          ? `（${templateKindDisplayLabel(resolveCraftTemplateKind(ch.checklist_result)!)}）`
+                          : ""}
                         {i === 0 ? " · 第 1 章" : ""}
                       </span>
                     </button>
@@ -891,12 +904,17 @@ export function CraftPhaseClient({
           {chapters.length > 0 ? (
             <div className="space-y-3">
               <h3 className="text-xs font-medium text-zinc-400">章節配圖</h3>
-              {chapters.map((ch) => (
+              {chapters.map((ch, i) => (
                 <CraftChapterIllustration
                   key={ch.wvp_chapter_id}
                   projectId={projectId}
                   wvpChapterId={ch.wvp_chapter_id}
                   chapterTitle={ch.title}
+                  scriptSteps={chapterScriptSteps(
+                    initialComposition,
+                    ch.wvp_chapter_id,
+                    i,
+                  )}
                   disabled={locks.craft}
                   onOpenStylePicker={() => setStylePickerOpen(true)}
                 />
