@@ -4,14 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  WVP_PHASE_ORDER,
   canAccessWvpPhase,
   canEditWvpPhase,
+  lockWvpPhase,
   wvpPhaseAccessBlockedReason,
   type WvpPhaseId,
   type WvpPhaseLocks,
 } from "@courseflow/core";
 import { cn } from "@/lib/cn";
+import { parseWvpPhaseLocksResponse } from "@/lib/wvp-locks";
 import { ExportMp4Button } from "@/components/ExportMp4Button";
 import { useToast } from "@/components/Toast";
 
@@ -51,23 +52,38 @@ export function WvpPhaseNav({
 
   const lockPhase = async (phase: WvpPhaseId) => {
     setPendingAction(`lock-${phase}`);
+    const priorLocks = locks;
+    const optimistic = lockWvpPhase(priorLocks, phase);
     try {
-    if (!isPlayPage && phase === current && onBeforeLock) {
-      await onBeforeLock();
-    }
-    const res = await fetch(`/api/projects/${projectId}/wvp/phases/${phase}/lock`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "lock" }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      toast(data.error ?? "鎖定失敗", "error");
-      return;
-    }
-    onLocksChange(data.wvp_phase_locks);
-    const n = PHASES.find((p) => p.id === phase)?.label ?? phase;
-    toast(`${n} 已鎖定`, "success");
+      if (optimistic.ok) {
+        onLocksChange(optimistic.locks);
+      }
+      if (!isPlayPage && phase === current && onBeforeLock) {
+        await onBeforeLock();
+      }
+      const res = await fetch(`/api/projects/${projectId}/wvp/phases/${phase}/lock`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "lock" }),
+      });
+      const data = (await res.json()) as { error?: string; wvp_phase_locks?: unknown };
+      if (!res.ok) {
+        onLocksChange(priorLocks);
+        toast(data.error ?? "鎖定失敗", "error");
+        return;
+      }
+      onLocksChange(
+        parseWvpPhaseLocksResponse(
+          data.wvp_phase_locks,
+          optimistic.ok ? optimistic.locks : priorLocks,
+        ),
+      );
+      router.refresh();
+      const n = PHASES.find((p) => p.id === phase)?.label ?? phase;
+      toast(`${n} 已鎖定`, "success");
+    } catch {
+      onLocksChange(priorLocks);
+      toast("鎖定失敗", "error");
     } finally {
       setPendingAction(null);
     }
@@ -86,7 +102,7 @@ export function WvpPhaseNav({
       toast(data.error ?? "解除鎖定失敗", "error");
       return;
     }
-    onLocksChange(data.wvp_phase_locks);
+    onLocksChange(parseWvpPhaseLocksResponse(data.wvp_phase_locks, locks));
     router.refresh();
     toast("已解除鎖定", "info");
     } finally {

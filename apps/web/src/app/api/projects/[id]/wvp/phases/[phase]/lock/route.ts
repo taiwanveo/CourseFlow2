@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
-  DEFAULT_WVP_PHASE_LOCKS,
   lockWvpPhase,
   normalizeWvpPhaseLocks,
   unlockWvpPhase,
@@ -66,7 +65,9 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({
-    wvp_phase_locks: data.wvp_phase_locks ?? DEFAULT_WVP_PHASE_LOCKS,
-    phase_locks: data.phase_locks,
+    wvp_phase_locks: data
+      ? resolveWvpPhaseLocks(data)
+      : normalizeWvpPhaseLocks(locks),
+    phase_locks: data?.phase_locks ?? legacy,
   });
 }

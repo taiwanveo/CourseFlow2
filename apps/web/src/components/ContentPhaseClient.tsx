@@ -11,6 +11,7 @@ import { LottieMark } from "@/components/lottie/LottieMark";
 import { useConfiguredLlmProviders } from "@/hooks/useConfiguredLlmProviders";
 import type { WvpSettings } from "@/lib/wvp-settings";
 import { wvpChapterIdMap } from "@/lib/wvp-chapter-id-map";
+import { parseWvpPhaseLocksResponse } from "@/lib/wvp-locks";
 
 export function ContentPhaseClient({
   projectId,
@@ -33,6 +34,10 @@ export function ContentPhaseClient({
   const [composition, setComposition] = useState(initialComposition);
   const [locks, setLocks] = useState(initialLocks);
   const locked = locks.content;
+
+  useEffect(() => {
+    setLocks(initialLocks);
+  }, [initialLocks]);
   const [articleText, setArticleText] = useState(initialArticleText);
   const [selectedStepId, setSelectedStepId] = useState<string | null>(
     initialComposition.steps[0]?.id ?? null,
@@ -190,7 +195,7 @@ export function ContentPhaseClient({
       toast(data.error ?? "解除鎖定失敗", "error");
       return;
     }
-    setLocks(data.wvp_phase_locks);
+    setLocks(parseWvpPhaseLocksResponse(data.wvp_phase_locks, locks));
     router.refresh();
     toast("已解除鎖定", "info");
   };
