@@ -74,13 +74,36 @@ export function FlowDiagram({
               </>
             ) : null}
           </h1>
-          <div className="cf-flow-preview" aria-hidden data-no-advance>
-            {nodes.map((n, i) => (
-              <span key={n.id} className="cf-flow-pill">
-                {String(i + 1).padStart(2, "0")} {n.label}
-              </span>
-            ))}
-          </div>
+          {nodes.length > 0 ? (
+            <svg
+              className="cf-flow-svg cf-flow-svg--preview"
+              viewBox={`0 0 ${Math.max(nodes.length * 200, 400)} 120`}
+              aria-hidden
+              data-no-advance
+            >
+              {nodes.map((n, i) => {
+                const x = 80 + i * 180;
+                return (
+                  <g key={n.id} className="cf-flow-node">
+                    {i < nodes.length - 1 && (
+                      <line
+                        x1={x + 50}
+                        y1={50}
+                        x2={x + 130}
+                        y2={50}
+                        className="cf-flow-edge"
+                        style={{ strokeDasharray: "120", strokeDashoffset: "120" }}
+                      />
+                    )}
+                    <rect x={x - 40} y={20} width={100} height={60} rx={6} className="cf-flow-box" />
+                    <text x={x + 10} y={55} className="cf-flow-label">
+                      {n.label}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          ) : null}
         </div>
         {figure}
       </div>

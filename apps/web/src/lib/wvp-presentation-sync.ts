@@ -171,9 +171,12 @@ export async function materializeChapterFromCraft(
         chapterSource?: { templateKind?: string; source?: string };
       }
     | undefined;
-  const forceTemplate = resolveCraftForceTemplate(checklist);
-  const llmTsx = rawSource?.chapterTsx?.trim() ?? "";
   const currentScreenContents = chapter ? screenContentsForChapter(composition, chapter.id) : [];
+  const resolvedChapterKind = chapter
+    ? chapterKindForCraft(composition, chapter.id, craft.title, narrations, aiPlan)
+    : undefined;
+  const forceTemplate = resolveCraftForceTemplate(checklist, chapter?.chapterKind);
+  const llmTsx = rawSource?.chapterTsx?.trim() ?? "";
   const appliedScreenContents = Array.isArray(checklist?.appliedScreenContents)
     ? checklist.appliedScreenContents.map((s) => (typeof s === "string" ? s.trim() : ""))
     : undefined;
@@ -183,6 +186,13 @@ export async function materializeChapterFromCraft(
     appliedScreenContents !== undefined &&
     screenContentsFingerprint(appliedScreenContents) !==
       screenContentsFingerprint(currentScreenContents);
+  const cachedTemplateKind =
+    checklist?.chapterSource?.templateKind?.trim() ?? detectTsxTemplateKind(llmTsx);
+  const templateKindStale = Boolean(
+    resolvedChapterKind &&
+      cachedTemplateKind &&
+      resolvedChapterKind !== cachedTemplateKind,
+  );
   const templateNarrationLeakedOnScreen =
     rawSource?.source === "template" &&
     /ListRevealGrid/.test(llmTsx) &&
@@ -225,6 +235,7 @@ export async function materializeChapterFromCraft(
     rawSource?.source === "template" &&
     llmTsx &&
     !llmCacheScreenContentsStale &&
+    !templateKindStale &&
     !templateNarrationLeakedOnScreen;
   const preserveApprovedAnchor =
     opts?.preserveApprovedAnchorChapter === true &&
@@ -240,9 +251,6 @@ export async function materializeChapterFromCraft(
     });
   } else {
     const stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;
-    const resolvedChapterKind = chapter
-      ? chapterKindForCraft(composition, chapter.id, craft.title, narrations, aiPlan)
-      : undefined;
     const stepMotions = chapter
       ? (() => {
           const steps = orderedWvpStepsForChapter(composition, chapter.id);
@@ -401,11 +409,23 @@ const WVP_TEMPLATE_KINDS = new Set<string>([
   "magazine",
 ]);
 
+function detectTsxTemplateKind(tsx: string): string | undefined {
+  if (/FlowDiagram/.test(tsx)) return "flow";
+  if (/ListRevealGrid/.test(tsx)) return "list-reveal";
+  if (/HookImageStrip/.test(tsx)) return "hook";
+  if (/VisualBlock/.test(tsx)) return "visual-mix";
+  return undefined;
+}
+
 function resolveCraftForceTemplate(
   checklist:
     | { appliedTemplate?: string; chapterSource?: { templateKind?: string } }
     | undefined,
+  explicitChapterKind?: WvpChapterKind,
 ): WvpChapterKind | undefined {
+  if (explicitChapterKind && WVP_TEMPLATE_KINDS.has(explicitChapterKind)) {
+    return explicitChapterKind;
+  }
   const applied = checklist?.appliedTemplate?.trim();
   if (applied && WVP_TEMPLATE_KINDS.has(applied as WvpChapterKind)) {
     return applied as WvpChapterKind;

@@ -73,8 +73,8 @@ export default async function WvpPlayPage({
     // 手動播放：逐步點擊但仍播放口播（audio 模式）；僅 ?audio=0 完全靜音
     query.set("audio", "1");
   }
-  // 預覽預設關閉字幕列，避免口播全文疊在畫面底部（可按 S 開啟）
-  if (q.subs !== "on") query.set("subs", "off");
+  // 字幕預設開啟（與 WVP SubtitleBar 一致）；僅 ?subs=off 時隱藏
+  if (q.subs === "off") query.set("subs", "off");
   if (project.presentation_revision) {
     query.set("cf_rev", project.presentation_revision);
   }
