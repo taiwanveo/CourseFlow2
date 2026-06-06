@@ -299,7 +299,13 @@ ${stepBlocks.join("\n")}
 }
 `;
 
-  const css = `.${prefix}-scene { height: 100%; display: flex; flex-direction: column; text-align: left; }
+  const css = `.${prefix}-scene {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  justify-content: center;
+}
 .${prefix}-chapter-divider {
   height: 100%;
   display: flex;
@@ -345,11 +351,15 @@ ${stepBlocks.join("\n")}
 }
 .${prefix}-cover-body {
   flex: 1;
+  width: 100%;
+  max-width: min(1720px, 94%);
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: 1fr minmax(320px, 42%);
-  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
+  gap: var(--space-8);
   align-items: center;
   padding-top: var(--space-5);
+  min-height: min(68vh, 720px);
 }
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) {
   justify-content: center;
@@ -362,6 +372,7 @@ ${stepBlocks.join("\n")}
   justify-items: center;
   align-content: center;
   text-align: center;
+  max-width: min(1200px, 92%);
 }
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-split-text,
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-figure-first-copy,
@@ -374,16 +385,22 @@ ${stepBlocks.join("\n")}
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-quote {
   text-align: center;
 }
+/* 有配圖：維持雜誌跨頁雙欄，勿收成置中小卡 */
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body,
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
-  grid-template-columns: 1fr;
-  justify-items: center;
-  align-items: center;
-  text-align: center;
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-with-figure,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-grid {
+  width: 100%;
+  max-width: min(1720px, 94%);
+  margin-inline: auto;
+  text-align: left;
+  min-height: min(68vh, 720px);
 }
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-copy {
-  align-items: center;
-  text-align: center;
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
+  grid-template-columns: minmax(0, 1fr) minmax(520px, 50%);
+}
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body {
+  grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
 }
 /* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
@@ -404,16 +421,36 @@ ${stepBlocks.join("\n")}
   font-size: clamp(56px, 5vmin, 80px);
 }
 .${prefix}-cover-num { font-size: clamp(96px, 8vmin, 128px); margin-bottom: var(--space-4); }
+.${prefix}-cover-aside {
+  grid-column: 2;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: 100%;
+  min-height: min(56vh, 640px);
+}
+.${prefix}-cover-body > .${prefix}-cover-num,
+.${prefix}-cover-body > .${prefix}-cover-h {
+  grid-column: 1;
+}
 /* 內文段落：調這裡可改 body 字級、行高、單欄最長寬度。 */
-.${prefix}-body { text-align: left; font-size: var(--t-body); line-height: 1.55; max-width: 52ch; }
+.${prefix}-body {
+  text-align: left;
+  font-size: clamp(28px, 2.4vmin, 36px);
+  line-height: 1.55;
+  max-width: 40ch;
+}
 .asd-body-line { margin: 0 0 var(--space-3); color: var(--text-2, var(--text)); }
 /* split 版左右欄比例與間距。若要改文字區 / 圖片區寬度，改這裡。 */
 .${prefix}-split {
   flex: 1;
+  width: 100%;
+  max-width: min(1720px, 94%);
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: 1.1fr minmax(360px, 45%);
-  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
+  gap: var(--space-8);
   align-items: center;
+  min-height: min(68vh, 720px);
 }
 .${prefix}-split-text { display: flex; flex-direction: column; gap: var(--space-4); justify-content: center; }
 .${prefix}-split-h { text-align: left; }
@@ -421,37 +458,51 @@ ${stepBlocks.join("\n")}
 /* figure-first 版左右欄比例。 */
 .${prefix}-figure-first-grid {
   flex: 1;
+  width: 100%;
+  max-width: min(1720px, 94%);
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(380px, 48%) 1fr;
-  gap: var(--space-7);
+  grid-template-columns: minmax(480px, 50%) minmax(0, 1fr);
+  gap: var(--space-8);
   align-items: center;
+  min-height: min(68vh, 720px);
 }
 .${prefix}-figure-first-copy { display: flex; flex-direction: column; gap: var(--space-4); }
 .${prefix}-close-inner {
   flex: 1;
+  width: 100%;
+  max-width: min(1720px, 94%);
+  margin-inline: auto;
   display: grid;
-  grid-template-columns: 1fr minmax(360px, 44%);
-  gap: var(--space-7);
+  grid-template-columns: minmax(0, 1fr) minmax(520px, 50%);
+  gap: var(--space-8);
   align-items: center;
+  min-height: min(68vh, 720px);
 }
 .${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); }
 .${prefix}-quote { text-align: left; font-size: clamp(56px, 5vmin, 80px); }
 .${prefix}-figure {
-  align-self: center;
-  width: min(100%, 1100px);
-  min-height: 480px;
+  align-self: stretch;
+  width: 100%;
+  min-height: min(56vh, 640px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+.${prefix}-figure .cf-chapter-figure {
+  width: 100%;
+  max-width: min(920px, 100%);
+  min-width: min(560px, 100%);
+  min-height: min(54vh, 600px);
+  max-height: min(62vh, 680px);
+}
 .${prefix}-figure img,
-.${prefix}-figure .cf-chapter-figure,
 .${prefix}-figure .cf-chapter-figure img {
-  width: auto;
-  max-width: min(100%, 1380px);
+  width: 100%;
+  max-width: 100%;
   height: auto;
-  max-height: 600px;
-  min-height: 320px;
+  max-height: min(58vh, 640px);
+  min-height: min(44vh, 480px);
   object-fit: contain;
 }
 `;
