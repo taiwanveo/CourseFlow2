@@ -1,5 +1,5 @@
 import type { CourseComposition, WvpChapterKind } from "@courseflow/core";
-import { isDataVisualChapter } from "@courseflow/presentation";
+import { isDataVisualChapter } from "@courseflow/presentation/router";
 import {
   chapterKindForCraft,
   resolveCompositionChapterForCraft,
