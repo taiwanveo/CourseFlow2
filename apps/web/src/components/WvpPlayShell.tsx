@@ -108,6 +108,7 @@ export function WvpPlayShell({
   iframeSrc,
   anchorPreview,
   anchorWvpChapterId,
+  chapterPreview,
 }: {
   projectId: string;
   projectTitle: string;
@@ -115,7 +116,10 @@ export function WvpPlayShell({
   /** 第 1 章試跑預覽：僅含第 1 章，並可在此確認風格 */
   anchorPreview?: boolean;
   anchorWvpChapterId?: string;
+  /** 視覺動效章節列表的單章試跑預覽 */
+  chapterPreview?: boolean;
 }) {
+  const craftPreview = anchorPreview || chapterPreview;
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const router = useRouter();
   const { toast } = useToast();
@@ -200,10 +204,11 @@ export function WvpPlayShell({
   const headerContent = (
     <>
       <span className="text-xs text-zinc-500">
-        {projectTitle} — {anchorPreview ? "第1章試跑預覽" : "預覽"}
+        {projectTitle} —{" "}
+        {anchorPreview ? "第1章試跑預覽" : chapterPreview ? "單章試跑預覽" : "預覽"}
       </span>
       <div className="flex gap-2">
-        {anchorPreview ? (
+        {craftPreview ? (
           <Link
             href={`/projects/${projectId}/craft`}
             className="cf-btn cf-btn-sm cf-btn-secondary"
@@ -335,6 +340,12 @@ export function WvpPlayShell({
           >
             {approving ? "處理中…" : "已確認第 1 章風格"}
           </button>
+        </footer>
+      ) : chapterPreview ? (
+        <footer className="shrink-0 border-t border-zinc-800 bg-zinc-950/95 px-4 py-2.5">
+          <p className="text-xs text-zinc-400">
+            此預覽僅含單一章節（視覺動效試跑，不含語音）。測試完成後請回到「視覺動效」繼續編輯或執行全課。
+          </p>
         </footer>
       ) : null}
     </div>

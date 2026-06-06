@@ -16,11 +16,17 @@ export type ChapterTsxValidationIssue =
   | "no-visual-demo"
   | "narration-not-bound"
   | "narration-leaked-to-jsx"
+  | "craft-metadata-leaked-to-jsx"
   | "incomplete-steps"
   | "extra-step-branch"
   | "too-short"
   | "invalid-jsx-prop"
   | "syntax-error";
+
+/** LLM 產碼常把 craft 上下文（章節標題、【畫面 N】）誤貼進 JSX */
+export function craftMetadataLeakedInTsx(tsx: string): boolean {
+  return /章節：|【畫面\s*\d+】|→\s*畫面：/.test(tsx);
+}
 
 export function validateChapterTsxIssues(
   tsx: string,
@@ -46,6 +52,9 @@ export function validateChapterTsxIssues(
       issues.push("narration-leaked-to-jsx");
       break;
     }
+  }
+  if (craftMetadataLeakedInTsx(normalized)) {
+    issues.push("craft-metadata-leaked-to-jsx");
   }
   if (!chapterCoversAllSteps(normalized, stepCount)) {
     if (normalized.includes(`step === ${stepCount}`)) issues.push("extra-step-branch");
@@ -166,6 +175,8 @@ const VALIDATION_ISSUE_HINTS: Record<ChapterTsxValidationIssue, string> = {
   "no-visual-demo": "每章需含 SVG/@keyframes/MaskReveal/ListRevealGrid/FlowDiagram 等視覺演示",
   "narration-not-bound": "需為每個 step 提供畫面（if(step===N) 或 ListRevealGrid/FlowDiagram step prop）",
   "narration-leaked-to-jsx": "禁止把口播全文複製進 JSX，畫面只用 screenContents 短語",
+  "craft-metadata-leaked-to-jsx":
+    "禁止把 craft 上下文（章節：、【畫面 N】）貼進 JSX，畫面只用螢幕內容短語",
   "incomplete-steps": "缺少部分 step 分支；請補齊 step 0 到 step N-1",
   "extra-step-branch": "禁止多餘的 step === N 分支（超出口播步數）",
   "too-short": "程式過短，請補齊每步視覺演示",

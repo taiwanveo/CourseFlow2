@@ -564,6 +564,45 @@ export function CraftPhaseClient({
     }
   };
 
+  const canPreviewChapter = (ch: CraftRow): boolean =>
+    (ch.checklist_result?.narrations?.length ?? 0) > 0 &&
+    Boolean(ch.checklist_result?.chapterSource);
+
+  const previewChapter = async (wvpChapterId: string, chapterTitle: string) => {
+    if (!hasSelectedTheme) {
+      toast("請先選擇並儲存簡報主題", "error");
+      return;
+    }
+    setBusy(`preview-${wvpChapterId}`);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/preview`,
+        { method: "POST" },
+      );
+      const data = await readResponsePayload(res);
+      if (!res.ok) {
+        throw new Error(getResponseErrorMessage(res, data, "預覽打包失敗"));
+      }
+      if (
+        typeof data.illustrationSyncWarning === "string" &&
+        data.illustrationSyncWarning
+      ) {
+        toast(`「${chapterTitle}」預覽已打包。${data.illustrationSyncWarning}`, "info");
+      } else {
+        toast(`「${chapterTitle}」預覽已打包，正在開啟…`, "success");
+      }
+      const previewUrl =
+        typeof data.previewUrl === "string" && data.previewUrl
+          ? data.previewUrl
+          : `/projects/${projectId}/wvp-play?chapterPreview=1`;
+      window.open(previewUrl, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "預覽打包失敗", "error");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const generateChapter = async (wvpChapterId: string) => {
     if (!defaultProvider) {
       toast("請先在設定頁填寫 LLM API Key", "error");
@@ -926,6 +965,8 @@ export function CraftPhaseClient({
                 const isSelected = selectedWvpId === ch.wvp_chapter_id;
                 const isSyncing = busy === `sync-${ch.wvp_chapter_id}`;
                 const isGenerating = busy === `gen-${ch.wvp_chapter_id}`;
+                const isPreviewing = busy === `preview-${ch.wvp_chapter_id}`;
+                const previewReady = canPreviewChapter(ch);
                 const templateState = resolveChapterTemplateSelectState(composition, ch);
 
                 return (
@@ -959,6 +1000,22 @@ export function CraftPhaseClient({
                     </button>
                     {!locks.craft ? (
                       <div className="flex shrink-0 items-stretch gap-1">
+                        <button
+                          type="button"
+                          title={
+                            previewReady
+                              ? "打包並預覽本章（僅含此章節，不含語音）"
+                              : "請先匯入口播並產生 AI 畫面"
+                          }
+                          className="cf-btn cf-btn-secondary w-[2.75rem] shrink-0 px-0.5 py-1 text-center text-[10px] leading-tight"
+                          disabled={!!busy || !previewReady || !hasSelectedTheme}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void previewChapter(ch.wvp_chapter_id, ch.title);
+                          }}
+                        >
+                          {isPreviewing ? "…" : "預覽"}
+                        </button>
                         <select
                           className="cf-select w-[6.25rem] shrink-0 py-1.5 text-[10px] leading-normal"
                           disabled={!!busy || !templateState.contentChapterId}

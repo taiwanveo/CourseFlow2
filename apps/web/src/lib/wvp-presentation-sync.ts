@@ -5,6 +5,7 @@ import {
   chapterComponentName,
   isDataVisualChapter,
   scaffoldPresentation,
+  craftMetadataLeakedInTsx,
   validateChapterTsx,
   writeChapterSourcesRaw,
   writeChapterToPresentation,
@@ -200,13 +201,20 @@ export async function materializeChapterFromCraft(
   /** 數據章每次打包重產 TSX，避免沿用 checklist 內錯誤的 LLM stepVisualConfigs */
   const dataVisualForceRegenerate =
     dataVisualChapter && !hasPackagedStepImagesForCraft(craft);
-  const templateKindStale = Boolean(
-    (resolvedChapterKind &&
+  const tsxKindMismatch = Boolean(
+    resolvedChapterKind &&
       cachedTemplateKind &&
-      resolvedChapterKind !== cachedTemplateKind) ||
+      resolvedChapterKind !== cachedTemplateKind,
+  );
+  const craftMetadataInCachedTsx = Boolean(llmTsx && craftMetadataLeakedInTsx(llmTsx));
+  const templateKindStale = Boolean(
+    tsxKindMismatch ||
+    craftMetadataInCachedTsx ||
     dataVisualNeedsVisualBlock ||
     (dataVisualChapter &&
-      (cachedTemplateKind === "flow" || cachedTemplateKind === "list-reveal")),
+      (cachedTemplateKind === "flow" || cachedTemplateKind === "list-reveal")) ||
+    (resolvedChapterKind === "flow" && /VisualBlock/.test(llmTsx)) ||
+    (resolvedChapterKind === "list-reveal" && /VisualBlock/.test(llmTsx)),
   );
   const templateNarrationLeakedOnScreen =
     rawSource?.source === "template" &&
@@ -515,15 +523,24 @@ function stepIllustrationsMarkedDone(craft: CraftRow): boolean {
   );
 }
 
-/** 第 1 章試跑預覽：僅註冊第 1 章、略過語音門檻、打包 dist */
-export async function buildAnchorChapterPreview(
+export type BuildSingleChapterPreviewOpts = {
+  themeId?: string;
+  onStage?: (stage: string) => Promise<void> | void;
+  /** 第 1 章試執行：寫入 anchorChapterTrialCompleted */
+  markAnchorTrial?: boolean;
+};
+
+/** 單章試跑預覽：僅註冊指定章節、略過語音門檻、打包 dist */
+export async function buildSingleChapterPreview(
   supabase: SupabaseClient,
   projectId: string,
   userId: string,
-  opts?: { themeId?: string; onStage?: (stage: string) => Promise<void> | void },
+  wvpChapterId: string,
+  opts?: BuildSingleChapterPreviewOpts,
 ): Promise<{
   built: boolean;
   wvpChapterId: string;
+  chapterTitle: string;
   illustrationSyncWarning?: string;
 }> {
   const { data: project } = await supabase
@@ -536,13 +553,22 @@ export async function buildAnchorChapterPreview(
 
   const wvpSettings = parseWvpSettings(project.wvp_settings);
 
-  const { data: crafts } = await supabase
+  const { data: craft } = await supabase
     .from("chapter_craft")
     .select("*")
     .eq("project_id", projectId)
-    .order("sort_order");
-  const first = (crafts ?? [])[0] as CraftRow | undefined;
-  if (!first) throw new Error("請先建立章節清單");
+    .eq("wvp_chapter_id", wvpChapterId)
+    .maybeSingle();
+  const target = craft as CraftRow | null;
+  if (!target) throw new Error("找不到章節");
+
+  const narrations = target.checklist_result?.narrations?.filter(Boolean) ?? [];
+  if (narrations.length === 0) {
+    throw new Error(`「${target.title}」尚無口播步驟，請先匯入口播`);
+  }
+  if (!target.checklist_result?.chapterSource) {
+    throw new Error(`「${target.title}」尚無畫面程式，請先按「AI 畫面」或試執行`);
+  }
 
   const composition = await loadCompositionForWvpBuild(supabase, projectId);
   if (!composition) throw new Error("無法載入專案內容");
@@ -566,17 +592,14 @@ export async function buildAnchorChapterPreview(
       projectId,
       project.title ?? "Course",
       composition,
-      [first] as Parameters<typeof syncPresentationIllustrations>[5],
+      [target] as Parameters<typeof syncPresentationIllustrations>[5],
       wvpSettings.assets,
       styleFragment,
       themeId,
       craftPackIllustrationOpts,
     );
-    const hasLocalImages = await chapterIllustrationFilesOnDisk(
-      projectId,
-      first.wvp_chapter_id,
-    );
-    const studioMarkedDone = stepIllustrationsMarkedDone(first);
+    const hasLocalImages = await chapterIllustrationFilesOnDisk(projectId, target.wvp_chapter_id);
+    const studioMarkedDone = stepIllustrationsMarkedDone(target);
     if (illus.written + illus.reusedExisting === 0 && !hasLocalImages) {
       illustrationSyncWarning = studioMarkedDone
         ? "配圖無法寫入預覽目錄，請在「視覺動效」重新上傳或生圖後再試執行。"
@@ -589,19 +612,19 @@ export async function buildAnchorChapterPreview(
     userId,
     projectId,
     presentationDir,
-    [first],
+    [target],
   ).catch((e) =>
-    console.warn("[wvp-trial] step animation sync failed:", (e as Error).message),
+    console.warn("[wvp-chapter-preview] step animation sync failed:", (e as Error).message),
   );
 
   const entries = await rebuildRegistryForProject(
     presentationDir,
-    [first],
+    [target],
     composition,
     wvpSettings.assets,
   );
   if (entries.length === 0) {
-    throw new Error("第 1 章尚無口播步驟，請先在「文稿內容」完成大綱");
+    throw new Error(`「${target.title}」尚無可打包的步驟`);
   }
 
   const base = `/projects/${projectId}/wvp-embed/`;
@@ -614,12 +637,11 @@ export async function buildAnchorChapterPreview(
 
   logWvpBuildQuality(composition, themeId);
 
-  const presentationRevision = `anchor-trial-${Date.now()}`;
-  const nextSettings = {
-    ...wvpSettings,
-    themeId,
-    anchorChapterTrialCompleted: true,
-  };
+  const revisionPrefix = opts?.markAnchorTrial ? "anchor-trial" : "chapter-preview";
+  const presentationRevision = `${revisionPrefix}-${wvpChapterId}-${Date.now()}`;
+  const nextSettings = opts?.markAnchorTrial
+    ? { ...wvpSettings, themeId, anchorChapterTrialCompleted: true }
+    : { ...wvpSettings, themeId };
   await supabase
     .from("projects")
     .update({
@@ -634,7 +656,7 @@ export async function buildAnchorChapterPreview(
       await uploadWvpDistToStorage(supabase, userId, projectId);
     } catch (e) {
       const msg = (e as Error).message;
-      console.warn("[wvp-trial] dist 上傳 Storage 失敗:", msg);
+      console.warn("[wvp-chapter-preview] dist 上傳 Storage 失敗:", msg);
       throw new Error(
         `試執行建置完成但無法上傳預覽（${msg}）。請稍後重試或檢查 Storage 設定。`,
       );
@@ -645,8 +667,40 @@ export async function buildAnchorChapterPreview(
 
   return {
     built: true,
-    wvpChapterId: first.wvp_chapter_id,
+    wvpChapterId: target.wvp_chapter_id,
+    chapterTitle: target.title,
     illustrationSyncWarning,
+  };
+}
+
+/** 第 1 章試跑預覽：僅註冊第 1 章、略過語音門檻、打包 dist */
+export async function buildAnchorChapterPreview(
+  supabase: SupabaseClient,
+  projectId: string,
+  userId: string,
+  opts?: { themeId?: string; onStage?: (stage: string) => Promise<void> | void },
+): Promise<{
+  built: boolean;
+  wvpChapterId: string;
+  illustrationSyncWarning?: string;
+}> {
+  const { data: crafts } = await supabase
+    .from("chapter_craft")
+    .select("wvp_chapter_id")
+    .eq("project_id", projectId)
+    .order("sort_order")
+    .limit(1);
+  const firstId = (crafts ?? [])[0]?.wvp_chapter_id;
+  if (!firstId) throw new Error("請先建立章節清單");
+
+  const build = await buildSingleChapterPreview(supabase, projectId, userId, firstId, {
+    ...opts,
+    markAnchorTrial: true,
+  });
+  return {
+    built: build.built,
+    wvpChapterId: build.wvpChapterId,
+    illustrationSyncWarning: build.illustrationSyncWarning,
   };
 }
 

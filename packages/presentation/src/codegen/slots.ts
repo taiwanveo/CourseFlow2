@@ -72,6 +72,23 @@ function sanitizeScreenLabel(text: string | undefined, fallback: string, max: nu
   return screenHeadlineForSlot(text, fallback, max);
 }
 
+/** 剝除 AI 產碼／craft 上下文誤寫入螢幕欄的後設字串 */
+export function stripCraftMetadataFromScreen(text: string): string {
+  let t = compactSpaces(stripEllipsis(text));
+  if (!t) return "";
+  const cutAt = t.search(/\s*章節：|【畫面\s*\d+】|\s*→\s*畫面：/);
+  if (cutAt > 0) t = t.slice(0, cutAt).trim();
+  return t
+    .replace(/\s*章節：[^\n【]+/g, "")
+    .replace(/【畫面\s*\d+】/g, "")
+    .replace(/\s*→\s*畫面：[^\n]+/g, "")
+    .replace(
+      /\s*[（(](?:Flow|Beat-Scene|Visual-Mix|節拍全屏|清單揭示|流程圖|list-reveal|Magazine|雜誌)[^）)]*[）)]\s*/gi,
+      "",
+    )
+    .trim();
+}
+
 /**
  * 畫面文字僅取自「文稿內容」的螢幕欄位。
  * 禁止以口播稿作為 fallback，避免把口播第一句（標點前片段）搬上螢幕。
@@ -80,7 +97,7 @@ export function screenTextOnly(
   source: string | undefined,
   placeholder = "重點",
 ): string {
-  const raw = compactSpaces(stripEllipsis(source ?? ""));
+  const raw = stripCraftMetadataFromScreen(source ?? "");
   return raw || placeholder;
 }
 

@@ -15,11 +15,13 @@ function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
 
-/** 圖表上方只顯示第一個重點片語，避免長句被硬切斷 */
+/** 圖表上方只顯示螢幕內容第一個重點片語（screenTextOnly 已剝除 craft 後設字串） */
 function visualMixHeadline(screen: string | undefined, title: string): string {
-  const raw = screenTextOnly(screen, title)
-    .replace(/\s*[（(](?:Beat-Scene|節拍全屏|Visual-Mix|視覺混合|Magazine|雜誌)[^）)]*[）)]\s*/gi, "")
-    .trim();
+  const raw = screen?.trim() ? screenTextOnly(screen, title) : "";
+  if (!raw || raw === title) {
+    const parts = splitHeadlineForStaggeredReveal(screenTextOnly(title, title), 1);
+    return escapeTsString(parts[0] ?? title);
+  }
   const parts = splitHeadlineForStaggeredReveal(raw, 1);
   return escapeTsString(parts[0] ?? raw);
 }

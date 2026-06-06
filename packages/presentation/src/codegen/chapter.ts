@@ -71,9 +71,6 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   });
   const visualConfigs = input.stepVisualConfigs ?? [];
   const visualConfigCount = visualConfigs.length;
-  const chartTableCount = visualConfigs.filter(
-    (e) => e.config.kind === "chart" || e.config.kind === "table",
-  ).length;
 
   /** 數據視覺章：無配圖時強制 Visual-Mix（含啟發式 chart/table），不走 list/flow */
   const dataVisualMixConfigs =
@@ -87,26 +84,19 @@ export function generateChapterSources(input: ChapterCodegenInput) {
     };
   }
 
-  /** 有 chart/table config 時優先 Visual-Mix，避免數據章被 flow/list 蓋掉成純文字節點 */
-  const preferDataVisualMix =
-    !hasPackagedStepImages &&
-    !hasUploadedAssets &&
-    hasChartOrTableVisuals(visualConfigs) &&
-    chartTableCount >= 1;
-  if (preferDataVisualMix) {
-    return {
-      ...generateVisualMixSources(input, visualConfigs),
-      templateKind: "visual-mix" as const,
-    };
-  }
-
   const kind = resolveChapterTemplate(input);
+  if (kind === "flow" && input.narrations.length >= 2) {
+    return { ...generateFlowSources(input), templateKind: kind };
+  }
+  if (kind === "list-reveal" && input.narrations.length >= 2) {
+    return { ...generateListRevealSources(input), templateKind: kind };
+  }
+  if (kind === "hook") {
+    return { ...generateHookSources(input), templateKind: kind };
+  }
   /** 已指定版型或 Beat-Scene／Magazine 觸發條件時，不得被 visual-mix 覆蓋 */
   const isSingleStepMagazine = input.narrations.length === 1;
   const templateLocked =
-    kind === "hook" ||
-    kind === "list-reveal" ||
-    kind === "flow" ||
     kind === "magazine" ||
     isBeatSceneDividerOne ||
     isSingleStepMagazine ||
@@ -114,7 +104,7 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   const animationConfigCount =
     visualConfigs.filter((e) => e.config.kind === "animation").length;
   const minStepsForVisualMix = Math.min(1, input.narrations.length);
-  /** 有工作室配圖或強制模板時，不得用 visual-mix（否則畫面完全沒有 step 配圖） */
+  /** 僅 custom 等未鎖定版型可用 LLM 視覺 config 走 visual-mix */
   const useVisualMix =
     !templateLocked &&
     !hasPackagedStepImages &&
@@ -127,15 +117,6 @@ export function generateChapterSources(input: ChapterCodegenInput) {
       ...generateVisualMixSources(input, visualConfigs),
       templateKind: "visual-mix" as const,
     };
-  }
-  if (kind === "list-reveal" && input.narrations.length >= 2) {
-    return { ...generateListRevealSources(input), templateKind: kind };
-  }
-  if (kind === "flow" && input.narrations.length >= 2) {
-    return { ...generateFlowSources(input), templateKind: kind };
-  }
-  if (kind === "hook") {
-    return { ...generateHookSources(input), templateKind: kind };
   }
   if (input.narrations.length >= 2) {
     return { ...generateBeatSceneSources(input), templateKind: "beat-scene" as const };

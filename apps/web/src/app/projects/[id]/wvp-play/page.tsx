@@ -13,11 +13,18 @@ export default async function WvpPlayPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string; audio?: string; anchor?: string; subs?: string }>;
+  searchParams: Promise<{
+    auto?: string;
+    audio?: string;
+    anchor?: string;
+    chapterPreview?: string;
+    subs?: string;
+  }>;
 }) {
   const { id } = await params;
   const q = await searchParams;
   const anchorPreview = q.anchor === "1";
+  const chapterPreview = q.chapterPreview === "1";
   const supabase = await createClient();
   const {
     data: { user },
@@ -42,7 +49,9 @@ export default async function WvpPlayPage({
         projectId={id}
         projectTitle={project.title}
         reason={reason}
-        returnHref={anchorPreview ? `/projects/${id}/craft` : undefined}
+        returnHref={
+          anchorPreview || chapterPreview ? `/projects/${id}/craft` : undefined
+        }
       />
     );
   }
@@ -87,6 +96,7 @@ export default async function WvpPlayPage({
       iframeSrc={src}
       anchorPreview={anchorPreview}
       anchorWvpChapterId={anchorWvpChapterId}
+      chapterPreview={chapterPreview}
     />
   );
 }
