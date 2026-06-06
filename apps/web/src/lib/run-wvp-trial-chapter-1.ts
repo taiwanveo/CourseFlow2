@@ -11,13 +11,6 @@ export type WvpTrialChapter1JobResult = {
   chapterSource?: "llm" | "template";
   previewUrl?: string;
   illustrationSyncWarning?: string;
-  debugTrace?: {
-    hypothesisId: string;
-    location: string;
-    message: string;
-    data: Record<string, unknown>;
-    timestamp: number;
-  }[];
 };
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
@@ -116,7 +109,6 @@ export async function runWvpTrialChapter1(payload: {
       chapterSource: result.chapterSource,
       previewUrl: result.previewUrl,
       illustrationSyncWarning: result.illustrationSyncWarning,
-      debugTrace: result.debugTrace,
     };
 
     await patchJob({ status: "completed", result: jobResult, updated_at: new Date().toISOString() });
