@@ -14,6 +14,17 @@
 /* ══ 標題文字 ══ font-size: var(--t-h2)（預設 80px）
    修改 font-size 可調整標題大小；若想全域同步，改 base.css 的 `--t-h2` */
 .vf-headline-text {
+  display: block;
+  max-width: 100%;
   font-size: clamp(56px, 6.5vw, 96px);
   line-height: 1.12;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  white-space: normal;
+}
+.vf-headline {
+  overflow: visible;
+  max-width: min(1200px, 92%);
+  margin-inline: auto;
 }

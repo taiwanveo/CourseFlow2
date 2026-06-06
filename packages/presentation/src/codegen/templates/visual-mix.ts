@@ -1,6 +1,8 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
 import type { StepVisualEntry } from "../step-visuals.js";
+import { splitHeadlineForStaggeredReveal } from "../content-aware.js";
+import { screenTextOnly } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
@@ -11,6 +13,15 @@ import { buildNarrationsTs } from "../narrations-ts.js";
  */
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
+}
+
+/** 圖表上方只顯示第一個重點片語，避免長句被硬切斷 */
+function visualMixHeadline(screen: string | undefined, title: string): string {
+  const raw = screenTextOnly(screen, title)
+    .replace(/\s*[（(](?:Beat-Scene|節拍全屏|Visual-Mix|視覺混合|Magazine|雜誌)[^）)]*[）)]\s*/gi, "")
+    .trim();
+  const parts = splitHeadlineForStaggeredReveal(raw, 1);
+  return escapeTsString(parts[0] ?? raw);
 }
 
 export function generateVisualMixSources(
@@ -36,10 +47,7 @@ export function generateVisualMixSources(
     );
   }`;
       }
-      const headline = escapeTsString(
-        (input.screenContents?.[step] ?? "").trim().slice(0, 40) ||
-          input.title.slice(0, 40),
-      );
+      const headline = visualMixHeadline(input.screenContents?.[step], input.title);
       return `
   if (step === ${step}) {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };

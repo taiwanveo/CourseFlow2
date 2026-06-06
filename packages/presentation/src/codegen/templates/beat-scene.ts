@@ -14,6 +14,12 @@ function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
 }
 
+function sanitizeBeatScreen(screen: string): string {
+  return screen
+    .replace(/\s*[（(](?:Beat-Scene|節拍全屏|Visual-Mix|視覺混合|Magazine|雜誌)[^）)]*[）)]\s*/gi, "")
+    .trim();
+}
+
 function cssPrefix(wvpChapterId: string): string {
   return `ch-${wvpChapterId.replace(/[^a-z0-9-]/gi, "-")}`;
 }
@@ -62,9 +68,9 @@ function stepSceneBlock(
   figureLine: string,
   kickerLabel?: string,
 ): string {
-  const kickerExpr = kickerLabel
-    ? JSON.stringify(kickerLabel)
-    : "CHAPTER_KICKER";
+  const kickerLine = kickerLabel
+    ? escapeTsString(kickerLabel)
+    : "{CHAPTER_KICKER}";
   const accent = beatAccentClass(screen, narration);
   const deco = beatDecoration(screen, narration, prefix);
   const subBlock = introSub
@@ -79,7 +85,7 @@ function stepSceneBlock(
     return (
       <div className={\`${prefix}-scene scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <div className="${prefix}-main">
-          <div className="${prefix}-kicker label-mono">{CHAPTER_KICKER}</div>
+          <div className="${prefix}-kicker label-mono">${kickerLine}</div>
           <h1 className={\`${prefix}-headline serif-cn\`}>
             <MaskReveal show duration={1000}>
               <span>${escapeTsString(intro)}</span>
@@ -119,7 +125,7 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
     : (input.stepMotions ?? []);
 
   const scenes = workNarrations.map((narration, stepIndex) => {
-    const screen = workScreens[stepIndex] ?? "";
+    const screen = sanitizeBeatScreen(workScreens[stepIndex] ?? "");
     const headline = screenTextOnly(screen, "重點");
     const hasScreen = Boolean(screen.trim());
     const parts = hasScreen ? splitHeadlineForStaggeredReveal(headline, 2) : [];
@@ -175,6 +181,7 @@ ${scenes.join("\n")}
   text-align: center;
   min-height: 100%;
   gap: var(--space-6);
+  overflow: visible;
 }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) {
   display: grid;
@@ -201,19 +208,40 @@ ${scenes.join("\n")}
   flex-direction: column;
   align-items: center;
   gap: var(--space-4, 1.25rem);
-  width: 85%;
-  max-width: 85%;
+  width: min(92%, 1320px);
+  max-width: min(92%, 1320px);
+  overflow: visible;
 }
-.${prefix}-kicker { opacity: 0.72; }
+.${prefix}-kicker { opacity: 0.72; max-width: 100%; overflow-wrap: anywhere; }
 .${prefix}-headline {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
   font-size: clamp(72px, 8.5vmin, 128px);
   line-height: 1.1;
   width: 100%;
   max-width: 100%;
   text-align: center;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
 }
-.${prefix}-headline-sub { font-style: italic; color: var(--accent, var(--text)); }
+.${prefix}-headline .mask-reveal {
+  max-width: 100%;
+  overflow: visible;
+}
+.${prefix}-headline-sub {
+  display: block;
+  font-size: clamp(48px, 5.5vmin, 80px);
+  line-height: 1.15;
+  font-style: italic;
+  color: var(--accent, var(--text));
+  max-width: 100%;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
 .${prefix}-accent-metric { color: var(--accent, var(--text)); }
 .${prefix}-contrast {
   display: grid;

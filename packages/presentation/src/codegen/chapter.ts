@@ -53,6 +53,17 @@ export function generateChapterSources(input: ChapterCodegenInput) {
     assetsForChapter(input.assets, input.wvpChapterId).length > 0;
   const hasPackagedStepImages =
     Object.keys(input.stepImageExtensions ?? {}).length > 0;
+  const isBeatSceneDividerOne =
+    input.narrations.length === 2 && Boolean(input.screenContents?.[0]?.trim());
+  /** 分隔頁 + 1 內容步：固定 Beat-Scene，不得被 Visual-Mix 蓋掉 */
+  if (
+    isBeatSceneDividerOne &&
+    !hasPackagedStepImages &&
+    !hasUploadedAssets &&
+    !input.forceTemplate
+  ) {
+    return { ...generateBeatSceneSources(input), templateKind: "beat-scene" as const };
+  }
   const dataVisualChapter = isDataVisualChapter({
     chapterTitle: input.title,
     narrations: input.narrations,
@@ -91,8 +102,6 @@ export function generateChapterSources(input: ChapterCodegenInput) {
 
   const kind = resolveChapterTemplate(input);
   /** 已指定版型或 Beat-Scene／Magazine 觸發條件時，不得被 visual-mix 覆蓋 */
-  const isBeatSceneDividerOne =
-    input.narrations.length === 2 && Boolean(input.screenContents?.[0]?.trim());
   const isSingleStepMagazine = input.narrations.length === 1;
   const templateLocked =
     kind === "hook" ||
