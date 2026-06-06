@@ -3,7 +3,7 @@ import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import { assetsForChapter } from "../hook-slots.js";
 import { parseFlowSlots } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
-import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
+import { buildCodegenStepImageBlock, buildCodegenStepAnimationBlock } from "../step-image-codegen.js";
 
 /**
  * 流程圖版型（flow）的 codegen。
@@ -24,6 +24,16 @@ export function generateFlowSources(input: ChapterCodegenInput) {
     input.wvpChapterId,
     input.stepImageExtensions ?? {},
   );
+  const animIndices = input.stepAnimationIndices ?? [];
+  const stepAnimationBlock = buildCodegenStepAnimationBlock(input.wvpChapterId, animIndices);
+  const stepAnimationHelper =
+    animIndices.length > 0
+      ? `function stepAnimation(step: number) {
+  return hasStepAnimation(step) ? stepAnimationUrl(step) : undefined;
+}`
+      : `function stepAnimation(_step: number) {
+  return undefined;
+}`;
 
   const tsx = `import { FlowDiagram } from "../../components/FlowDiagram";
 import type { ChapterStepProps } from "../../registry/types";
@@ -33,8 +43,7 @@ const NODES = ${JSON.stringify(nodes, null, 2)} as const;
 const CHECKPOINT_ASSETS = ${assetsLiteral} as { url: string; step?: number }[];
 const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
 
-${stepImageBlock}
-
+${stepImageBlock}${stepAnimationBlock}
 function stepImage(step: number) {
   // 流程圖的右側圖像來源優先序：當步 checkpoint → 章節 fallback → step image。
   const exact = CHECKPOINT_ASSETS.find((a) => a.step === step);
@@ -43,6 +52,8 @@ function stepImage(step: number) {
   if (hit?.url?.trim()) return hit.url.trim();
   return stepImageUrl(step);
 }
+
+${stepAnimationHelper}
 
 function stepMotion(step: number) {
   return STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
@@ -59,6 +70,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       introSub={${JSON.stringify(introSub)}}
       nodes={[...NODES]}
       stepImageUrl={stepImage(step)}
+      stepAnimationUrl={stepAnimation(step)}
       enterAnimationId={motion.enterAnimationId}
       transitionId={motion.transitionId}
     />

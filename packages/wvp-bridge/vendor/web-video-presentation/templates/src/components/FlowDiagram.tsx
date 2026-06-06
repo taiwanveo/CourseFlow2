@@ -10,6 +10,7 @@ export function FlowDiagram({
   introSub,
   nodes,
   stepImageUrl,
+  stepAnimationUrl,
   enterAnimationId = "fade-up",
   transitionId = "crossfade",
 }: {
@@ -19,23 +20,36 @@ export function FlowDiagram({
   introSub?: string;
   nodes: FlowNode[];
   stepImageUrl?: string;
+  stepAnimationUrl?: string;
   enterAnimationId?: string;
   transitionId?: string;
 }) {
   const active = Math.max(0, step - 1);
   const current = nodes[active];
+  const hasAnimation = Boolean(stepAnimationUrl?.trim());
+  const hasImage = !hasAnimation && Boolean(stepImageUrl?.trim());
   const figure =
-    stepImageUrl?.trim() ? (
+    hasAnimation || hasImage ? (
       <aside className="cf-flow-aside" data-no-advance>
-        <img
-          className="cf-flow-hero-img"
-          src={stepImageUrl}
-          alt=""
-          loading="eager"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = "none";
-          }}
-        />
+        {hasAnimation ? (
+          <iframe
+            className="cf-flow-anim"
+            src={stepAnimationUrl}
+            sandbox="allow-scripts allow-same-origin"
+            title={current?.label ?? intro}
+            loading="eager"
+          />
+        ) : (
+          <img
+            className="cf-flow-hero-img"
+            src={stepImageUrl}
+            alt=""
+            loading="eager"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+            }}
+          />
+        )}
       </aside>
     ) : null;
 

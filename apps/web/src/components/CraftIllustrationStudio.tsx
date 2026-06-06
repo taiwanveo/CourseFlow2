@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { StepIllustrationEntry } from "@/lib/wvp-craft-illustrations";
+import {
+  getFetchErrorMessage,
+  readResponsePayload,
+  TRANSIENT_HTTP_STATUS,
+} from "@/lib/read-response-payload";
 import { useToast } from "@/components/Toast";
 
 type ChapterState = {
@@ -12,6 +17,16 @@ type ChapterState = {
 
 function imageUrl(projectId: string, wvpChapterId: string, stepIndex: number, bust: number) {
   return `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations/${stepIndex}/image?t=${bust}`;
+}
+
+function isStepIllustrationDone(step: StepIllustrationEntry | undefined): boolean {
+  return Boolean(step && (step.imageWritten || step.status === "done"));
+}
+
+function countCompletedSteps(steps: StepIllustrationEntry[], indices: number[]): number {
+  return indices.filter((idx) =>
+    isStepIllustrationDone(steps.find((s) => s.stepIndex === idx)),
+  ).length;
 }
 
 export function CraftIllustrationStudio({
@@ -34,14 +49,21 @@ export function CraftIllustrationStudio({
   const regenQueue = useRef<number[]>([]);
   const processingQueue = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const loadChapterState = useCallback(async (): Promise<ChapterState | null> => {
     const res = await fetch(
       `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations`,
     );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "無法載入配圖狀態");
-    setState(data as ChapterState);
+    const data = await readResponsePayload(res);
+    if (!res.ok) return null;
+    if (!Array.isArray(data.steps)) return null;
+    return data as ChapterState;
   }, [projectId, wvpChapterId]);
+
+  const refresh = useCallback(async () => {
+    const data = await loadChapterState();
+    if (!data) throw new Error("無法載入配圖狀態");
+    setState(data);
+  }, [loadChapterState]);
 
   useEffect(() => {
     setState(null);
@@ -57,9 +79,19 @@ export function CraftIllustrationStudio({
         body: JSON.stringify({ patches: [{ stepIndex, promptForApi, confirm }] }),
       },
     );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "儲存失敗");
+    const data = await readResponsePayload(res);
+    if (!res.ok) throw new Error(getFetchErrorMessage(res, data, "儲存失敗"));
     setState(data as ChapterState);
+  };
+
+  const recoverGenerateFromServer = async (indices: number[]): Promise<number | null> => {
+    const recovered = await loadChapterState();
+    if (!recovered) return null;
+    const completed = countCompletedSteps(recovered.steps, indices);
+    if (completed <= 0) return null;
+    setState(recovered);
+    setImageBust(Date.now());
+    return completed;
   };
 
   const generateSteps = async (indices: number[]) => {
@@ -74,14 +106,33 @@ export function CraftIllustrationStudio({
         ),
       },
     );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "生圖失敗");
-    setState((prev) => ({
-      ...(prev ?? { wvpChapterId, steps: [] }),
-      steps: data.steps as StepIllustrationEntry[],
-    }));
-    setImageBust(Date.now());
-    return data.generated as number;
+    const data = await readResponsePayload(res);
+
+    if (res.ok && Array.isArray(data.steps)) {
+      setState((prev) => ({
+        ...(prev ?? { wvpChapterId, steps: [] }),
+        steps: data.steps as StepIllustrationEntry[],
+      }));
+      setImageBust(Date.now());
+      return typeof data.generated === "number" ? data.generated : countCompletedSteps(
+        data.steps as StepIllustrationEntry[],
+        indices,
+      );
+    }
+
+    const emptyBody = Object.keys(data).length === 0 && !data.rawText;
+    if (emptyBody || TRANSIENT_HTTP_STATUS.has(res.status)) {
+      const recovered = await recoverGenerateFromServer(indices);
+      if (recovered !== null) return recovered;
+    }
+
+    if (!res.ok) {
+      throw new Error(getFetchErrorMessage(res, data, "生圖失敗"));
+    }
+
+    throw new Error(
+      "生圖回應不完整（可能逾時），請稍候重新整理確認；若圖片未出現請再試一次",
+    );
   };
 
   const processRegenQueue = useCallback(async () => {
@@ -130,8 +181,8 @@ export function CraftIllustrationStudio({
           ),
         },
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "規劃提示詞失敗");
+      const data = await readResponsePayload(res);
+      if (!res.ok) throw new Error(getFetchErrorMessage(res, data, "規劃提示詞失敗"));
       setState(data as ChapterState);
       toast(
         typeof stepIndex === "number"
@@ -216,8 +267,8 @@ export function CraftIllustrationStudio({
           body: JSON.stringify({ stepIndex, animationPrompt }),
         },
       );
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成動畫失敗");
+      const data = await readResponsePayload(res);
+      if (!res.ok) throw new Error(getFetchErrorMessage(res, data, "生成動畫失敗"));
       setState(data as ChapterState);
       onMutate?.();
       toast(`步驟 ${stepIndex + 1} 解說動畫生成完成`, "success");
@@ -247,8 +298,8 @@ export function CraftIllustrationStudio({
         body: JSON.stringify({ patches: [{ stepIndex, ...patch }] }),
       },
     );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "更新失敗");
+    const data = await readResponsePayload(res);
+    if (!res.ok) throw new Error(getFetchErrorMessage(res, data, "更新失敗"));
     setState(data as ChapterState);
   };
 
@@ -259,8 +310,8 @@ export function CraftIllustrationStudio({
       `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations/${stepIndex}/image`,
       { method: "POST", body: form },
     );
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? "上傳失敗");
+    const data = await readResponsePayload(res);
+    if (!res.ok) throw new Error(getFetchErrorMessage(res, data, "上傳失敗"));
     setState(data as ChapterState);
     setImageBust(Date.now());
   };

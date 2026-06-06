@@ -573,7 +573,37 @@ export async function planChapterIllustrationPrompts(
       );
     }
 
+    const wantsCommentaryAnimation =
+      recommendedOutput === "animation" ||
+      recommendedOutput === "chart" ||
+      recommendedOutput === "table";
+
     if (recommendedOutput !== "ai-image" && !forcedNeedsImage) {
+      if (wantsCommentaryAnimation) {
+        const animationPrompt =
+          directorPlan?.animationPromptZh?.trim() ||
+          directorPlan?.animationPromptEn?.trim() ||
+          [screen, script.slice(0, 200)].filter(Boolean).join("\n");
+        steps.push({
+          stepIndex,
+          screenSnippet: screen.slice(0, 120),
+          scriptSnippet: script.slice(0, 160),
+          recommendedOutput,
+          status: "prompt-draft",
+          promptForApi: animationPrompt,
+          promptStyleId: imageStyleId,
+          needsImage: true,
+          imageSource: "animation",
+          batchSelected: false,
+          imagePromptEn: directorPlan?.imagePromptEn,
+          coreMessage: directorPlan?.coreMessage,
+          confirmedAt: null,
+          imageWritten: false,
+          storagePath: null,
+          error: null,
+        });
+        continue;
+      }
       steps.push({
         stepIndex,
         screenSnippet: screen.slice(0, 120),
