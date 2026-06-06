@@ -118,6 +118,7 @@
   padding: var(--space-2) var(--space-3);
   border: 3px solid var(--accent);
   color: var(--accent);
+  font-size: var(--t-cue);
   font-weight: 900;
   transform: rotate(-8deg);
   animation: hk-stamp-drop var(--dur-base) var(--ease-quart) backwards;

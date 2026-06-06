@@ -117,7 +117,7 @@ export async function PATCH(
   };
 
   if (body.patches?.length) {
-    const stepState = await patchChapterIllustrationPrompts(
+    await patchChapterIllustrationPrompts(
       supabase,
       user.id,
       id,
@@ -130,6 +130,16 @@ export async function PATCH(
       .eq("project_id", id)
       .eq("wvp_chapter_id", wvpChapterId)
       .single();
+    const composition = await loadProjectComposition(supabase, id);
+    const stepState =
+      composition && updatedCraft
+        ? await getChapterIllustrationsState(supabase, user.id, id, updatedCraft, composition)
+        : {
+            wvpChapterId,
+            templateKind: undefined,
+            steps: [],
+            updatedAt: undefined,
+          };
     const chapterIllustration = updatedCraft
       ? await getChapterIllustrationEntryState(supabase, user.id, id, updatedCraft)
       : undefined;

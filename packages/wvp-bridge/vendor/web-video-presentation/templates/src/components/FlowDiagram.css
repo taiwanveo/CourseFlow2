@@ -26,20 +26,19 @@
   align-items: center;
 }
 .cf-flow-split:has(.cf-flow-aside img) {
-  grid-template-columns: 1fr;
-  grid-template-rows: auto minmax(240px, 1fr);
-  justify-items: center;
+  grid-template-columns: minmax(0, 1.05fr) minmax(300px, 0.95fr);
+  grid-template-rows: none;
   align-items: center;
-  text-align: center;
+  text-align: left;
 }
 .cf-flow-split:has(.cf-flow-aside img) .cf-flow-main {
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
   width: 100%;
 }
 .cf-flow-split:has(.cf-flow-aside img) .cf-flow-aside {
-  width: min(100%, 960px);
-  min-height: min(42vh, 480px);
+  width: 100%;
+  min-height: 280px;
 }
 
 .cf-flow-main {
@@ -80,9 +79,9 @@
   可修改 font-size / line-height / max-width 調整導言大小、密度與換行寬度。 */
 .cf-flow-intro {
   margin: 0;
-  font-size: clamp(2.0rem, 3.6vw, 3.8rem);
+  font-size: clamp(72px, 7vmin, 120px);
   line-height: 1.12;
-  max-width: 18ch;
+  max-width: 14ch;
 }
 
 .cf-flow-intro-accent {
@@ -131,7 +130,7 @@
 .cf-flow-label {
   fill: var(--text);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 22px;
 }
 
 .cf-flow-detail-wrap {
@@ -141,7 +140,7 @@
 /* 流程節點細節說明文字：若覺得每步說明太擠或太稀，可調這裡。 */
 .cf-flow-detail {
   margin: 0;
-  font-size: clamp(1.2rem, 2.2vw, 1.65rem);
+  font-size: clamp(40px, 4vmin, 56px);
   line-height: 1.45;
   animation: cf-flow-detail-in 0.55s ease forwards;
 }

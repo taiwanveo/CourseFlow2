@@ -46,6 +46,11 @@ import {
   type WvpIllustrationSyncOptions,
 } from "@/lib/wvp-illustration-sync";
 import { normalizeAnimationHtml } from "@/lib/wvp-animation-html";
+import {
+  craftAnimationStoragePath,
+  downloadCraftAnimationFromStorage,
+  uploadCraftAnimationToStorage,
+} from "@/lib/wvp-animation-sync";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { ensurePresentationScaffolded } from "@/lib/wvp-presentation-sync";
 export type StepIllustrationStatus =
@@ -72,6 +77,8 @@ export type StepIllustrationEntry = {
   imageSource?: "ai" | "upload" | "animation";
   /** AI 解說動畫：自包含的 HTML 字串（CSS/SVG/Canvas 動畫） */
   animationHtml?: string | null;
+  /** 解說動畫 HTML 的 Supabase Storage 路徑（打包時還原用） */
+  animationStoragePath?: string | null;
   /** 是否納入「批次生圖」 */
   batchSelected?: boolean;
   imagePromptEn?: string;
@@ -377,6 +384,12 @@ export async function getChapterIllustrationsState(
             resolvedExt ?? "jpg",
           )
         : (existing.storagePath ?? null);
+      let animationHtml = normalizeAnimationHtml(existing.animationHtml);
+      if (!animationHtml && existing.animationStoragePath?.trim()) {
+        animationHtml = normalizeAnimationHtml(
+          await downloadCraftAnimationFromStorage(supabase, existing.animationStoragePath.trim()),
+        );
+      }
       const imageSource = existing.imageSource ?? "ai";
       const needsImage = existing.needsImage ?? heuristicNeedsImage;
       const batchSelected =
@@ -394,7 +407,7 @@ export async function getChapterIllustrationsState(
               : "skip";
       steps.push({
         ...existing,
-        animationHtml: normalizeAnimationHtml(existing.animationHtml),
+        animationHtml,
         recommendedOutput: isDivider ? "chapter-divider" : existing.recommendedOutput,
         screenSnippet: screen.slice(0, 120) || existing.screenSnippet,
         scriptSnippet: script.slice(0, 160) || existing.scriptSnippet,
@@ -714,6 +727,14 @@ export async function patchChapterIllustrationPrompts(
     if (p.animationHtml !== undefined) {
       steps[idx]!.animationHtml = normalizeAnimationHtml(p.animationHtml);
       if (steps[idx]!.animationHtml) {
+        const animPath = craftAnimationStoragePath(
+          userId,
+          projectId,
+          craft.wvp_chapter_id,
+          steps[idx]!.stepIndex,
+        );
+        await uploadCraftAnimationToStorage(supabase, animPath, steps[idx]!.animationHtml);
+        steps[idx]!.animationStoragePath = animPath;
         steps[idx]!.imageSource = "animation";
         steps[idx]!.batchSelected = false;
         steps[idx]!.status = "done";
@@ -721,6 +742,7 @@ export async function patchChapterIllustrationPrompts(
         steps[idx]!.storagePath = null;
         steps[idx]!.error = null;
       } else if (steps[idx]!.imageSource === "animation") {
+        steps[idx]!.animationStoragePath = null;
         steps[idx]!.imageWritten = false;
         steps[idx]!.status =
           steps[idx]!.needsImage === false ? "skip" : "prompt-draft";

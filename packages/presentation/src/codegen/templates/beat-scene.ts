@@ -174,9 +174,10 @@ ${scenes.join("\n")}
   justify-content: center;
   text-align: center;
   min-height: 100%;
-  gap: var(--space-6, 2rem);
+  gap: var(--space-6);
 }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) {
+  display: grid;
   grid-template-columns: 1fr;
   grid-template-rows: auto minmax(240px, 1fr);
   justify-items: center;
@@ -230,7 +231,7 @@ ${scenes.join("\n")}
   animation: ${prefix}-grow 1.1s var(--ease-expo, ease-out) both;
 }
 .${prefix}-contrast-right { animation-delay: 0.35s; opacity: 0.55; }
-.${prefix}-metric-num { font-size: clamp(3rem, 8vw, 6rem); line-height: 1; }
+.${prefix}-metric-num { font-size: clamp(80px, 8vmin, 128px); line-height: 1; }
 .${prefix}-pulse-ring {
   display: block;
   width: 4rem;
@@ -242,11 +243,11 @@ ${scenes.join("\n")}
 .${prefix}-figure-wrap { display: flex; align-items: center; justify-content: center; }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure-wrap {
   width: min(100%, 1100px);
-  min-height: min(50vh, 540px);
+  min-height: 480px;
 }
-.${prefix}-figure { max-width: 100%; max-height: min(58vh, 560px); object-fit: contain; border-radius: var(--radius-md, 8px); }
+.${prefix}-figure { max-width: 100%; max-height: 560px; object-fit: contain; border-radius: var(--r-md); }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure {
-  max-height: min(62vh, 600px);
+  max-height: 600px;
 }
 @keyframes ${prefix}-grow {
   from { transform: scaleX(0); }

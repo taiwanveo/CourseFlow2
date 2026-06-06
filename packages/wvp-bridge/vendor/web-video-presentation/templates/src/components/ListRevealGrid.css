@@ -54,6 +54,8 @@
   text-align: center;
 }
 .lr-intro--has-figure .lr-intro-h {
+  font-size: clamp(64px, 7vmin, 96px);
+  line-height: 1.15;
   text-align: center;
   margin-inline: auto;
 }
@@ -79,6 +81,15 @@
   object-fit: contain;
   border-radius: calc(var(--r-card) - 4px);
   border: var(--rule-w) solid var(--rule);
+}
+.lr-item-anim {
+  display: block;
+  width: 100%;
+  min-height: 280px;
+  max-height: 360px;
+  border: none;
+  border-radius: calc(var(--r-card) - 2px);
+  overflow: hidden;
 }
 /* ══ 封面局天大標 ══
    有圖版：96px（視覺約 46px），無圖版：110px（視覺約 67px）
@@ -252,8 +263,9 @@
 
 .lr-featured-visual {
   width: 100%;
-  flex: 1;
-  min-height: 500px;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 520px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -287,12 +299,12 @@
 .lr-featured-anim {
   display: block;
   width: 100%;
-  min-height: 500px;
-  max-height: 700px;
+  min-height: 320px;
+  max-height: 520px;
   border: none;
   border-radius: calc(var(--r-card) - 2px);
   overflow: hidden;
-  flex: 1;
+  flex: 1 1 auto;
 }
 
 .lr-grid-ghost .lr-slot {

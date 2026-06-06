@@ -68,8 +68,8 @@ h3::after,
 
 /* 插圖至少佔半屏視覺重量 */
 .cf-chapter-figure {
-  max-width: min(1100px, 72vw);
-  min-width: min(520px, 50vw);
+  max-width: min(1100px, 1380px);
+  min-width: min(520px, 100%);
   flex: 1 1 50%;
 }
 

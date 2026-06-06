@@ -2,8 +2,8 @@
   max-width / min-width 可調整圖片框寬度範圍；min/max-height 可調整圖片框高度 */
 .cf-chapter-figure {
   margin: 0;
-  max-width: min(1100px, 72vw);
-  min-width: min(520px, 50vw);
+  max-width: min(1100px, 1380px);
+  min-width: min(520px, 100%);
   min-height: min(42vh, 420px);
   max-height: min(62vh, 600px);
   display: flex;

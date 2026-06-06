@@ -44,11 +44,11 @@
 }
 
 .cf-content-viz-bar-cap {
-  font-size: 0.65rem;
+  font-size: 24px;
   line-height: 1.2;
   text-align: center;
   color: var(--muted, var(--text));
-  max-width: 5.5rem;
+  max-width: 8rem;
 }
 
 /* ══ 項目清單模式 ══ 每項有小點 + 文字，逐項從左滞入 */
@@ -66,7 +66,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--space-3);
-  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-size: clamp(32px, 3vmin, 40px);
   opacity: 0;
   transform: translateX(-12px);
   animation: cf-content-list-in 0.7s var(--ease-quart, ease-out) forwards;
@@ -92,7 +92,7 @@
   padding: var(--space-2) var(--space-4);
   border: var(--rule-weight, 1px) solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: 999px;
-  font-size: clamp(1rem, 1.8vw, 1.35rem);
+  font-size: clamp(28px, 2.5vmin, 36px);
   opacity: 0;
   transform: scale(0.92);
   animation: cf-content-kw-in 0.65s var(--ease-quart, ease-out) forwards;

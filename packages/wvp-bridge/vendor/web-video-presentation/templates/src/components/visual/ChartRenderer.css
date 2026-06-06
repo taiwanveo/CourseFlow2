@@ -2,9 +2,10 @@
   width: 100%;
   color: var(--text);
 }
-.vf-title {
+.vf-chart .vf-title {
   margin: 0 0 var(--space-2);
-  font-size: var(--t-h2);
+  font-size: clamp(56px, 6.5vw, 96px);
+  line-height: 1.12;
 }
 .vf-sub {
   margin: 0 0 var(--space-4);

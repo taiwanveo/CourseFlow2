@@ -316,20 +316,20 @@ ${stepBlocks.join("\n")}
 }
 /* 章節 divider 主標題：調這裡可改章首大標字級、行高、最大寬度。 */
 .${prefix}-divider-title {
-  font-size: clamp(2.75rem, 6vw, 5.5rem);
+  font-size: clamp(80px, 7vmin, 120px);
   line-height: 1.08;
   margin: 0;
   max-width: 20ch;
   width: 100%;
 }
 .${prefix}-chapter-divider:has(.${prefix}-divider-figure img) .${prefix}-divider-title {
-  font-size: clamp(2rem, 3.8vw, 3.25rem);
+  font-size: clamp(56px, 5.5vmin, 88px);
   max-width: none;
 }
 .${prefix}-divider-figure {
   flex: 1;
   width: min(100%, 960px);
-  min-height: min(280px, 36vh);
+  min-height: 280px;
   align-self: center;
   display: flex;
   align-items: center;
@@ -339,9 +339,9 @@ ${stepBlocks.join("\n")}
   width: auto;
   max-width: 100%;
   height: auto;
-  max-height: min(55vh, 520px);
+  max-height: 520px;
   object-fit: contain;
-  border-radius: var(--r-card, 12px);
+  border-radius: var(--r-card);
 }
 .${prefix}-cover-body {
   flex: 1;
@@ -375,41 +375,37 @@ ${stepBlocks.join("\n")}
   text-align: center;
 }
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body,
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split,
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner,
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-grid {
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
   grid-template-columns: 1fr;
   justify-items: center;
   align-items: center;
   text-align: center;
 }
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-text,
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-copy,
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-copy {
   align-items: center;
   text-align: center;
 }
 /* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
-  font-size: clamp(2.75rem, 5vw, 5rem);
+  font-size: clamp(72px, 6.5vmin, 104px);
   line-height: 1.08;
   text-align: center;
   margin: 0;
 }
 /* headline 長短分級：標題字數越少，用越大的級距。 */
 .${prefix}-headline-short {
-  font-size: clamp(3.8rem, 6.4vw, 6.2rem);
+  font-size: clamp(88px, 7.5vmin, 112px);
   letter-spacing: 0.01em;
 }
 .${prefix}-headline-mid {
-  font-size: clamp(3.2rem, 5.6vw, 5.4rem);
+  font-size: clamp(72px, 6.5vmin, 96px);
 }
 .${prefix}-headline-long {
-  font-size: clamp(2.35rem, 4.6vw, 4.2rem);
+  font-size: clamp(56px, 5vmin, 80px);
 }
-.${prefix}-cover-num { font-size: clamp(4rem, 8vw, 7rem); margin-bottom: var(--space-4); }
+.${prefix}-cover-num { font-size: clamp(96px, 8vmin, 128px); margin-bottom: var(--space-4); }
 /* 內文段落：調這裡可改 body 字級、行高、單欄最長寬度。 */
-.${prefix}-body { text-align: left; font-size: var(--t-body, 22px); line-height: 1.55; max-width: 52ch; }
+.${prefix}-body { text-align: left; font-size: var(--t-body); line-height: 1.55; max-width: 52ch; }
 .asd-body-line { margin: 0 0 var(--space-3); color: var(--text-2, var(--text)); }
 /* split 版左右欄比例與間距。若要改文字區 / 圖片區寬度，改這裡。 */
 .${prefix}-split {
@@ -439,11 +435,11 @@ ${stepBlocks.join("\n")}
   align-items: center;
 }
 .${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); }
-.${prefix}-quote { text-align: left; font-size: clamp(2rem, 3.6vw, 3.5rem); }
+.${prefix}-quote { text-align: left; font-size: clamp(56px, 5vmin, 80px); }
 .${prefix}-figure {
   align-self: center;
   width: min(100%, 1100px);
-  min-height: min(50vh, 520px);
+  min-height: 480px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -452,10 +448,10 @@ ${stepBlocks.join("\n")}
 .${prefix}-figure .cf-chapter-figure,
 .${prefix}-figure .cf-chapter-figure img {
   width: auto;
-  max-width: min(100%, 72vw);
+  max-width: min(100%, 1380px);
   height: auto;
-  max-height: min(62vh, 600px);
-  min-height: min(36vh, 320px);
+  max-height: 600px;
+  min-height: 320px;
   object-fit: contain;
 }
 `;

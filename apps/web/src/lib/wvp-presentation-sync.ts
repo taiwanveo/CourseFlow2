@@ -19,6 +19,7 @@ import {
   craftPackIllustrationOpts,
   syncChapterIllustrationToStepImages,
 } from "@/lib/wvp-craft-illustrations";
+import { syncPresentationStepAnimations } from "@/lib/wvp-animation-sync";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
 import { uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
@@ -202,7 +203,10 @@ export async function materializeChapterFromCraft(
               .filter((sc) => sc.length > 3)
               .some((sc) => !llmTsx.includes(sc)),
         );
+  const mustRegenerateForPackagedAssets =
+    hasPackagedStepImagesForCraft(craft) || chapterHasStepExplainAnimations(craft);
   const useCachedLlmSource =
+    !mustRegenerateForPackagedAssets &&
     rawSource?.source === "llm" &&
     !forceTemplate &&
     assets.length === 0 &&
@@ -217,6 +221,7 @@ export async function materializeChapterFromCraft(
     );
   // 模板 TSX 由 applyChapterTemplate 依螢幕欄位產生；驗證失敗時仍優先沿用，避免重產時退回口播稿
   const useCachedTemplateSource =
+    !mustRegenerateForPackagedAssets &&
     rawSource?.source === "template" &&
     llmTsx &&
     !llmCacheScreenContentsStale &&
@@ -526,6 +531,16 @@ export async function buildAnchorChapterPreview(
     }
   }
 
+  await syncPresentationStepAnimations(
+    supabase,
+    userId,
+    projectId,
+    presentationDir,
+    [first],
+  ).catch((e) =>
+    console.warn("[wvp-trial] step animation sync failed:", (e as Error).message),
+  );
+
   const entries = await rebuildRegistryForProject(
     presentationDir,
     [first],
@@ -726,6 +741,16 @@ export async function syncFullWvpProject(
       } else if (illus.written > 0 && illus.written < illus.attempted) {
         illustrationSyncWarning = `已生成 ${illus.written}/${illus.attempted} 張配圖，其餘卡片僅顯示標題。`;
       }
+
+      await syncPresentationStepAnimations(
+        supabase,
+        userId,
+        projectId,
+        presentationDir,
+        (crafts ?? []) as CraftRow[],
+      ).catch((e) =>
+        console.warn("[wvp-build] step animation sync failed:", (e as Error).message),
+      );
 
       await rebuildRegistryForProject(
         presentationDir,

@@ -208,7 +208,12 @@ function Slot({
       <div className="lr-slot-num hero-num">{item.num}</div>
       <div className="lr-slot-content">
         {state !== "ghost" && (
-          <div className="lr-slot-title serif-cn">{item.title}</div>
+          <>
+            <div className="lr-slot-title serif-cn">{item.title}</div>
+            {item.body?.trim() ? (
+              <div className="lr-slot-body">{item.body}</div>
+            ) : null}
+          </>
         )}
       </div>
     </div>
