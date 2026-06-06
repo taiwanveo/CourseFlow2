@@ -23,6 +23,7 @@ COPY packages/tts/package.json packages/tts/
 COPY packages/craft-agent/package.json packages/craft-agent/
 COPY packages/presentation/package.json packages/presentation/
 COPY packages/visual-config/package.json packages/visual-config/
+COPY packages/explain-animation/package.json packages/explain-animation/
 COPY packages/wvp-bridge/package.json packages/wvp-bridge/
 RUN pnpm install --frozen-lockfile
 

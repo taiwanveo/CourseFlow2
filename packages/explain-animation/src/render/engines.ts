@@ -636,9 +636,7 @@ requestAnimationFrame(tick);})();`,
       return beforeAfterSliderScene(config.params);
     case "equation_balance":
       return equationBalanceScene(config.params);
-    default: {
-      const _exhaustive: never = config;
+    default:
       return emphasisScene("演示", undefined, "pulse");
-    }
   }
 }
