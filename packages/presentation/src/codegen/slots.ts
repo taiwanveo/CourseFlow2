@@ -160,10 +160,19 @@ export function parseFlowSlots(
   const introSub = introParts[1] ?? "";
   const nodes = narrations.slice(1).map((_n, i) => {
     const screen = screenTextOnly(screenContents[i + 1], `步驟 ${i + 1}`);
+    const stepTag = `步驟 ${i + 1}`;
+    const colonMatch = screen.match(/^步驟\s*([一二三四五六七八九十\d]+)\s*[：:]\s*(.+)$/);
+    if (colonMatch) {
+      return {
+        id: `n${i}`,
+        label: `步驟 ${colonMatch[1]}`,
+        detail: colonMatch[2]!.trim().slice(0, 48),
+      };
+    }
     const parts = splitHeadlineForStaggeredReveal(screen, 2);
     return {
       id: `n${i}`,
-      label: parts[0] ?? screen,
+      label: screenLabelForItem(screen, stepTag),
       detail: parts[1] ?? "",
     };
   });
