@@ -2,6 +2,7 @@ import {
   analyzeStepVisualPlan,
   generateVisualConfig,
   loadDesignTokensForTheme,
+  sanitizeVisualConfig,
   shouldStepHaveVisual,
   type VisualConfig,
 } from "@courseflow/visual-config";
@@ -51,7 +52,10 @@ export async function buildStepVisualConfigs(opts: {
       directorPlan: director.plan,
       llm: opts.llm,
     });
-    out.push({ step, config });
+    out.push({
+      step,
+      config: sanitizeVisualConfig(config, { screenContent: screen, stepScript: script }),
+    });
   }
   return out;
 }

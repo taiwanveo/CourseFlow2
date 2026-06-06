@@ -37,6 +37,8 @@ export function buildVisualConfigSystemPrompt(theme: DesignTokens): string {
 
 只回傳一個合法 JSON 物件，不要 Markdown、不要註解：
 - chart: { kind:"chart", chartType, title, subtitle?, xKey, yKey, data[], unit?, colorRole, designNote? }
+  - subtitle 可省略；若有，限 20 字內短語，禁止口播句、禁止「假設資料顯示」類敘述
+  - data 的 xKey 欄位只用週次／方案名等短標籤，禁止「口播」或口播稿摘錄
 - table: { kind:"table", title, columns[], rows[], highlightColumn?, sortBy?, highlightRowIndex?, emphasis?, numericAlign?, reveal?, columnMeta?, highlightBest?, density? }
 - animation: { kind:"animation", title, pattern, items[{text, icon?, emphasis}] }`);
 }

@@ -1,4 +1,5 @@
 import { FALLBACK_CALLOUT, inferVisualConfigFromText } from "../heuristic.js";
+import { sanitizeVisualConfig } from "../sanitize.js";
 import { safeParseVisualConfig, type VisualConfig } from "../schema/visual.js";
 import type { VisualDirectorPlan } from "../schema/visual-director.js";
 import type { DesignTokens } from "../tokens/theme-bridge.js";
@@ -75,7 +76,10 @@ export async function generateVisualConfig(opts: {
         const validated = safeParseVisualConfig(parsed);
         if (validated.success) {
           return {
-            config: validated.data,
+            config: sanitizeVisualConfig(validated.data, {
+              screenContent: opts.screenContent,
+              stepScript: opts.stepScript,
+            }),
             source: "llm",
             attempts: attempt,
             directorPlan: director,
@@ -88,13 +92,17 @@ export async function generateVisualConfig(opts: {
   }
 
   const heuristic = inferVisualConfigFromText(
-    `${opts.stepScript}\n${opts.articleSnippet ?? ""}`,
+    `${opts.screenContent?.trim() ?? ""}\n${opts.articleSnippet ?? ""}`.trim() ||
+      opts.stepScript.slice(0, 120),
   );
   if (heuristic) {
     const validated = safeParseVisualConfig(heuristic);
     if (validated.success) {
       return {
-        config: validated.data,
+        config: sanitizeVisualConfig(validated.data, {
+          screenContent: opts.screenContent,
+          stepScript: opts.stepScript,
+        }),
         source: "heuristic",
         attempts: 0,
         directorPlan: director,
@@ -102,19 +110,21 @@ export async function generateVisualConfig(opts: {
     }
   }
 
+  const screenLine =
+    opts.screenContent?.trim().slice(0, 72) ||
+    director?.coreMessage.slice(0, 72) ||
+    "重點";
   const fallback: VisualConfig = {
     kind: "animation",
-    title: director?.coreMessage.slice(0, 24) || "重點",
+    title: screenLine.slice(0, 24) || "重點",
     pattern: "callout",
-    items: [
-      {
-        text: opts.stepScript.trim().slice(0, 72) || director?.coreMessage.slice(0, 72) || "重點",
-        emphasis: true,
-      },
-    ],
+    items: [{ text: screenLine, emphasis: true }],
   };
   return {
-    config: fallback,
+    config: sanitizeVisualConfig(fallback, {
+      screenContent: opts.screenContent,
+      stepScript: opts.stepScript,
+    }),
     source: "fallback",
     attempts: maxRetries,
     error: "llm/heuristic failed",

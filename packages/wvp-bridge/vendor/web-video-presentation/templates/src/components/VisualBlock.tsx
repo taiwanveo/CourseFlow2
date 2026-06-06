@@ -29,7 +29,17 @@ export function VisualBlock({
       ) : config.kind === "table" ? (
         <TableRenderer key={step} config={config} step={step} />
       ) : (
-        <AnimationRenderer key={step} config={config} />
+        <AnimationRenderer
+          key={step}
+          config={config}
+          activeItemIndex={
+            config.pattern === "process-flow" || config.pattern === "reveal-list"
+              ? step >= 1
+                ? Math.min(step - 1, config.items.length - 1)
+                : -1
+              : undefined
+          }
+        />
       )}
     </div>
   );

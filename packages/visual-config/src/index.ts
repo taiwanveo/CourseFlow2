@@ -8,4 +8,5 @@ export type { LlmJsonCaller } from "./llm/generate.js";
 export * from "./llm/visual-director-prompt.js";
 export * from "./heuristic.js";
 export * from "./detect.js";
+export * from "./sanitize.js";
 export * from "./golden-cases.js";

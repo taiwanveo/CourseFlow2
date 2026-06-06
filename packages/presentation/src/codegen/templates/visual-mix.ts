@@ -76,6 +76,13 @@ ${stepBranches}
   height: 100%;
   color: var(--text);
 }
+.${componentName}-fallback p {
+  margin: 0;
+  font-size: clamp(56px, 7vw, 96px);
+  line-height: 1.15;
+  text-align: center;
+  max-width: 92%;
+}
 .vf-block {
   height: 100%;
   display: flex;

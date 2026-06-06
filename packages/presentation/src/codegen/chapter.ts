@@ -28,6 +28,18 @@ export function resolveChapterTemplate(input: ChapterCodegenInput): WvpChapterKi
 
 export function generateChapterSources(input: ChapterCodegenInput) {
   const kind = resolveChapterTemplate(input);
+  /** 已指定版型或 Beat-Scene／Magazine 觸發條件時，不得被 visual-mix 覆蓋 */
+  const isBeatSceneDividerOne =
+    input.narrations.length === 2 && Boolean(input.screenContents?.[0]?.trim());
+  const isSingleStepMagazine = input.narrations.length === 1;
+  const templateLocked =
+    kind === "hook" ||
+    kind === "list-reveal" ||
+    kind === "flow" ||
+    kind === "magazine" ||
+    isBeatSceneDividerOne ||
+    isSingleStepMagazine ||
+    Boolean(input.forceTemplate);
   const hasUploadedAssets =
     assetsForChapter(input.assets, input.wvpChapterId).length > 0;
   const hasPackagedStepImages =
@@ -38,7 +50,7 @@ export function generateChapterSources(input: ChapterCodegenInput) {
   const minStepsForVisualMix = Math.min(1, input.narrations.length);
   /** 有工作室配圖或強制模板時，不得用 visual-mix（否則畫面完全沒有 step 配圖） */
   const useVisualMix =
-    !input.forceTemplate &&
+    !templateLocked &&
     !hasPackagedStepImages &&
     !hasUploadedAssets &&
     visualConfigCount >= minStepsForVisualMix &&

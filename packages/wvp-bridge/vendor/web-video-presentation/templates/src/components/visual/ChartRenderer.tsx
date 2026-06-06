@@ -16,6 +16,18 @@ import {
 } from "recharts";
 import "./ChartRenderer.css";
 
+function looksLikeNarrationLeak(text: string): boolean {
+  const t = text.trim();
+  if (!t) return false;
+  if (t.length > 48) return true;
+  return /第一步|假設|百分之|口播|看完成率|資料顯示/i.test(t);
+}
+
+function safeSubtitle(subtitle?: string): string | undefined {
+  if (!subtitle?.trim()) return undefined;
+  return looksLikeNarrationLeak(subtitle) ? undefined : subtitle.trim();
+}
+
 export type ChartConfigProp = {
   kind: "chart";
   chartType: "bar" | "line" | "area" | "pie" | "kpi";
@@ -50,6 +62,7 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
   const colors = palette(config.colorRole);
   const axis = cssVar("--text-mute", "#888");
   const grid = cssVar("--rule", "rgba(255,255,255,0.08)");
+  const subtitle = safeSubtitle(config.subtitle);
 
   if (config.chartType === "kpi") {
     const row = config.data[0] ?? {};
@@ -58,7 +71,7 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
       <div className="vf-chart vf-kpi">
         <div className="vf-kpi-value hero-num">{String(val)}{config.unit ?? ""}</div>
         <div className="vf-kpi-title serif-cn">{config.title}</div>
-        {config.subtitle ? <p className="vf-sub">{config.subtitle}</p> : null}
+        {subtitle ? <p className="vf-sub">{subtitle}</p> : null}
       </div>
     );
   }
@@ -133,7 +146,7 @@ export function ChartRenderer({ config }: { config: ChartConfigProp }) {
   return (
     <div className="vf-chart">
       <h3 className="vf-title serif-cn">{config.title}</h3>
-      {config.subtitle ? <p className="vf-sub">{config.subtitle}</p> : null}
+      {subtitle ? <p className="vf-sub">{subtitle}</p> : null}
       <div className="vf-chart-box">
         <ResponsiveContainer width="100%" height={260}>
           {inner()}

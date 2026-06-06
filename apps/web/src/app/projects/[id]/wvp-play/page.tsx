@@ -13,7 +13,7 @@ export default async function WvpPlayPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ auto?: string; audio?: string; anchor?: string }>;
+  searchParams: Promise<{ auto?: string; audio?: string; anchor?: string; subs?: string }>;
 }) {
   const { id } = await params;
   const q = await searchParams;
@@ -67,8 +67,14 @@ export default async function WvpPlayPage({
   query.set("step", "0");
   query.set("cf_project", id);
   query.set("external_controls", "1");
-  if (q.auto === "1") query.set("auto", "1");
-  if (q.audio === "1") query.set("audio", "1");
+  if (q.auto === "1") {
+    query.set("auto", "1");
+  } else if (q.audio !== "0") {
+    // 手動播放：逐步點擊但仍播放口播（audio 模式）；僅 ?audio=0 完全靜音
+    query.set("audio", "1");
+  }
+  // 預覽預設關閉字幕列，避免口播全文疊在畫面底部（可按 S 開啟）
+  if (q.subs !== "on") query.set("subs", "off");
   if (project.presentation_revision) {
     query.set("cf_rev", project.presentation_revision);
   }
