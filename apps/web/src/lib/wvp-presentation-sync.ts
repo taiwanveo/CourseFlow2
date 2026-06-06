@@ -182,6 +182,16 @@ export async function materializeChapterFromCraft(
     appliedScreenContents !== undefined &&
     screenContentsFingerprint(appliedScreenContents) !==
       screenContentsFingerprint(currentScreenContents);
+  const templateNarrationLeakedOnScreen =
+    rawSource?.source === "template" &&
+    /ListRevealGrid/.test(llmTsx) &&
+    narrations.some((n) => {
+      const t = n.trim();
+      if (t.length < 12) return false;
+      if (llmTsx.includes(t)) return true;
+      const first = t.split(/[。！？.!?]/)[0]?.trim() ?? "";
+      return first.length >= 8 && llmTsx.includes(first);
+    });
   // LLM TSX：以全文比對；模板 TSX：intro 可能被分段，不可用 includes 判斷過期
   const llmCacheScreenContentsStale =
     rawSource?.source === "template"
@@ -207,7 +217,10 @@ export async function materializeChapterFromCraft(
     );
   // 模板 TSX 由 applyChapterTemplate 依螢幕欄位產生；驗證失敗時仍優先沿用，避免重產時退回口播稿
   const useCachedTemplateSource =
-    rawSource?.source === "template" && llmTsx && !llmCacheScreenContentsStale;
+    rawSource?.source === "template" &&
+    llmTsx &&
+    !llmCacheScreenContentsStale &&
+    !templateNarrationLeakedOnScreen;
   const preserveApprovedAnchor =
     opts?.preserveApprovedAnchorChapter === true &&
     craft.sort_order === 0 &&

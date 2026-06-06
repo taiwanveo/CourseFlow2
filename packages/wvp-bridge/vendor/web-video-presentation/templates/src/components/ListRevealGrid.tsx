@@ -187,11 +187,6 @@ function FeaturedCard({ item }: { item: ListRevealItem }) {
           </div>
         </MaskReveal>
       ) : null}
-      {item.body?.trim() ? (
-        <MaskReveal show delay={400} duration={900}>
-          <p className="lr-featured-body">{item.body}</p>
-        </MaskReveal>
-      ) : null}
     </article>
   );
 }

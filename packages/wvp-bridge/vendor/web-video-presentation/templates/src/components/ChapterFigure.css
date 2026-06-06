@@ -2,10 +2,10 @@
   max-width / min-width 可調整圖片框寬度範圍；min/max-height 可調整圖片框高度 */
 .cf-chapter-figure {
   margin: 0;
-  max-width: min(720px, 55vw);
-  min-width: min(420px, 38vw);
-  min-height: 240px;    /* 固定 stage-px */
-  max-height: 480px;
+  max-width: min(1100px, 72vw);
+  min-width: min(520px, 50vw);
+  min-height: min(42vh, 420px);
+  max-height: min(62vh, 600px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,9 +21,11 @@
   若想改成更滿版可測 `cover`，但會有裁切風險。 */
 .cf-chapter-figure img {
   display: block;
+  width: auto;
   max-width: 100%;
   height: auto;
-  max-height: 440px;    /* 直接用 stage-px 上限，不依賴 100% */
+  max-height: min(58vh, 560px);
+  min-height: min(36vh, 320px);
   object-fit: contain;
 }
 

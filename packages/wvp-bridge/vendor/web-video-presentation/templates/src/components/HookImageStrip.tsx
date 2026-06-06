@@ -59,9 +59,13 @@ export function HookImageStrip({
         <div className="hk-grid">
           {slides.map((s, idx) => (
             <MaskReveal show key={s.label} delay={idx * 200} duration={900}>
-              <div className="hk-ghost">
+              <div className={`hk-ghost${s.url ? " hk-ghost--has-img" : ""}`}>
                 <span className="hk-ghost-num">{s.label.split("/")[0]?.trim() || String(idx + 1)}</span>
-                <span className="hk-ghost-label">{s.url ? "ready" : "image"}</span>
+                {s.url ? (
+                  <img className="hk-ghost-thumb" src={s.url} alt="" loading="eager" />
+                ) : (
+                  <span className="hk-ghost-label">待配圖</span>
+                )}
               </div>
             </MaskReveal>
           ))}

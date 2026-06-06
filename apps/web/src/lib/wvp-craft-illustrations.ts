@@ -45,6 +45,7 @@ import {
   wvpStepNeedsIllustration,
   type WvpIllustrationSyncOptions,
 } from "@/lib/wvp-illustration-sync";
+import { normalizeAnimationHtml } from "@/lib/wvp-animation-html";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
 import { ensurePresentationScaffolded } from "@/lib/wvp-presentation-sync";
 export type StepIllustrationStatus =
@@ -393,6 +394,7 @@ export async function getChapterIllustrationsState(
               : "skip";
       steps.push({
         ...existing,
+        animationHtml: normalizeAnimationHtml(existing.animationHtml),
         recommendedOutput: isDivider ? "chapter-divider" : existing.recommendedOutput,
         screenSnippet: screen.slice(0, 120) || existing.screenSnippet,
         scriptSnippet: script.slice(0, 160) || existing.scriptSnippet,
@@ -710,8 +712,8 @@ export async function patchChapterIllustrationPrompts(
       }
     }
     if (p.animationHtml !== undefined) {
-      steps[idx]!.animationHtml = p.animationHtml;
-      if (p.animationHtml) {
+      steps[idx]!.animationHtml = normalizeAnimationHtml(p.animationHtml);
+      if (steps[idx]!.animationHtml) {
         steps[idx]!.imageSource = "animation";
         steps[idx]!.batchSelected = false;
         steps[idx]!.status = "done";

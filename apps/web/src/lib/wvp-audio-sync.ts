@@ -27,11 +27,16 @@ function normalizeText(s: string): string {
   return s.replace(/\s+/g, "").trim().slice(0, 80);
 }
 
-function craftNarrations(
-  _craft: CraftRow,
+/** 打包後 WVP 逐步口播（含 hook 展開步數）；優先 checklist，否則回退文稿步驟 */
+function wvpNarrationsForCraft(
+  craft: CraftRow,
   composition: CourseComposition,
   chapterId: string,
 ): string[] {
+  const fromChecklist = craft.checklist_result?.narrations;
+  if (Array.isArray(fromChecklist) && fromChecklist.length > 0) {
+    return fromChecklist.map((n) => (typeof n === "string" ? n : ""));
+  }
   return narrationsForChapter(composition, chapterId);
 }
 
@@ -107,7 +112,7 @@ export async function syncPresentationAudioFromComposition(
       screenContent: s.screenContent?.trim() ?? "",
     }));
 
-    const narrations = craftNarrations(craft, composition, chapter.id);
+    const narrations = wvpNarrationsForCraft(craft, composition, chapter.id);
     expectedSteps += narrations.length;
 
     for (let i = 0; i < narrations.length; i++) {
@@ -115,7 +120,13 @@ export async function syncPresentationAudioFromComposition(
       if (!narration.trim()) continue;
 
       let audioMeta: StepAudio | undefined;
-      const compStep = compSteps[i];
+      const compIdx =
+        compSteps.length > 0
+          ? narrations.length < compSteps.length && i === narrations.length - 1
+            ? compSteps.length - 1
+            : Math.min(i, compSteps.length - 1)
+          : -1;
+      const compStep = compIdx >= 0 ? compSteps[compIdx] : undefined;
       if (compStep) audioMeta = byStep.get(compStep.id);
       if (!audioMeta) audioMeta = findAudioForNarration(narration, compSteps, byStep);
 

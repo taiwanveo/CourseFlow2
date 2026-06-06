@@ -66,16 +66,16 @@ h3::after,
   display: none !important;
 }
 
-/* 插圖至少佔 30% 視覺重量 */
+/* 插圖至少佔半屏視覺重量 */
 .cf-chapter-figure {
-  max-width: min(720px, 55vw);
-  min-width: min(480px, 38vw);
-  flex: 1 1 38%;
+  max-width: min(1100px, 72vw);
+  min-width: min(520px, 50vw);
+  flex: 1 1 50%;
 }
 
 .cf-chapter-figure img {
-  max-height: 440px;    /* 固定 stage-px；避免 vh 在 iframe 縮放後失真 */
-  object-fit: contain; /* contain 確保圖片完整顯示，不裁切 */
+  max-height: min(58vh, 560px);
+  object-fit: contain;
 }
 
 /* 清單格：副標已停用，避免與主標重複 */
@@ -93,7 +93,13 @@ h3::after,
   font-size: var(--t-body);
   line-height: 1.6;
 }
-  line-height: 1.6;
+
+/* 無配圖引子：大標置中佔版寬 85% */
+.lr-intro:not(.lr-intro--has-figure) .lr-intro-h {
+  font-size: clamp(72px, 8.5vmin, 128px);
+  line-height: 1.12;
+  width: 85%;
+  max-width: 85%;
 }
 
 /* 防止文字溢出 */

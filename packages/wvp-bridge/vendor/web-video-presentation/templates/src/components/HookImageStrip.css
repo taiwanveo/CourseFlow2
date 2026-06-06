@@ -53,8 +53,17 @@
   font-family: var(--font-mono);
   font-size: var(--t-cue);
   color: var(--text-faint);
-  text-transform: uppercase;
   align-self: end;
+}
+.hk-ghost--has-img {
+  padding: 0;
+  overflow: hidden;
+}
+.hk-ghost-thumb {
+  flex: 1;
+  width: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--r-card) - 2px);
 }
 
 /* ══ 單圖全寬展示區 ══ 單圖場景預設寬 78%

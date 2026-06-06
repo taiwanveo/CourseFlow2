@@ -6,6 +6,7 @@ import {
   hookNarrationsForSlides,
   hookStepCount,
 } from "../hook-slots.js";
+import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
@@ -31,6 +32,11 @@ export function generateHookSources(
   const introKicker =
     (input.screenContents?.[0]?.trim() || input.title).slice(0, 24);
 
+  const stepImageBlock = buildCodegenStepImageBlock(
+    input.wvpChapterId,
+    input.stepImageExtensions ?? {},
+  );
+
   const slidesJson = JSON.stringify(
     slides.map((s) => ({
       url: s.url,
@@ -46,6 +52,7 @@ export function generateHookSources(
 import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
+${stepImageBlock}
 const SLIDES = ${slidesJson} as const;
 const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
 
@@ -53,15 +60,27 @@ function stepMotion(step: number) {
   return STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
 }
 
+function resolveSlideUrl(slideIndex: number, checkpointUrl: string | null): string | null {
+  if (checkpointUrl?.trim()) return checkpointUrl.trim();
+  const wvpStep = slideIndex + 1;
+  if (STEP_IMAGE_EXT[wvpStep]) return stepImageUrl(wvpStep);
+  if (slideIndex === 0 && STEP_IMAGE_EXT[0]) return stepImageUrl(0);
+  return null;
+}
+
 /** CourseFlow · Hook 多圖開場 */
 export default function ${componentName}({ step }: ChapterStepProps) {
   const motion = stepMotion(step);
+  const slides = SLIDES.map((s, idx) => ({
+    ...s,
+    url: resolveSlideUrl(idx, s.url),
+  }));
   return (
     <HookImageStrip
       step={step}
       chapterTitle={${JSON.stringify(deriveChapterKicker(input.wvpChapterId))}}
       introKicker={${JSON.stringify(introKicker)}}
-      slides={[...SLIDES]}
+      slides={slides}
       takeoverTitle={${JSON.stringify(takeover)}}
       closeLine={${JSON.stringify(closeLine)}}
       includeClose={${includeClose}}
@@ -72,7 +91,6 @@ export default function ${componentName}({ step }: ChapterStepProps) {
 }
 `;
 
-  // hook 版型實際可調樣式集中在 vendor CSS，這裡僅讓每章掛入同一套樣式表。
   const css = `/* ${componentName} — hook 使用 HookImageStrip 全域樣式 */\n`;
 
   return {

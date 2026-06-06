@@ -99,7 +99,10 @@
 /* No-image intro: big centered title, ghost grid hidden
    若你想調整「沒有圖片時」的大標尺寸，直接改這個 110px。 */
 .lr-intro:not(.lr-intro--has-figure) .lr-intro-h {
-  font-size: 110px;
+  font-size: clamp(72px, 8.5vmin, 128px);
+  width: 85%;
+  max-width: 85%;
+  line-height: 1.12;
 }
 .lr-intro:not(.lr-intro--has-figure) .lr-grid {
   display: none;

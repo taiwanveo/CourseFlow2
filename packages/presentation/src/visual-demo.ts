@@ -44,6 +44,18 @@ export function chapterBindsNarrationText(tsx: string, narrations: string[]): bo
   return false;
 }
 
+/** 章節 TSX 是否把口播原文（或首句）寫進畫面常數（例如 ListReveal ITEMS.body） */
+export function tsxLeaksNarrationOntoScreen(tsx: string, narrations: string[]): boolean {
+  for (const narration of narrations) {
+    const text = narration.trim();
+    if (text.length < 12) continue;
+    if (tsx.includes(text)) return true;
+    const firstSentence = text.split(/[。！？.!?]/)[0]?.trim() ?? "";
+    if (firstSentence.length >= 8 && tsx.includes(firstSentence)) return true;
+  }
+  return false;
+}
+
 export function chapterUsesInvalidMaskReveal(tsx: string): boolean {
   if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return false;
   // 純手寫 CSS/SVG 動畫不含 MaskReveal → 視為合法，不算「用錯"

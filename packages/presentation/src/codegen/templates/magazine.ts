@@ -442,18 +442,20 @@ ${stepBlocks.join("\n")}
 .${prefix}-quote { text-align: left; font-size: clamp(2rem, 3.6vw, 3.5rem); }
 .${prefix}-figure {
   align-self: center;
-  width: min(100%, 960px);
-  min-height: min(280px, 36vh);
+  width: min(100%, 1100px);
+  min-height: min(50vh, 520px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.${prefix}-figure img {
+.${prefix}-figure img,
+.${prefix}-figure .cf-chapter-figure,
+.${prefix}-figure .cf-chapter-figure img {
   width: auto;
-  max-width: 100%;
+  max-width: min(100%, 72vw);
   height: auto;
-  max-height: min(55vh, 520px);
-  min-height: 0;
+  max-height: min(62vh, 600px);
+  min-height: min(36vh, 320px);
   object-fit: contain;
 }
 `;

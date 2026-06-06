@@ -86,7 +86,8 @@ export function FlowDiagram({
         >
           {nodes.map((n, i) => {
             const x = 80 + i * 180;
-            const on = i <= active;
+            const on = i === active;
+            const edgeOn = i < active;
             return (
               <g key={n.id} className={on ? "cf-flow-node cf-flow-node--on" : "cf-flow-node"}>
                 {i < nodes.length - 1 && (
@@ -98,7 +99,7 @@ export function FlowDiagram({
                     className="cf-flow-edge"
                     style={{
                       strokeDasharray: "120",
-                      strokeDashoffset: on ? "0" : "120",
+                      strokeDashoffset: edgeOn ? "0" : "120",
                     }}
                   />
                 )}

@@ -60,7 +60,11 @@ function stepSceneBlock(
   screen: string,
   narration: string,
   figureLine: string,
+  kickerLabel?: string,
 ): string {
+  const kickerExpr = kickerLabel
+    ? JSON.stringify(kickerLabel)
+    : "CHAPTER_KICKER";
   const accent = beatAccentClass(screen, narration);
   const deco = beatDecoration(screen, narration, prefix);
   const subBlock = introSub
@@ -98,22 +102,48 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
     input.stepImageExtensions ?? {},
   );
 
-  const scenes = input.narrations.map((narration, stepIndex) => {
-    const screen = input.screenContents?.[stepIndex] ?? "";
+  /** 分隔頁 + 單一內容步：合併為一步全屏節拍（避免先點一次只有小標） */
+  const isDividerPlusOne =
+    input.narrations.length === 2 && Boolean(input.screenContents?.[0]?.trim());
+  const workNarrations = isDividerPlusOne
+    ? [input.narrations[1]!]
+    : input.narrations;
+  const workScreens = isDividerPlusOne
+    ? [input.screenContents?.[1] ?? ""]
+    : (input.screenContents ?? []);
+  const dividerKicker = isDividerPlusOne
+    ? screenTextOnly(input.screenContents?.[0], input.title)
+    : undefined;
+  const workMotions = isDividerPlusOne
+    ? [input.stepMotions?.[1] ?? input.stepMotions?.[0] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" }]
+    : (input.stepMotions ?? []);
+
+  const scenes = workNarrations.map((narration, stepIndex) => {
+    const screen = workScreens[stepIndex] ?? "";
     const headline = screenTextOnly(screen, "重點");
     const hasScreen = Boolean(screen.trim());
     const parts = hasScreen ? splitHeadlineForStaggeredReveal(headline, 2) : [];
     const intro = parts[0] ?? headline;
     const introSub = parts[1] ?? "";
-    const checkpoint = assetForStep(chapterAssets, stepIndex);
-    const hasStepImage = stepIndex in (input.stepImageExtensions ?? {});
+    const assetStepIndex = isDividerPlusOne ? 1 : stepIndex;
+    const checkpoint = assetForStep(chapterAssets, assetStepIndex);
+    const hasStepImage = assetStepIndex in (input.stepImageExtensions ?? {});
     let figureLine = "";
     if (checkpoint?.url?.trim()) {
       figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src="${escapeTsString(checkpoint.url.trim())}" alt="" /></div>`;
     } else if (hasStepImage) {
-      figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src={stepImageUrl(${stepIndex})} alt="" /></div>`;
+      figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src={stepImageUrl(${assetStepIndex})} alt="" /></div>`;
     }
-    return stepSceneBlock(stepIndex, intro, introSub, prefix, screen, narration, figureLine);
+    return stepSceneBlock(
+      stepIndex,
+      intro,
+      introSub,
+      prefix,
+      screen,
+      narration,
+      figureLine,
+      dividerKicker,
+    );
   });
 
   const tsx = `import { MaskReveal } from "../../components/MaskReveal";
@@ -121,7 +151,7 @@ import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
 ${stepImageBlock}
-const STEP_MOTIONS = ${JSON.stringify(input.stepMotions ?? [], null, 2)} as const;
+const STEP_MOTIONS = ${JSON.stringify(workMotions, null, 2)} as const;
 const CHAPTER_KICKER = ${JSON.stringify(kicker)};
 
 function stepMotion(step: number) {
@@ -138,11 +168,13 @@ ${scenes.join("\n")}
 
   const css = `/* ${componentName} — beat-scene */
 .${prefix}-scene {
-  display: grid;
-  grid-template-columns: 1fr minmax(0, 38%);
-  gap: var(--space-6, 2rem);
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  text-align: center;
   min-height: 100%;
+  gap: var(--space-6, 2rem);
 }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) {
   grid-template-columns: 1fr;
@@ -163,13 +195,22 @@ ${scenes.join("\n")}
 .${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-contrast {
   margin-inline: auto;
 }
-.${prefix}-main { display: flex; flex-direction: column; gap: var(--space-4, 1.25rem); }
+.${prefix}-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4, 1.25rem);
+  width: 85%;
+  max-width: 85%;
+}
 .${prefix}-kicker { opacity: 0.72; }
 .${prefix}-headline {
   margin: 0;
-  font-size: var(--t-h1);
-  line-height: 1.08;
-  max-width: 16ch;
+  font-size: clamp(72px, 8.5vmin, 128px);
+  line-height: 1.1;
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
 }
 .${prefix}-headline-sub { font-style: italic; color: var(--accent, var(--text)); }
 .${prefix}-accent-metric { color: var(--accent, var(--text)); }
@@ -200,12 +241,12 @@ ${scenes.join("\n")}
 }
 .${prefix}-figure-wrap { display: flex; align-items: center; justify-content: center; }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure-wrap {
-  width: min(100%, 960px);
-  min-height: min(42vh, 480px);
+  width: min(100%, 1100px);
+  min-height: min(50vh, 540px);
 }
-.${prefix}-figure { max-width: 100%; max-height: min(52vh, 420px); object-fit: contain; border-radius: var(--radius-md, 8px); }
+.${prefix}-figure { max-width: 100%; max-height: min(58vh, 560px); object-fit: contain; border-radius: var(--radius-md, 8px); }
 .${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure {
-  max-height: min(55vh, 520px);
+  max-height: min(62vh, 600px);
 }
 @keyframes ${prefix}-grow {
   from { transform: scaleX(0); }
@@ -222,6 +263,7 @@ ${scenes.join("\n")}
     componentName,
     tsx,
     css,
-    narrationsTs: buildNarrationsTs(input),
+    narrationsTs: buildNarrationsTs({ ...input, narrations: workNarrations }),
+    narrations: workNarrations,
   };
 }
