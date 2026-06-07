@@ -25,6 +25,7 @@ COPY packages/presentation/package.json packages/presentation/
 COPY packages/visual-config/package.json packages/visual-config/
 COPY packages/explain-animation/package.json packages/explain-animation/
 COPY packages/wvp-bridge/package.json packages/wvp-bridge/
+COPY packages/wvp-craft/package.json packages/wvp-craft/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
