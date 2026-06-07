@@ -559,7 +559,7 @@ async function chapterIllustrationFilesOnDisk(
   );
 }
 
-/** 掃描 presentation/public/animations 已寫入的步驟索引（0-based） */
+/** 掃描 presentation/public/animations 已寫入且可播放的步驟索引（0-based） */
 async function chapterAnimationStepsInPresentation(
   presentationDir: string,
   wvpChapterId: string,
@@ -572,7 +572,14 @@ async function chapterAnimationStepsInPresentation(
       const m = STEP_ANIMATION_FILE_RE.exec(name);
       if (!m) continue;
       const step = Number.parseInt(m[1]!, 10) - 1;
-      if (step >= 0) steps.push(step);
+      if (step < 0) continue;
+      try {
+        const html = await readFile(join(dir, name), "utf-8");
+        if (!isPlayableAnimationHtml(html)) continue;
+      } catch {
+        continue;
+      }
+      steps.push(step);
     }
     return steps.sort((a, b) => a - b);
   } catch {

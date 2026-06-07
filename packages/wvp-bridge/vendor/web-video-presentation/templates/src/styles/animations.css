@@ -8,8 +8,14 @@
 .mask-reveal {
   clip-path: inset(0 100% 0 0);
   transition: clip-path 700ms var(--ease-quart);
+  /* 斜體／標點右側易超出 glyph box，避免撦除完成後最後一字被裁切 */
+  padding-inline-end: 0.14em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
-.mask-reveal.in { clip-path: inset(0 0 0 0); }
+.mask-reveal.in {
+  clip-path: inset(0 -0.12em 0 0);
+}
 
 /* ══ 分隔線從左展開 ══ scaleX 0→1，需加 .in class 觸發 */
 .rule-grow {

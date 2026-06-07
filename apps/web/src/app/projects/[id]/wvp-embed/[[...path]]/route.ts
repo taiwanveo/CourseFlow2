@@ -46,6 +46,11 @@ function isSpaIndexRequest(relPath: string): boolean {
   return relPath === "index.html";
 }
 
+/** 章節內嵌 iframe 動畫須同源載入；不可 307 到 Storage CDN（否則 iframe 顯示 HTML 原始碼） */
+function isEmbedAnimationHtml(relPath: string): boolean {
+  return /^animations\/[^/]+\/\d{2}\.html$/i.test(relPath);
+}
+
 function isDistStaticAsset(lastSeg: string, relPath: string): boolean {
   if (/\.html$/i.test(lastSeg)) {
     return !isSpaIndexRequest(relPath);
@@ -99,7 +104,7 @@ export async function GET(
 
   const useStorageCdn = shouldServeWvpAssetsViaStorage();
 
-  if (isAsset && useStorageCdn) {
+  if (isAsset && useStorageCdn && !isEmbedAnimationHtml(relPath)) {
     const signedUrl = await createWvpDistSignedUrl(supabase, user.id, id, relPath);
     if (signedUrl) {
       return NextResponse.redirect(signedUrl, {

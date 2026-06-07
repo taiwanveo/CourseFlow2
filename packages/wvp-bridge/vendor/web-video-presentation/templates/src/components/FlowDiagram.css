@@ -109,6 +109,7 @@
 .cf-flow-intro-accent {
   color: var(--accent, var(--text));
   font-style: italic;
+  padding-inline-end: 0.1em;
 }
 
 /* ══ 流程軌道：橫向（≤2 節點）／直向堆疊（≥3 節點） ══ */
