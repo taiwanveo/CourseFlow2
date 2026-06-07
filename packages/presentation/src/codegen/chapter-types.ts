@@ -18,6 +18,8 @@ export interface ChapterCodegenInput {
   stepImageExtensions?: Record<number, string>;
   /** 有動畫 HTML 檔的步驟索引清單（對應 public/animations/<wvpChapterId>/<NN>.html） */
   stepAnimationIndices?: number[];
+  /** 打包時內嵌至章節 TSX 的動畫 HTML（避免預覽 iframe 遠端載入失敗） */
+  stepAnimationHtmlByStep?: Partial<Record<number, string>>;
 }
 
 export function chapterComponentName(wvpChapterId: string): string {

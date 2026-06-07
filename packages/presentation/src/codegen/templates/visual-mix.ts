@@ -30,7 +30,7 @@ function stepAnimationEmbedBranch(step: number, componentName: string): string {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
       <div className={\`${componentName}-anim-wrap scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <SafeAnimationFrame className="${componentName}-anim-frame" src={stepAnimationUrl(${step})} title="" loading="eager" sandbox="allow-scripts allow-same-origin" />
+        <SafeAnimationFrame className="${componentName}-anim-frame" srcDoc={stepAnimationSrcDoc(${step})} title="" loading="eager" sandbox="allow-scripts allow-same-origin" />
       </div>
     );
   }`;
@@ -42,7 +42,11 @@ export function generateVisualMixSources(
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
   const animIndices = input.stepAnimationIndices ?? [];
-  const stepAnimationBlock = buildCodegenStepAnimationBlock(input.wvpChapterId, animIndices);
+  const stepAnimationBlock = buildCodegenStepAnimationBlock(
+    input.wvpChapterId,
+    animIndices,
+    input.stepAnimationHtmlByStep,
+  );
   const configLiteral = stepVisuals
     .map((e) => `  ${e.step}: ${JSON.stringify(e.config)},`)
     .join("\n");

@@ -79,6 +79,7 @@ export function FlowDiagram({
   introSub,
   nodes,
   stepImageUrl,
+  stepAnimationHtml,
   stepAnimationUrl,
   enterAnimationId = "fade-up",
   transitionId = "crossfade",
@@ -89,6 +90,8 @@ export function FlowDiagram({
   introSub?: string;
   nodes: FlowNode[];
   stepImageUrl?: string;
+  stepAnimationHtml?: string;
+  /** @deprecated 請改用 stepAnimationHtml */
   stepAnimationUrl?: string;
   enterAnimationId?: string;
   transitionId?: string;
@@ -96,7 +99,7 @@ export function FlowDiagram({
   const active = Math.max(0, step - 1);
   const normalizedNodes = nodes.map(normalizeFlowNode);
   const current = normalizedNodes[active];
-  const hasAnimation = Boolean(stepAnimationUrl?.trim());
+  const hasAnimation = Boolean(stepAnimationHtml?.trim() || stepAnimationUrl?.trim());
   const hasImage = !hasAnimation && Boolean(stepImageUrl?.trim());
   const figure =
     hasAnimation || hasImage ? (
@@ -104,7 +107,8 @@ export function FlowDiagram({
         {hasAnimation ? (
           <SafeAnimationFrame
             className="cf-flow-anim"
-            src={stepAnimationUrl}
+            srcDoc={stepAnimationHtml}
+            src={stepAnimationHtml ? undefined : stepAnimationUrl}
             sandbox="allow-scripts allow-same-origin"
             title={current?.label ?? intro}
             loading="eager"

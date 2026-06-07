@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPlayableAnimationHtml } from "@/lib/wvp-animation-html";
@@ -81,6 +81,42 @@ export type StepAnimationSyncResult = {
   reused: number;
   attempted: number;
 };
+
+export type StepAnimationHtmlMap = {
+  indices: number[];
+  htmlByStep: Partial<Record<number, string>>;
+};
+
+/** 掃描 presentation/public/animations 並回傳可內嵌至章節 TSX 的 HTML */
+export async function loadStepAnimationHtmlMap(
+  presentationDir: string,
+  wvpChapterId: string,
+): Promise<StepAnimationHtmlMap> {
+  const dir = join(presentationDir, "public", "animations", wvpChapterId);
+  const indices: number[] = [];
+  const htmlByStep: Partial<Record<number, string>> = {};
+  try {
+    const names = await readdir(dir);
+    for (const name of names) {
+      const m = /^(\d{2})\.html$/i.exec(name);
+      if (!m) continue;
+      const step = Number.parseInt(m[1]!, 10) - 1;
+      if (step < 0) continue;
+      try {
+        const html = await readFile(join(dir, name), "utf-8");
+        if (!isPlayableAnimationHtml(html)) continue;
+        indices.push(step);
+        htmlByStep[step] = html;
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    return { indices: [], htmlByStep: {} };
+  }
+  indices.sort((a, b) => a - b);
+  return { indices, htmlByStep };
+}
 
 export type HeuristicExplainAnimationSyncResult = {
   written: number;

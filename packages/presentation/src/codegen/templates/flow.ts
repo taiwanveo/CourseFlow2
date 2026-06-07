@@ -25,13 +25,17 @@ export function generateFlowSources(input: ChapterCodegenInput) {
     input.stepImageExtensions ?? {},
   );
   const animIndices = input.stepAnimationIndices ?? [];
-  const stepAnimationBlock = buildCodegenStepAnimationBlock(input.wvpChapterId, animIndices);
+  const stepAnimationBlock = buildCodegenStepAnimationBlock(
+    input.wvpChapterId,
+    animIndices,
+    input.stepAnimationHtmlByStep,
+  );
   const stepAnimationHelper =
     animIndices.length > 0
-      ? `function stepAnimation(step: number) {
-  return hasStepAnimation(step) ? stepAnimationUrl(step) : undefined;
+      ? `function stepAnimationHtml(step: number) {
+  return hasStepAnimation(step) ? stepAnimationSrcDoc(step) : undefined;
 }`
-      : `function stepAnimation(_step: number) {
+      : `function stepAnimationHtml(_step: number) {
   return undefined;
 }`;
 
@@ -70,7 +74,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       introSub={${JSON.stringify(introSub)}}
       nodes={[...NODES]}
       stepImageUrl={stepImage(step)}
-      stepAnimationUrl={stepAnimation(step)}
+      stepAnimationHtml={stepAnimationHtml(step)}
       enterAnimationId={motion.enterAnimationId}
       transitionId={motion.transitionId}
     />

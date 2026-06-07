@@ -18,15 +18,25 @@ function stepImageUrl(step: number) {
 `;
 }
 
-/** 章節 TSX 內嵌：依步驟是否有動畫 HTML 檔組合動畫 URL */
+/** 章節 TSX 內嵌：動畫步驟集合 + 內嵌 HTML（優先）或 URL 候補 */
 export function buildCodegenStepAnimationBlock(
   wvpChapterId: string,
   animationStepIndices: number[],
+  htmlByStep?: Partial<Record<number, string>>,
 ): string {
   if (animationStepIndices.length === 0) return "";
+  const inlineMap: Record<number, string> = {};
+  for (const step of animationStepIndices) {
+    const html = htmlByStep?.[step]?.trim();
+    if (html) inlineMap[step] = html;
+  }
   return `const STEP_ANIMATION_SET = new Set<number>(${JSON.stringify(animationStepIndices)});
+const STEP_ANIMATION_HTML: Partial<Record<number, string>> = ${JSON.stringify(inlineMap)};
 function stepAnimationUrl(step: number) {
   return \`\${import.meta.env.BASE_URL}animations/\${WVP_ID}/\${String(step + 1).padStart(2, "0")}.html\`;
+}
+function stepAnimationSrcDoc(step: number) {
+  return STEP_ANIMATION_HTML?.[step] ?? undefined;
 }
 function hasStepAnimation(step: number) { return STEP_ANIMATION_SET.has(step); }
 `;

@@ -7,8 +7,6 @@ import {
 } from "react";
 import "./SafeAnimationFrame.css";
 
-const DEFAULT_FAIL_LABEL = "動畫載入失敗，請在視覺動效重新生成";
-
 /** 原始 HTML 字串是否不適合嵌入 iframe（純文字原始碼、404 頁等） */
 export function animationHtmlSourceLooksBroken(html: string): boolean {
   const trimmed = html.trim();
@@ -47,7 +45,7 @@ function animationFrameLooksBroken(iframe: HTMLIFrameElement): boolean {
 
 export function SafeAnimationFrame({
   className,
-  failLabel = DEFAULT_FAIL_LABEL,
+  failLabel = "動畫",
   onLoad,
   src,
   srcDoc,
@@ -56,6 +54,7 @@ export function SafeAnimationFrame({
 }: IframeHTMLAttributes<HTMLIFrameElement> & { failLabel?: string }) {
   const [failed, setFailed] = useState(false);
   const [resolvedDoc, setResolvedDoc] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setFailed(false);
@@ -69,6 +68,7 @@ export function SafeAnimationFrame({
 
     let cancelled = false;
     const controller = new AbortController();
+    setLoading(true);
 
     void (async () => {
       try {
@@ -77,29 +77,23 @@ export function SafeAnimationFrame({
           credentials: "same-origin",
         });
         if (cancelled) return;
-        const contentType = res.headers.get("content-type") ?? "";
         const text = await res.text();
-        if (!res.ok) {
-          setFailed(true);
-          return;
-        }
-        if (!/text\/html/i.test(contentType) && animationHtmlSourceLooksBroken(text)) {
-          setFailed(true);
-          return;
-        }
-        if (animationHtmlSourceLooksBroken(text)) {
+        if (!res.ok || animationHtmlSourceLooksBroken(text)) {
           setFailed(true);
           return;
         }
         setResolvedDoc(text);
       } catch {
         if (!cancelled) setFailed(true);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
 
     return () => {
       cancelled = true;
       controller.abort();
+      setLoading(false);
     };
   }, [src, srcDoc]);
 
@@ -115,17 +109,21 @@ export function SafeAnimationFrame({
 
   const inlineDoc = srcDoc?.trim() || resolvedDoc?.trim() || "";
 
-  if (failed || (!inlineDoc && !src?.trim())) {
-    return (
-      <div
-        className={["cf-anim-fallback", className].filter(Boolean).join(" ")}
-        role="img"
-        aria-label={failLabel}
-        data-no-advance
-      >
-        <span>{failLabel}</span>
-      </div>
-    );
+  if (failed) {
+    return null;
+  }
+
+  if (!inlineDoc) {
+    if (loading && src?.trim()) {
+      return null;
+    }
+    if (!src?.trim()) {
+      return null;
+    }
+  }
+
+  if (!inlineDoc && !src?.trim()) {
+    return null;
   }
 
   return (
@@ -134,7 +132,7 @@ export function SafeAnimationFrame({
       className={className}
       src={inlineDoc ? undefined : src}
       srcDoc={inlineDoc || undefined}
-      title={title ?? ""}
+      title={title ?? failLabel}
       onLoad={handleLoad}
     />
   );

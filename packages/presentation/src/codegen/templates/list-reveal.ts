@@ -32,7 +32,7 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
 
   let introVisualLine: string;
   if (hasIntroAnimation) {
-    introVisualLine = `introAnimationUrl={hasStepAnimation(0) ? stepAnimationUrl(0) : undefined}`;
+    introVisualLine = `introAnimationHtml={hasStepAnimation(0) ? stepAnimationSrcDoc(0) : undefined}`;
   } else if (introCheckpoint?.url?.trim()) {
     introVisualLine = `introImageUrl="${escapeTsString(introCheckpoint.url.trim())}"`;
   } else if (hasIntroStepImage) {
@@ -49,7 +49,7 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
       let visualLine: string;
       const hasStepImage = wvpStep in (input.stepImageExtensions ?? {});
       if (hasAnim) {
-        visualLine = `    animationUrl: hasStepAnimation(${wvpStep}) ? stepAnimationUrl(${wvpStep}) : undefined,\n`;
+        visualLine = `    animationHtml: hasStepAnimation(${wvpStep}) ? stepAnimationSrcDoc(${wvpStep}) : undefined,\n`;
       } else if (checkpoint?.url?.trim()) {
         visualLine = `    imageUrl: "${escapeTsString(checkpoint.url.trim())}",\n`;
       } else if (hasStepImage) {
@@ -72,6 +72,7 @@ ${visualLine}  }`;
   const stepAnimationBlock = buildCodegenStepAnimationBlock(
     input.wvpChapterId,
     input.stepAnimationIndices ?? [],
+    input.stepAnimationHtmlByStep,
   );
 
   const tsx = `import { ListRevealGrid } from "../../components/ListRevealGrid";

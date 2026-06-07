@@ -23,6 +23,7 @@ export function ListRevealGrid({
   items,
   kicker,
   introImageUrl,
+  introAnimationHtml,
   introAnimationUrl,
   enterAnimationId = "fade-up",
   transitionId = "crossfade",
@@ -35,7 +36,9 @@ export function ListRevealGrid({
   kicker?: string;
   /** 第 0 步（章節引子／分隔頁）配圖 */
   introImageUrl?: string;
-  /** 第 0 步（章節引子／分隔頁）AI 動畫 URL（優先於 introImageUrl） */
+  /** 第 0 步（章節引子／分隔頁）AI 動畫 HTML（打包內嵌，優先於 URL） */
+  introAnimationHtml?: string;
+  /** @deprecated 請改用 introAnimationHtml */
   introAnimationUrl?: string;
   enterAnimationId?: string;
   transitionId?: string;
@@ -44,11 +47,12 @@ export function ListRevealGrid({
 
   if (step === 0) {
     const cols = Math.min(Math.max(items.length, 1), 4);
-    const showIntroAnim = Boolean(introAnimationUrl?.trim());
+    const showIntroAnim = Boolean(introAnimationHtml?.trim());
+    const showIntroAnimLegacy = !showIntroAnim && Boolean(introAnimationUrl?.trim());
     const showIntroImg = !showIntroAnim && Boolean(introImageUrl?.trim()) && introImgOk;
     return (
       <div
-        className={`lr-scene scene-pad lr-intro cf-enter-${enterAnimationId}${showIntroAnim || showIntroImg ? " lr-intro--has-figure" : ""}`}
+        className={`lr-scene scene-pad lr-intro cf-enter-${enterAnimationId}${showIntroAnim || showIntroAnimLegacy || showIntroImg ? " lr-intro--has-figure" : ""}`}
         data-cf-transition={transitionId}
       >
         <header className="lr-masthead">
@@ -66,12 +70,13 @@ export function ListRevealGrid({
             </MaskReveal>
           ) : null}
         </div>
-        {showIntroAnim ? (
+        {showIntroAnim || showIntroAnimLegacy ? (
           <MaskReveal show delay={220} duration={900}>
             <div className="lr-intro-visual" data-no-advance>
               <SafeAnimationFrame
                 className="lr-item-anim"
-                src={introAnimationUrl}
+                srcDoc={introAnimationHtml}
+                src={introAnimationHtml ? undefined : introAnimationUrl}
                 sandbox="allow-scripts allow-same-origin"
                 allow="autoplay"
                 style={{ border: "none", width: "100%", height: "100%" }}

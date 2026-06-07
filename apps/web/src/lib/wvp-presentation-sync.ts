@@ -24,11 +24,11 @@ import {
   syncChapterIllustrationToStepImages,
 } from "@/lib/wvp-craft-illustrations";
 import {
+  loadStepAnimationHtmlMap,
   syncHeuristicExplainAnimations,
   syncPresentationStepAnimations,
 } from "@/lib/wvp-animation-sync";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
-import { isPlayableAnimationHtml } from "@/lib/wvp-animation-html";
 import { invalidateWvpDistCaches, uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
@@ -351,25 +351,8 @@ export async function materializeChapterFromCraft(
       ...stepImageExtensionsFromDir,
     };
 
-    // 掃描動畫目錄，找出哪些 step 有動畫 HTML 檔
-    const stepAnimationIndices: number[] = [];
-    try {
-      const animDir = join(presentationDir, "public", "animations", craft.wvp_chapter_id);
-      const animFiles = await readdir(animDir);
-      for (const name of animFiles) {
-        const m = /^(\d{2})\.html$/i.exec(name);
-        if (!m) continue;
-        const step = Number.parseInt(m[1]!, 10) - 1;
-        if (step < 0) continue;
-        try {
-          const html = await readFile(join(animDir, name), "utf-8");
-          if (!isPlayableAnimationHtml(html)) continue;
-        } catch {
-          continue;
-        }
-        stepAnimationIndices.push(step);
-      }
-    } catch { /* 目錄不存在 */ }
+    const { indices: stepAnimationIndices, htmlByStep: stepAnimationHtmlByStep } =
+      await loadStepAnimationHtmlMap(presentationDir, craft.wvp_chapter_id);
 
     const preferImageTemplate =
       !dataVisualChapter &&
@@ -405,6 +388,8 @@ export async function materializeChapterFromCraft(
       stepMotions,
       stepImageExtensions,
       stepAnimationIndices: stepAnimationIndices.length ? stepAnimationIndices : undefined,
+      stepAnimationHtmlByStep:
+        Object.keys(stepAnimationHtmlByStep).length > 0 ? stepAnimationHtmlByStep : undefined,
     });
     if (
       written.narrations.length > 0 &&
@@ -534,7 +519,6 @@ function hasPackagedStepImagesForCraft(craft: CraftRow): boolean {
 }
 
 const STEP_IMAGE_FILE_RE = /^\d{2}\.(jpe?g|png|gif|bmp)$/i;
-const STEP_ANIMATION_FILE_RE = /^(\d{2})\.html$/i;
 
 async function chapterIllustrationFilesInPresentation(
   presentationDir: string,
@@ -564,27 +548,8 @@ async function chapterAnimationStepsInPresentation(
   presentationDir: string,
   wvpChapterId: string,
 ): Promise<number[]> {
-  const dir = join(presentationDir, "public", "animations", wvpChapterId);
-  try {
-    const names = await readdir(dir);
-    const steps: number[] = [];
-    for (const name of names) {
-      const m = STEP_ANIMATION_FILE_RE.exec(name);
-      if (!m) continue;
-      const step = Number.parseInt(m[1]!, 10) - 1;
-      if (step < 0) continue;
-      try {
-        const html = await readFile(join(dir, name), "utf-8");
-        if (!isPlayableAnimationHtml(html)) continue;
-      } catch {
-        continue;
-      }
-      steps.push(step);
-    }
-    return steps.sort((a, b) => a - b);
-  } catch {
-    return [];
-  }
+  const { indices } = await loadStepAnimationHtmlMap(presentationDir, wvpChapterId);
+  return indices;
 }
 
 /** checklist 內快取 TSX 未嵌入磁碟上已同步的配圖／動畫時，必須重產章節程式 */
@@ -597,12 +562,21 @@ function cachedChapterSourceMissingPackagedAssets(
   const referencesStepImages =
     /stepImageUrl|STEP_IMAGE_EXT|introImageUrl|imageUrl\s*:/.test(llmTsx);
   const referencesStepAnimations =
-    /stepAnimationUrl|STEP_ANIMATION_SET|introAnimationUrl|animationUrl\s*:/.test(llmTsx);
+    /stepAnimationSrcDoc|stepAnimationUrl|STEP_ANIMATION_SET|introAnimationHtml|introAnimationUrl|animationHtml\s*:|animationUrl\s*:/.test(
+      llmTsx,
+    );
   if (hasImagesOnDisk && !referencesStepImages) return true;
   if (animationStepsOnDisk.length > 0 && !referencesStepAnimations) return true;
+  if (referencesStepAnimations && animationStepsOnDisk.length === 0) return true;
   if (
     llmTsx.includes("stepAnimationUrl") &&
     !/function stepAnimationUrl|STEP_ANIMATION_SET/.test(llmTsx)
+  ) {
+    return true;
+  }
+  if (
+    llmTsx.includes("stepAnimationSrcDoc") &&
+    !/STEP_ANIMATION_HTML|function stepAnimationSrcDoc/.test(llmTsx)
   ) {
     return true;
   }
