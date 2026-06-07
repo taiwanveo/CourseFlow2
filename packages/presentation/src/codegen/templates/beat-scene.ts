@@ -24,6 +24,18 @@ function cssPrefix(wvpChapterId: string): string {
   return `ch-${wvpChapterId.replace(/[^a-z0-9-]/gi, "-")}`;
 }
 
+type BeatHeadlineTone = "hero" | "md" | "lg" | "xl" | "compact";
+
+/** 依螢幕標題總字數自適應字級，不截斷文字 */
+function beatHeadlineTone(intro: string, introSub: string): BeatHeadlineTone {
+  const len = `${intro}${introSub}`.replace(/\s+/g, "").length;
+  if (len <= 12) return "hero";
+  if (len <= 20) return "md";
+  if (len <= 32) return "lg";
+  if (len <= 48) return "xl";
+  return "compact";
+}
+
 const CONTRAST_RE = /對比|对比|差異|相比|另一方面|相對|vs|VS|優於|劣於/i;
 const METRIC_RE = /\d+%|百分之|倍|成長|遞增|递减|計數|數字|從\s*0/i;
 
@@ -66,6 +78,7 @@ function stepSceneBlock(
   screen: string,
   narration: string,
   figureLine: string,
+  headlineTone: BeatHeadlineTone,
   kickerLabel?: string,
 ): string {
   const kickerLine = kickerLabel
@@ -86,7 +99,7 @@ function stepSceneBlock(
       <div className={\`${prefix}-scene scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
         <div className="${prefix}-main">
           <div className="${prefix}-kicker label-mono">${kickerLine}</div>
-          <h1 className={\`${prefix}-headline serif-cn\`}>
+          <h1 className={\`${prefix}-headline serif-cn ${prefix}-headline--${headlineTone}\`}>
             <MaskReveal show duration={1000}>
               <span>${escapeTsString(intro)}</span>
             </MaskReveal>${subBlock}
@@ -131,6 +144,7 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
     const parts = hasScreen ? splitHeadlineForStaggeredReveal(headline, 2) : [];
     const intro = parts[0] ?? headline;
     const introSub = parts[1] ?? "";
+    const headlineTone = beatHeadlineTone(intro, introSub);
     const assetStepIndex = isDividerPlusOne ? 1 : stepIndex;
     const checkpoint = assetForStep(chapterAssets, assetStepIndex);
     const hasStepImage = assetStepIndex in (input.stepImageExtensions ?? {});
@@ -148,6 +162,7 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
       screen,
       narration,
       figureLine,
+      headlineTone,
       dividerKicker,
     );
   });
@@ -222,7 +237,7 @@ ${scenes.join("\n")}
   flex-direction: column;
   align-items: center;
   gap: 0.2em;
-  font-size: 120px;
+  font-size: var(--t-h1, clamp(80px, 6.5vw, 120px));
   line-height: 1.08;
   width: 100%;
   max-width: var(--stage-viz-max-w);
@@ -230,14 +245,38 @@ ${scenes.join("\n")}
   overflow: visible;
   overflow-wrap: anywhere;
   word-break: keep-all;
+  text-wrap: balance;
+}
+.${prefix}-headline--hero {
+  font-size: var(--t-h1, clamp(80px, 6.5vw, 120px));
+}
+.${prefix}-headline--md {
+  font-size: var(--t-h2, clamp(64px, 5.4vw, 96px));
+  line-height: 1.1;
+}
+.${prefix}-headline--lg {
+  font-size: clamp(56px, 4.6vw, 80px);
+  line-height: 1.12;
+}
+.${prefix}-headline--xl {
+  font-size: clamp(44px, 3.8vw, 64px);
+  line-height: 1.14;
+}
+.${prefix}-headline--compact {
+  font-size: clamp(36px, 3vw, 52px);
+  line-height: 1.16;
 }
 .${prefix}-headline .mask-reveal {
   max-width: 100%;
   overflow: visible;
 }
+.${prefix}-headline span {
+  display: inline-block;
+  max-width: 100%;
+}
 .${prefix}-headline-sub {
   display: block;
-  font-size: 88px;
+  font-size: 0.72em;
   line-height: 1.15;
   font-style: italic;
   color: var(--accent, var(--text));

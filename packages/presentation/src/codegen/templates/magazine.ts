@@ -114,7 +114,6 @@ function stepScene(
   figureAlt?: string,
 ): string {
   const layout = pickLayout(step);
-  const phrases = splitNarrationPhrases(narration, 4);
   const headline = screenTextOnly(screenContent, `步驟 ${step + 1}`);
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
@@ -123,14 +122,9 @@ function stepScene(
   const kicker =
     rawKicker.replace(/\s+/g, "") === headline.replace(/\s+/g, "") ? stepLabel : rawKicker;
   const figure = figureBlock(prefix, wvpChapterId, step, checkpointUrl, figureAlt);
-  // 當 screenContent 已明確設定時，口播稿只作為音訊用途，不應出現在畫面上。
-  // 只有在沒有 screenContent 時才以口播片語填充 body 區塊（降級模式）。
-  const bodyBlock = screenContent.trim()
-    ? ""
-    : bodyLines(phrases, phrases[0] ?? headline, `${prefix}-body`);
-  const narrationFallback = screenContent.trim()
-    ? ""
-    : `              <p className="${prefix}-body asd-body-line">${escapeTsString(truncate(narration, 160))}</p>`;
+  // 口播稿只供音訊／字幕；畫面只用 screenContents 短語，禁止以口播填充 body。
+  const bodyBlock = "";
+  const narrationFallback = "";
 
   if (layout === "cover") {
     return `

@@ -560,7 +560,7 @@ export async function planChapterIllustrationPrompts(
       const analyzed = await analyzeStepVisualPlan({
         stepIndex,
         courseTopic: projectTitle,
-        screenContent: screen || narration.slice(0, 240),
+        screenContent: screen,
         stepScript: script,
         theme,
         llm: directorLlm,
@@ -628,7 +628,7 @@ export async function planChapterIllustrationPrompts(
 
     const promptForApi = buildStepImagePrompt({
       courseTopic: projectTitle,
-      screenContent: screen || narration.slice(0, 240),
+      screenContent: screen,
       script,
       styleFragment,
       director: directorPlan ? directorHintsFromPlan(directorPlan) : undefined,

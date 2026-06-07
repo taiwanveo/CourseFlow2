@@ -387,7 +387,7 @@ export async function syncPresentationIllustrations(
           const analyzed = await analyzeStepVisualPlan({
             stepIndex,
             courseTopic: projectTitle,
-            screenContent: screen || narration.slice(0, 240),
+            screenContent: screen,
             stepScript: script,
             theme,
             llm: directorLlm,
@@ -413,7 +413,7 @@ export async function syncPresentationIllustrations(
             { provider: imageProvider, apiKey: imageApiKey, model: resolvedImageModel },
             buildStepImagePrompt({
               courseTopic: projectTitle,
-              screenContent: screen || narration.slice(0, 240),
+              screenContent: screen,
               script,
               styleFragment,
               director: directorPlan ? directorHintsFromPlan(directorPlan) : undefined,

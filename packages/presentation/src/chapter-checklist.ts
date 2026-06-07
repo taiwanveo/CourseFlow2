@@ -2,6 +2,7 @@ import {
   chapterBindsNarrationText,
   chapterUsesInvalidMaskReveal,
   hasVisualDemoInSources,
+  tsxLeaksNarrationOntoScreen,
 } from "./visual-demo.js";
 
 export interface ChecklistItem {
@@ -58,6 +59,13 @@ export function runChapterCraftChecklist(opts: {
     label: "口播與畫面步驟對齊",
     passed: chapterBindsNarrationText(tsx, narrations),
     suggestion: "請在視覺動效對該章重新「匯入口播」後「AI 畫面」",
+  });
+
+  items.push({
+    id: "narration-leak",
+    label: "畫面未貼上口播全文",
+    passed: narrations.length === 0 || !tsxLeaksNarrationOntoScreen(tsx, narrations),
+    suggestion: "請重新試執行或「AI 畫面」，畫面只能用螢幕內容短語",
   });
 
   items.push({

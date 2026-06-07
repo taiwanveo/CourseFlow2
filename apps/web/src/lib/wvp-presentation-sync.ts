@@ -6,6 +6,7 @@ import {
   isDataVisualChapter,
   scaffoldPresentation,
   craftMetadataLeakedInTsx,
+  tsxLeaksNarrationOntoScreen,
   validateChapterTsx,
   writeChapterSourcesRaw,
   writeChapterToPresentation,
@@ -141,7 +142,7 @@ export async function materializeChapterFromCraft(
   craft: CraftRow,
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
-  opts?: { preserveApprovedAnchorChapter?: boolean },
+  opts?: { preserveApprovedAnchorChapter?: boolean; forceFreshChapterSource?: boolean },
 ): Promise<RegistryChapterEntry> {
   const chapter = resolveCompositionChapterForCraft(composition, craft);
   const narrationsFromComposition = chapter
@@ -192,8 +193,14 @@ export async function materializeChapterFromCraft(
     appliedScreenContents !== undefined &&
     screenContentsFingerprint(appliedScreenContents) !==
       screenContentsFingerprint(currentScreenContents);
+  const appliedTemplateKind =
+    checklist?.appliedTemplate?.trim() ||
+    checklist?.chapterSource?.templateKind?.trim() ||
+    "";
   const cachedTemplateKind =
-    checklist?.chapterSource?.templateKind?.trim() ?? detectTsxTemplateKind(llmTsx);
+    detectTsxTemplateKind(llmTsx) ||
+    checklist?.chapterSource?.templateKind?.trim() ||
+    "";
   const dataVisualChapter = isDataVisualChapter({
     chapterTitle: craft.title,
     narrations,
@@ -209,9 +216,15 @@ export async function materializeChapterFromCraft(
       cachedTemplateKind &&
       resolvedChapterKind !== cachedTemplateKind,
   );
+  const templateKindMismatch = Boolean(
+    appliedTemplateKind &&
+      cachedTemplateKind &&
+      appliedTemplateKind !== cachedTemplateKind,
+  );
   const craftMetadataInCachedTsx = Boolean(llmTsx && craftMetadataLeakedInTsx(llmTsx));
   const templateKindStale = Boolean(
     tsxKindMismatch ||
+    templateKindMismatch ||
     craftMetadataInCachedTsx ||
     dataVisualNeedsVisualBlock ||
     (dataVisualChapter &&
@@ -221,14 +234,8 @@ export async function materializeChapterFromCraft(
   );
   const templateNarrationLeakedOnScreen =
     rawSource?.source === "template" &&
-    /ListRevealGrid/.test(llmTsx) &&
-    narrations.some((n) => {
-      const t = n.trim();
-      if (t.length < 12) return false;
-      if (llmTsx.includes(t)) return true;
-      const first = t.split(/[。！？.!?]/)[0]?.trim() ?? "";
-      return first.length >= 8 && llmTsx.includes(first);
-    });
+    narrations.length > 0 &&
+    tsxLeaksNarrationOntoScreen(llmTsx, narrations);
   // LLM TSX：以全文比對；模板 TSX：intro 可能被分段，不可用 includes 判斷過期
   const llmCacheScreenContentsStale =
     rawSource?.source === "template"
@@ -284,10 +291,14 @@ export async function materializeChapterFromCraft(
     !templateKindStale &&
     !templateNarrationLeakedOnScreen;
   const preserveApprovedAnchor =
+    !opts?.forceFreshChapterSource &&
     opts?.preserveApprovedAnchorChapter === true &&
     craft.sort_order === 0 &&
     Boolean(llmTsx);
-  if (preserveApprovedAnchor || useCachedLlmSource || useCachedTemplateSource) {
+  if (
+    !opts?.forceFreshChapterSource &&
+    (preserveApprovedAnchor || useCachedLlmSource || useCachedTemplateSource)
+  ) {
     await writeChapterSourcesRaw(presentationDir, {
       folderName,
       componentName,
@@ -412,7 +423,7 @@ export async function rebuildRegistryForProject(
   crafts: CraftRow[],
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
-  opts?: { preserveApprovedAnchorChapter?: boolean },
+  opts?: { preserveApprovedAnchorChapter?: boolean; forceFreshChapterSource?: boolean },
 ): Promise<RegistryChapterEntry[]> {
   const entries: RegistryChapterEntry[] = [];
   const sorted = [...crafts].sort((a, b) => a.sort_order - b.sort_order);
@@ -475,6 +486,8 @@ function detectTsxTemplateKind(tsx: string): string | undefined {
   if (/ListRevealGrid/.test(tsx)) return "list-reveal";
   if (/HookImageStrip/.test(tsx)) return "hook";
   if (/VisualBlock/.test(tsx)) return "visual-mix";
+  if (/bs-scene|bs-headline|Beat Scene/.test(tsx)) return "beat-scene";
+  if (/asd-cover-h|Magazine|masthead/.test(tsx)) return "magazine";
   return undefined;
 }
 
@@ -705,6 +718,7 @@ export async function buildSingleChapterPreview(
     [target],
     composition,
     wvpSettings.assets,
+    { forceFreshChapterSource: Boolean(opts?.markAnchorTrial) },
   );
   if (entries.length === 0) {
     throw new Error(`「${target.title}」尚無可打包的步驟`);

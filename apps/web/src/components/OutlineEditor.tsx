@@ -6,6 +6,7 @@ import type { CourseComposition, CompositionChapter } from "@courseflow/core";
 import { ensureChapterDividerSteps, syncChapterDividerTitles } from "@courseflow/core";
 import { cn } from "@/lib/cn";
 
+import { stepCountForChapter } from "@/lib/wvp-chapters";
 import {
   addChapter as addChapterMutation,
   addStep as addStepMutation,
@@ -201,6 +202,12 @@ export function OutlineEditor({
             className="cf-input min-w-0 flex-1 py-0.5 text-xs font-medium"
             aria-label="章節標題"
           />
+          <span
+            className="shrink-0 text-[10px] text-zinc-500"
+            title="試執行與播放器會依此步數推進，含【章節】分隔頁"
+          >
+            WVP {stepCountForChapter(composition, chapter.id)} 步
+          </span>
           <button
             type="button"
             onClick={() => handleAddStep(chapter.id)}

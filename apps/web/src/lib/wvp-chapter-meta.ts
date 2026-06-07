@@ -1,6 +1,7 @@
 import type { CourseComposition, WvpChapterKind } from "@courseflow/core";
 import { isChapterStep } from "@courseflow/core";
 import { inferChapterKind } from "@courseflow/presentation/router";
+import { screenReadsLikeNarration } from "@courseflow/presentation";
 import { titleToWvpChapterId } from "@/lib/wvp-slug";
 import { orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
 
@@ -35,6 +36,16 @@ function stripEditorChapterLabel(text: string): string {
   return compactSpaces(text.replace(/^【章節】\s*/, "").replace(/\.\.\.|…/g, ""));
 }
 
+/** 供 WVP 模板／生圖使用的螢幕短語：禁止把口播稿當畫面文字 */
+export function sanitizeScreenContentForCodegen(screen: string, script: string): string {
+  const raw = compactSpaces(screen.replace(/\.\.\.|…/g, ""));
+  if (!raw) return "";
+  if (raw.length > 40 || screenReadsLikeNarration(raw, script)) {
+    return toScreenHeadline(raw, "重點", 32);
+  }
+  return raw;
+}
+
 export function screenContentsForChapter(
   composition: CourseComposition,
   chapterId: string,
@@ -47,8 +58,7 @@ export function screenContentsForChapter(
       return title;
     }
     const raw = compactSpaces((s.screenContent ?? "").replace(/\.\.\.|…/g, ""));
-    // 與「文稿內容」螢幕欄位一致，不在此處再截短、改寫或填入占位符
-    return raw;
+    return sanitizeScreenContentForCodegen(raw, s.script ?? "");
   });
 }
 

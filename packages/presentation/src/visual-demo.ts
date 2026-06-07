@@ -44,6 +44,18 @@ export function chapterBindsNarrationText(tsx: string, narrations: string[]): bo
   return false;
 }
 
+/** 螢幕欄是否實際上是口播稿（或口播長句片段） */
+export function screenReadsLikeNarration(screen: string, script: string): boolean {
+  const s = screen.replace(/\s+/g, " ").trim();
+  const t = script.replace(/\s+/g, " ").trim();
+  if (!s || !t) return false;
+  if (s.length >= 28 && t.includes(s)) return true;
+  if (s.length >= 40 && s.includes(t.slice(0, Math.min(48, t.length)))) return true;
+  const first = t.split(/[。！？.!?]/)[0]?.trim() ?? "";
+  if (first.length >= 12 && s.includes(first)) return true;
+  return false;
+}
+
 /** 章節 TSX 是否把口播原文（或首句）寫進畫面常數（例如 ListReveal ITEMS.body） */
 export function tsxLeaksNarrationOntoScreen(tsx: string, narrations: string[]): boolean {
   for (const narration of narrations) {

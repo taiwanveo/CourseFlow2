@@ -5,6 +5,7 @@ import {
   chapterCoversAllSteps,
   chapterUsesInvalidMaskReveal,
   hasVisualDemoInSources,
+  tsxLeaksNarrationOntoScreen,
 } from "./visual-demo.js";
 
 export type ChapterTsxValidationIssue =
@@ -47,11 +48,8 @@ export function validateChapterTsxIssues(
   if (narrations.length > 0 && !chapterBindsNarrationText(normalized, narrations)) {
     issues.push("narration-not-bound");
   }
-  for (const narration of narrations) {
-    if (narration.length > 28 && normalized.includes(narration)) {
-      issues.push("narration-leaked-to-jsx");
-      break;
-    }
+  if (narrations.length > 0 && tsxLeaksNarrationOntoScreen(normalized, narrations)) {
+    issues.push("narration-leaked-to-jsx");
   }
   if (craftMetadataLeakedInTsx(normalized)) {
     issues.push("craft-metadata-leaked-to-jsx");
