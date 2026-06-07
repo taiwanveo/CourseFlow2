@@ -45,9 +45,9 @@ function assertImageBytes(bytes: Uint8Array, context: string): Uint8Array {
   if (bytes.length < 12) {
     throw new Error(`${context}：回傳內容過短，非有效圖片`);
   }
-  const head = Buffer.from(bytes.subarray(0, Math.min(256, bytes.length)))
-    .toString("utf8")
-    .trimStart();
+  const head = new TextDecoder().decode(
+    bytes.subarray(0, Math.min(256, bytes.length)),
+  ).trimStart();
   if (/^<!DOCTYPE\s+html/i.test(head) || /^<html[\s>]/i.test(head)) {
     throw new Error(`${context}：收到 HTML 頁面而非圖片，請確認 API 或模型設定`);
   }
