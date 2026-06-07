@@ -14,10 +14,19 @@ export type TtsBatchProgress = {
   totalSteps: number;
   currentStepId?: string;
   currentLabel?: string;
+  currentStepStartedAt?: string;
   startedAt: string;
   stepDurationsMs: number[];
   steps: TtsBatchStepProgress[];
 };
+
+/** 樣本不足時的保守預設（Edge-TTS 單步常需數秒～十數秒） */
+const DEFAULT_TTS_STEP_MS = 10_000;
+const MIN_TTS_STEP_MS = 6_000;
+
+export function synthesizableTtsSteps(progress: TtsBatchProgress): TtsBatchStepProgress[] {
+  return progress.steps.filter((s) => s.status !== "skipped");
+}
 
 export type TtsSynthesizeJobResult = {
   ok: boolean;
@@ -61,12 +70,32 @@ export function createInitialTtsBatchProgress(
 }
 
 export function estimateTtsBatchRemainingMs(progress: TtsBatchProgress): number | null {
-  const { stepDurationsMs, steps, totalSteps } = progress;
-  if (stepDurationsMs.length === 0) return null;
-  const avg = stepDurationsMs.reduce((sum, ms) => sum + ms, 0) / stepDurationsMs.length;
-  const doneCount = steps.filter((s) => ["done", "skipped", "failed"].includes(s.status)).length;
-  const remaining = Math.max(0, totalSteps - doneCount);
-  return Math.round(avg * remaining);
+  const synthSteps = synthesizableTtsSteps(progress);
+  const pendingCount = synthSteps.filter((s) => s.status === "pending").length;
+  const running = synthSteps.find((s) => s.status === "running");
+  if (pendingCount === 0 && !running) return 0;
+
+  const durations = progress.stepDurationsMs.filter((ms) => ms >= 500);
+  let avgMs = DEFAULT_TTS_STEP_MS;
+  if (durations.length > 0) {
+    const rawAvg = durations.reduce((sum, ms) => sum + ms, 0) / durations.length;
+    const sampleWeight = Math.min(durations.length / 3, 1);
+    avgMs = Math.max(
+      MIN_TTS_STEP_MS,
+      rawAvg * sampleWeight + DEFAULT_TTS_STEP_MS * (1 - sampleWeight),
+    );
+  }
+
+  let currentRemainMs = running ? avgMs : 0;
+  if (running && progress.currentStepStartedAt) {
+    const startedMs = Date.parse(progress.currentStepStartedAt);
+    if (Number.isFinite(startedMs)) {
+      const elapsed = Math.max(0, Date.now() - startedMs);
+      currentRemainMs = Math.max(MIN_TTS_STEP_MS / 2, avgMs - elapsed);
+    }
+  }
+
+  return Math.round(currentRemainMs + avgMs * pendingCount);
 }
 
 export function formatEtaMs(ms: number | null): string {

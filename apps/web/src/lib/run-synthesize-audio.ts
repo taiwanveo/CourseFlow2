@@ -11,6 +11,26 @@ import {
   type TtsSynthesizeJobResult,
 } from "@/lib/tts-batch-progress";
 
+const STEP_SYNTHESIS_TIMEOUT_MS = 180_000;
+const STEP_PROGRESS_HEARTBEAT_MS = 5_000;
+
+function withTimeout<T>(work: Promise<T>, timeoutMs: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} 逾時（>${Math.round(timeoutMs / 1000)} 秒），請稍後重試`));
+    }, timeoutMs);
+    work
+      .then((value) => {
+        clearTimeout(timer);
+        resolve(value);
+      })
+      .catch((error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      });
+  });
+}
+
 async function synthesizeStepAudio(
   provider: TtsProviderId,
   text: string,
@@ -18,12 +38,16 @@ async function synthesizeStepAudio(
   apiKey?: string,
   model?: string,
 ): Promise<Buffer> {
-  return synthesizeSpeech(
-    provider,
-    text,
-    voiceId,
-    apiKey ? { provider, apiKey } : { provider },
-    model ? { model } : undefined,
+  return withTimeout(
+    synthesizeSpeech(
+      provider,
+      text,
+      voiceId,
+      apiKey ? { provider, apiKey } : { provider },
+      model ? { model } : undefined,
+    ),
+    STEP_SYNTHESIS_TIMEOUT_MS,
+    "單步語音合成",
   );
 }
 
@@ -152,7 +176,12 @@ export async function runSynthesizeAudio(payload: {
     const stepStartedAt = Date.now();
     updateStepProgress(progress, step.id, { status: "running" });
     progress.phase = "synthesize";
+    progress.currentStepStartedAt = new Date(stepStartedAt).toISOString();
     await emitProgress();
+
+    const progressHeartbeat = setInterval(() => {
+      void emitProgress();
+    }, STEP_PROGRESS_HEARTBEAT_MS);
 
     try {
       const buffer = await synthesizeStepAudio(
@@ -187,6 +216,7 @@ export async function runSynthesizeAudio(payload: {
 
       updateStepProgress(progress, step.id, { status: "done" });
       progress.stepDurationsMs.push(Date.now() - stepStartedAt);
+      progress.currentStepStartedAt = undefined;
       await emitProgress();
       console.log(
         `[tts-batch] step done job=${payload.jobRunId ?? "-"} step=${step.id} elapsed=${Math.round((Date.now() - stepStartedAt) / 1000)}s`,
@@ -195,8 +225,11 @@ export async function runSynthesizeAudio(payload: {
       const message = e instanceof Error ? e.message : "合成失敗";
       updateStepProgress(progress, step.id, { status: "failed", error: message });
       progress.stepDurationsMs.push(Date.now() - stepStartedAt);
+      progress.currentStepStartedAt = undefined;
       await emitProgress();
       throw e;
+    } finally {
+      clearInterval(progressHeartbeat);
     }
   }
 

@@ -29,6 +29,7 @@ import {
   TTS_BATCH_PHASE_LABEL,
   type TtsBatchProgress,
 } from "@/lib/tts-batch-progress";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
 
 const TTS_PROVIDER_ORDER = ["openai", "gemini", "openrouter", "edge-tts"] as const;
 
@@ -148,6 +149,12 @@ export function AudioPhaseClient({
   const [batchSynthesizing, setBatchSynthesizing] = useState(false);
   const [batchProgress, setBatchProgress] = useState<TtsBatchProgress | null>(null);
   const [batchQueueHint, setBatchQueueHint] = useState<string | null>(null);
+  const batchElapsedMs = useElapsedMs(batchSynthesizing);
+  const batchEtaMs = useMemo(() => {
+    if (!batchProgress || !batchSynthesizing) return null;
+    void batchElapsedMs;
+    return estimateTtsBatchRemainingMs(batchProgress);
+  }, [batchProgress, batchSynthesizing, batchElapsedMs]);
   const lastTtsDoneCount = useRef(0);
   const [stepSynthesizing, setStepSynthesizing] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -589,14 +596,21 @@ export function AudioPhaseClient({
       if (status === "running") return "running";
       return "pending";
     };
+    const synthSteps = progress.steps.filter((step) => step.status !== "skipped");
+    const runningIdx = synthSteps.findIndex((step) => step.status === "running");
+    const doneSynth = synthSteps.filter(
+      (step) => step.status === "done" || step.status === "failed",
+    ).length;
+    const currentIndex =
+      runningIdx >= 0 ? runningIdx : Math.min(doneSynth, Math.max(0, synthSteps.length - 1));
     return {
       phaseLabel: TTS_BATCH_PHASE_LABEL[progress.phase] ?? progress.phase,
-      currentIndex: progress.currentStepIndex,
-      totalItems: progress.totalSteps,
+      currentIndex,
+      totalItems: synthSteps.length > 0 ? synthSteps.length : progress.totalSteps,
       currentLabel: progress.currentLabel,
       itemUnit: "步",
       itemDurationsMs: progress.stepDurationsMs,
-      items: progress.steps.map((step) => ({
+      items: (synthSteps.length > 0 ? synthSteps : progress.steps).map((step) => ({
         id: step.stepId,
         label: step.label,
         status: mapStatus(step.status),
@@ -1024,9 +1038,7 @@ export function AudioPhaseClient({
             busy={batchSynthesizing}
             queueHint={batchQueueHint}
             busyTitle="上次批次結果"
-            estimateRemainingMs={
-              batchProgress ? () => estimateTtsBatchRemainingMs(batchProgress) : undefined
-            }
+            estimateRemainingMs={batchEtaMs !== null ? () => batchEtaMs : undefined}
             progress={batchProgress ? toCompactTtsProgress(batchProgress) : null}
           />
         </div>
