@@ -21,13 +21,14 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 8vh;
+  height: auto;
   min-height: 56px;
+  max-height: 14vh;
   z-index: 9;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6vw;
+  padding: 10px 6vw;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -48,12 +49,11 @@
   text-align: center;
   max-width: min(1600px, 88vw);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  /* clamp to 2 lines so long narrations don't blow up the bar; rare,
-     but cheap insurance */
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes sub-fade-in {

@@ -26,7 +26,21 @@ export type ChapterTsxValidationIssue =
 
 /** LLM 產碼常把 craft 上下文（章節標題、【畫面 N】）誤貼進 JSX */
 export function craftMetadataLeakedInTsx(tsx: string): boolean {
-  return /章節：|【畫面\s*\d+】|→\s*畫面：/.test(tsx);
+  return (
+    /章節：|【畫面\s*\d+】|→\s*畫面：|章節分隔頁的螢幕內容|口播稿(?:為|是)/.test(
+      tsx,
+    )
+  );
+}
+
+/** 模板 TSX 仍使用「本章」「重點 N」等占位符，代表未帶入文稿螢幕欄 */
+export function chapterUsesPlaceholderScreenText(tsx: string): boolean {
+  return (
+    /title:\s*"(?:重點 \d+|本章|流程)"/.test(tsx) ||
+    /introTitle=\{[^}]*"(?:本章|流程)"/.test(tsx) ||
+    />\s*重點 \d+\s*</.test(tsx) ||
+    />\s*本章\s*</.test(tsx)
+  );
 }
 
 export function validateChapterTsxIssues(

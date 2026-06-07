@@ -24,7 +24,9 @@ export function generateFlowSources(input: ChapterCodegenInput) {
     input.wvpChapterId,
     input.stepImageExtensions ?? {},
   );
-  const animIndices = input.stepAnimationIndices ?? [];
+  const animIndices = (input.stepAnimationIndices ?? []).filter((step) =>
+    Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+  );
   const stepAnimationBlock = buildCodegenStepAnimationBlock(
     input.wvpChapterId,
     animIndices,

@@ -47,9 +47,26 @@ function screenReadsLikeNarration(screen: string, script: string): boolean {
   return false;
 }
 
+/** 剝除 craft 後設字串（與 @courseflow/presentation slots 同步邏輯） */
+function stripCraftMetadataFromScreen(text: string): string {
+  let t = compactSpaces(text.replace(/\.\.\.|…/g, ""));
+  if (!t) return "";
+  const quoted = t.match(
+    /(?:章節分隔頁的)?(?:螢幕|畫面|屏幕)(?:內容|文字)?(?:是|為)?[「『"]([^」』"]+)[」』"]/,
+  );
+  if (quoted?.[1]?.trim()) return quoted[1].trim();
+  const narrationCut = t.search(/\s*口播稿(?:為|是|：|:)/);
+  if (narrationCut > 0) t = t.slice(0, narrationCut).trim();
+  return t
+    .replace(/^章節分隔頁的(?:螢幕|畫面)內容(?:是|為)\s*/i, "")
+    .replace(/\s*口播稿(?:為|是|：|:).+$/i, "")
+    .trim();
+}
+
 /** 供 WVP 模板／生圖使用的螢幕短語：禁止把口播稿當畫面文字 */
 export function sanitizeScreenContentForCodegen(screen: string, script: string): string {
-  const raw = compactSpaces(screen.replace(/\.\.\.|…/g, ""));
+  const stripped = stripCraftMetadataFromScreen(screen);
+  const raw = compactSpaces(stripped);
   if (!raw) return "";
   if (raw.length > 40 || screenReadsLikeNarration(raw, script)) {
     return toScreenHeadline(raw, "重點", 32);

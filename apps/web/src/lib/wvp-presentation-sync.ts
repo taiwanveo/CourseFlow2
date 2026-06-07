@@ -5,6 +5,7 @@ import {
   chapterComponentName,
   isDataVisualChapter,
   scaffoldPresentation,
+  chapterUsesPlaceholderScreenText,
   craftMetadataLeakedInTsx,
   tsxLeaksNarrationOntoScreen,
   validateChapterTsx,
@@ -224,10 +225,14 @@ export async function materializeChapterFromCraft(
       appliedTemplateKind !== cachedTemplateKind,
   );
   const craftMetadataInCachedTsx = Boolean(llmTsx && craftMetadataLeakedInTsx(llmTsx));
+  const placeholderScreenTextInCachedTsx = Boolean(
+    llmTsx && chapterUsesPlaceholderScreenText(llmTsx),
+  );
   const templateKindStale = Boolean(
     tsxKindMismatch ||
     templateKindMismatch ||
     craftMetadataInCachedTsx ||
+    placeholderScreenTextInCachedTsx ||
     dataVisualNeedsVisualBlock ||
     (dataVisualChapter &&
       (cachedTemplateKind === "flow" || cachedTemplateKind === "list-reveal")) ||

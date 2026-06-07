@@ -75,6 +75,11 @@
   background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
+/* 動畫載入失敗或無內容時不佔版面，避免空長方形遮擋流程圖 */
+.cf-flow-aside:not(:has(iframe, img)) {
+  display: none;
+}
+
 .cf-flow-hero-img {
   max-width: 100%;
   height: auto;

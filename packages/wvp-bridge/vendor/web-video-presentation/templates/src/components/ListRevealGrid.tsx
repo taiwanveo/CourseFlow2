@@ -105,28 +105,11 @@ export function ListRevealGrid({
     );
   }
 
-  // step >= 1: 有配圖／動畫時用 FeaturedCard 全屏置中；否則維持累積格狀揭示
+  // step >= 1：同頁累積格狀揭示（不因配圖／動畫切換全屏 FeaturedCard）
   const activeIdx = step - 1;
-  const activeItem = items[activeIdx];
-  if (!activeItem) return null;
-
-  const anyItemVisual = items.some((it) => itemHasVisual(it));
-
-  if (anyItemVisual) {
-    return (
-      <div className="lr-scene scene-pad lr-featured lr-list-reveal" data-cf-transition="none">
-        <header className="lr-masthead">
-          <span className="lr-rule" />
-          <span className="lr-kicker">{kicker ?? chapterTitle}</span>
-          <span className="lr-rule" />
-        </header>
-        <FeaturedCard item={activeItem} />
-      </div>
-    );
-  }
+  if (!items[activeIdx]) return null;
 
   const cols = Math.min(Math.max(items.length, 1), 4);
-  // step >= 1 為同頁累積揭示：勿重跑整頁 cf-enter，僅更新各 slot 狀態與動畫
   return (
     <div className="lr-scene scene-pad lr-list-reveal" data-cf-transition="none">
       <header className="lr-masthead">
@@ -148,55 +131,6 @@ export function ListRevealGrid({
   );
 }
 
-function itemHasVisual(item: ListRevealItem): boolean {
-  return Boolean(
-    item.imageUrl?.trim() || item.animationHtml?.trim() || item.animationUrl?.trim(),
-  );
-}
-
-function FeaturedCard({ item }: { item: ListRevealItem }) {
-  const [imgOk, setImgOk] = useState(true);
-  const hasAnimation = Boolean(item.animationHtml?.trim() || item.animationUrl?.trim());
-  // hasVisual 在 render 時就確定，不依賴 imgOk，避免版面閃動
-  const hasVisual = hasAnimation || Boolean(item.imageUrl?.trim());
-  const showImg = !hasAnimation && Boolean(item.imageUrl?.trim()) && imgOk;
-
-  return (
-    <article className={`lr-featured-card${hasVisual ? " lr-featured-card--has-visual" : ""}`}>
-      <div className="lr-slot-num hero-num">{item.num}</div>
-      <MaskReveal show duration={900}>
-        <h2 className="lr-featured-title serif-cn">{item.title}</h2>
-      </MaskReveal>
-      {hasAnimation ? (
-        <MaskReveal show delay={220} duration={900}>
-          <div className="lr-featured-visual lr-featured-visual--anim">
-            <SafeAnimationFrame
-              className="lr-featured-anim"
-              srcDoc={item.animationHtml || undefined}
-              src={item.animationHtml ? undefined : item.animationUrl}
-              sandbox="allow-scripts allow-same-origin"
-              title={item.title}
-              loading="eager"
-            />
-          </div>
-        </MaskReveal>
-      ) : showImg ? (
-        <MaskReveal show delay={220} duration={900}>
-          <div className="lr-featured-visual">
-            <img
-              className="lr-featured-img"
-              src={item.imageUrl}
-              alt={item.title}
-              loading="eager"
-              onError={() => setImgOk(false)}
-            />
-          </div>
-        </MaskReveal>
-      ) : null}
-    </article>
-  );
-}
-
 function Slot({
   state,
   item,
@@ -206,6 +140,11 @@ function Slot({
   item: ListRevealItem;
   index?: number;
 }) {
+  const [imgOk, setImgOk] = useState(true);
+  const hasAnimation = Boolean(item.animationHtml?.trim() || item.animationUrl?.trim());
+  const showImg = !hasAnimation && Boolean(item.imageUrl?.trim()) && imgOk;
+  const showVisual = state === "active" && (hasAnimation || showImg);
+
   return (
     <div
       className={`lr-slot lr-slot-${state}`}
@@ -222,6 +161,28 @@ function Slot({
           </>
         )}
       </div>
+      {showVisual ? (
+        <div className="lr-slot-visual" data-no-advance>
+          {hasAnimation ? (
+            <SafeAnimationFrame
+              className="lr-item-anim"
+              srcDoc={item.animationHtml || undefined}
+              src={item.animationHtml ? undefined : item.animationUrl}
+              sandbox="allow-scripts allow-same-origin"
+              title={item.title}
+              loading="eager"
+            />
+          ) : (
+            <img
+              className="lr-slot-img"
+              src={item.imageUrl}
+              alt={item.title}
+              loading="eager"
+              onError={() => setImgOk(false)}
+            />
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

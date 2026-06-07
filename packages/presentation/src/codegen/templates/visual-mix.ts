@@ -41,7 +41,9 @@ export function generateVisualMixSources(
   stepVisuals: StepVisualEntry[],
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
-  const animIndices = input.stepAnimationIndices ?? [];
+  const animIndices = (input.stepAnimationIndices ?? []).filter((step) =>
+    Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+  );
   const stepAnimationBlock = buildCodegenStepAnimationBlock(
     input.wvpChapterId,
     animIndices,

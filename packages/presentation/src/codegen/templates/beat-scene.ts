@@ -3,7 +3,7 @@ import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import { splitHeadlineForStaggeredReveal } from "../content-aware.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { assetForStep, assetsForChapter } from "../hook-slots.js";
-import { screenTextOnly } from "../slots.js";
+import { screenTextOnly, stripCraftMetadataFromScreen } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
@@ -15,7 +15,7 @@ function escapeTsString(s: string): string {
 }
 
 function sanitizeBeatScreen(screen: string): string {
-  return screen
+  return stripCraftMetadataFromScreen(screen)
     .replace(/\s*[（(](?:Beat-Scene|節拍全屏|Visual-Mix|視覺混合|Magazine|雜誌)[^）)]*[）)]\s*/gi, "")
     .trim();
 }

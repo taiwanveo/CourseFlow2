@@ -88,16 +88,34 @@ export function stripNarrationLeakFromScreen(text: string): string {
   return t.length <= 16 ? t : t.slice(0, 16).trim();
 }
 
+/** 從 craft 後設描述中擷取「螢幕內容」引號內的真正標題 */
+function extractQuotedScreenContent(text: string): string | null {
+  const m = text.match(
+    /(?:章節分隔頁的)?(?:螢幕|畫面|屏幕)(?:內容|文字)?(?:是|為)?[「『"]([^」』"]+)[」』"]/,
+  );
+  return m?.[1]?.trim() ?? null;
+}
+
 /** 剝除 AI 產碼／craft 上下文誤寫入螢幕欄的後設字串 */
 export function stripCraftMetadataFromScreen(text: string): string {
   let t = compactSpaces(stripEllipsis(text));
   if (!t) return "";
+
+  const quoted = extractQuotedScreenContent(t);
+  if (quoted) return quoted;
+
+  const narrationCut = t.search(/\s*口播稿(?:為|是|：|:)/);
+  if (narrationCut > 0) t = t.slice(0, narrationCut).trim();
+
   const cutAt = t.search(/\s*章節：|【畫面\s*\d+】|\s*→\s*畫面：/);
   if (cutAt > 0) t = t.slice(0, cutAt).trim();
+
   return t
+    .replace(/^章節分隔頁的(?:螢幕|畫面)內容(?:是|為)\s*/i, "")
     .replace(/\s*章節：[^\n【]+/g, "")
     .replace(/【畫面\s*\d+】/g, "")
     .replace(/\s*→\s*畫面：[^\n]+/g, "")
+    .replace(/\s*口播稿(?:為|是|：|:).+$/i, "")
     .replace(
       /\s*[（(](?:Flow|Beat-Scene|Visual-Mix|節拍全屏|清單揭示|流程圖|list-reveal|Magazine|雜誌)[^）)]*[）)]\s*/gi,
       "",
@@ -114,7 +132,9 @@ export function screenTextOnly(
   placeholder = "重點",
 ): string {
   const raw = stripCraftMetadataFromScreen(source ?? "");
-  return raw || placeholder;
+  if (!raw) return placeholder;
+  if (raw.length > 48) return screenHeadlineForSlot(raw, placeholder, 48);
+  return raw;
 }
 
 /** @deprecated 請改用 screenTextOnly；保留相容，但不再接受口播稿作 fallback */

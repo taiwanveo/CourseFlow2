@@ -23,7 +23,11 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
   );
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const introCheckpoint = assetForStep(chapterAssets, 0);
-  const animIndices = new Set<number>(input.stepAnimationIndices ?? []);
+  const animIndices = new Set<number>(
+    (input.stepAnimationIndices ?? []).filter((step) =>
+      Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+    ),
+  );
 
   // 只在確實有圖片或動畫時才傳 introImageUrl / introAnimationUrl；否則 ListRevealGrid 會是文字置中版型。
   // 也就是說：同一個 list-reveal，是否為「大標置中」或「左文右圖」會由這裡決定。
