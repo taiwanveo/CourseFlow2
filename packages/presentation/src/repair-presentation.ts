@@ -66,6 +66,8 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
   }
 
   for (const name of [
+    "SafeAnimationFrame.tsx",
+    "SafeAnimationFrame.css",
     "ListRevealGrid.tsx",
     "ListRevealGrid.css",
     "FlowDiagram.tsx",

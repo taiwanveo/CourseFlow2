@@ -133,6 +133,8 @@ export async function scaffoldPresentation(
     "MaskReveal.tsx",
     "NarrationBeat.tsx",
     "NarrationBeat.css",
+    "SafeAnimationFrame.tsx",
+    "SafeAnimationFrame.css",
     "ListRevealGrid.tsx",
     "ListRevealGrid.css",
     "FlowDiagram.tsx",
