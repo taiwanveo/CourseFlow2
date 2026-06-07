@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
-import { shouldUseJobQueue } from "@/lib/job-queue";
+import { shouldUseJobQueue, shouldUseRenderQueue } from "@/lib/job-queue";
 import { getRenderQueue } from "@/lib/queue";
 import { canExportWvpMp4 } from "@/lib/wvp-export";
 import { runWvpMp4Export } from "@/lib/run-wvp-render";
@@ -52,9 +52,8 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (useWvp) {
-    const inlineForced = process.env.COURSEFLOW_INLINE_JOBS === "1";
-    const allowInlineFallback = inlineForced || process.env.NODE_ENV !== "production";
-    const useQueue = !inlineForced && (await shouldUseJobQueue());
+    const useQueue = await shouldUseRenderQueue();
+    const allowInlineFallback = process.env.NODE_ENV !== "production";
 
     if (useQueue) {
       try {
@@ -78,7 +77,7 @@ export async function POST(
 
     if (!allowInlineFallback) {
       const message =
-        "未偵測到 background worker。正式環境預設不啟用 Web inline MP4 錄製，請部署 courseflow-v2-worker。";
+        "MP4 錄製需要 background worker（Playwright + Chromium）。請確認 courseflow-worker 已部署且在線。";
       await supabase
         .from("render_jobs")
         .update({ status: "failed", error_message: message })

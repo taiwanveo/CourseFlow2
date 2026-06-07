@@ -66,3 +66,14 @@ export async function shouldUseJobQueue(): Promise<boolean> {
   if (!process.env.REDIS_URL?.trim()) return false;
   return isWorkerOnline();
 }
+
+/**
+ * MP4 / Playwright 錄製佇列判斷。
+ * 不受 `COURSEFLOW_INLINE_JOBS` 影響——該旗標僅供 TTS 等輕量任務 Web inline；
+ * 錄製需要 Chromium，僅 courseflow-worker 容器具備 Playwright。
+ */
+export async function shouldUseRenderQueue(): Promise<boolean> {
+  if (process.env.COURSEFLOW_FORCE_QUEUE === "1") return true;
+  if (!process.env.REDIS_URL?.trim()) return false;
+  return isWorkerOnline();
+}
