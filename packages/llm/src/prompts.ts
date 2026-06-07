@@ -1,4 +1,4 @@
-import type { GeneratedOutline } from "./types.js";
+import type { GeneratedChapter, GeneratedOutline } from "./types.js";
 
 /**
  * CourseFlow v2 的文字生成 Prompt 主檔。
@@ -372,8 +372,83 @@ ${article.slice(0, 120000)}
  * 如果未來要調整整體步數密度、結語強度或全文長度約束，通常會和上面的 system prompt 一起改。
  */
 
+const COLDOPEN_WVP_IDS = new Set(["coldopen", "intro", "hook", "opening", "preface"]);
+const OUTRO_WVP_IDS = new Set(["outro", "conclusion", "ending", "closing", "summary"]);
+
+function normalizeWvpId(id?: string): string {
+  return (id ?? "").trim().toLowerCase();
+}
+
+function chaptersBySortOrder(chapters: GeneratedChapter[]): GeneratedChapter[] {
+  return [...chapters].sort((a, b) => {
+    const ao = a.sortOrder ?? 0;
+    const bo = b.sortOrder ?? 0;
+    return ao !== bo ? ao - bo : 0;
+  });
+}
+
+function isLikelyOutroChapter(chapter: GeneratedChapter): boolean {
+  const id = normalizeWvpId(chapter.wvpChapterId);
+  if (OUTRO_WVP_IDS.has(id)) return true;
+  if (/結語|總結|結束|outro|conclusion/i.test(chapter.title)) return true;
+  return chapter.steps.length === 0;
+}
+
+function backfillChapterScript(chapter: GeneratedChapter, kind: "coldopen" | "outro"): void {
+  if (chapter.chapterScript?.trim()) return;
+
+  if (kind === "coldopen") {
+    const firstStepScript = chapter.steps[0]?.script?.trim();
+    if (firstStepScript) {
+      chapter.chapterScript = firstStepScript;
+      return;
+    }
+    const title = chapter.title.trim();
+    if (title.length >= 20) {
+      chapter.chapterScript = title;
+    }
+    return;
+  }
+
+  const lastStepScript = chapter.steps[chapter.steps.length - 1]?.script?.trim();
+  if (lastStepScript) {
+    chapter.chapterScript = lastStepScript;
+  }
+}
+
+/**
+ * LLM 常漏設 chapterKind；在驗證前依 sortOrder / wvpChapterId / 標題補齊 coldopen 與 outro。
+ */
+function normalizeSpecialChapterKinds(outline: GeneratedOutline): void {
+  const sorted = chaptersBySortOrder(outline.chapters);
+
+  let coldopen = outline.chapters.find((ch) => ch.chapterKind === "coldopen");
+  if (!coldopen) {
+    coldopen =
+      outline.chapters.find((ch) => COLDOPEN_WVP_IDS.has(normalizeWvpId(ch.wvpChapterId))) ??
+      sorted[0];
+  }
+  if (coldopen) {
+    coldopen.chapterKind = "coldopen";
+    if (!coldopen.wvpChapterId) coldopen.wvpChapterId = "coldopen";
+    backfillChapterScript(coldopen, "coldopen");
+  }
+
+  let outro = outline.chapters.find((ch) => ch.chapterKind === "outro");
+  if (!outro) {
+    outro =
+      outline.chapters.find((ch) => OUTRO_WVP_IDS.has(normalizeWvpId(ch.wvpChapterId))) ??
+      [...sorted].reverse().find((ch) => ch !== coldopen && isLikelyOutroChapter(ch));
+  }
+  if (outro && outro !== coldopen) {
+    outro.chapterKind = "outro";
+    if (!outro.wvpChapterId) outro.wvpChapterId = "conclusion";
+    backfillChapterScript(outro, "outro");
+  }
+}
+
 function assertValidChapterNarration(
-  outline: import("./types.js").GeneratedOutline,
+  outline: GeneratedOutline,
   kind: "coldopen" | "outro",
   minLength: number,
   label: string,
@@ -394,12 +469,13 @@ function assertValidChapterNarration(
   }
 }
 
-export function parseUnifiedCourseJson(text: string): import("./types.js").GeneratedOutline {
+export function parseUnifiedCourseJson(text: string): GeneratedOutline {
   const cleaned = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-  const parsed = JSON.parse(cleaned) as import("./types.js").GeneratedOutline;
+  const parsed = JSON.parse(cleaned) as GeneratedOutline;
   if (!parsed.chapters?.length) {
     throw new Error("LLM 未產生有效章節");
   }
+  normalizeSpecialChapterKinds(parsed);
   assertValidChapterNarration(parsed, "coldopen", 20, "開場白");
   assertValidChapterNarration(parsed, "outro", 30, "結語");
   return parsed;
