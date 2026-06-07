@@ -5,6 +5,7 @@ import { loadProjectComposition } from "@/lib/project-composition";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { runWvpBuild } from "@/lib/run-wvp-build";
+import { createInitialWvpBuildProgress } from "@/lib/wvp-build-progress";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { syncFullWvpProject } from "@/lib/wvp-presentation-sync";
 import { wvpEmbedBasePath, wvpPlayPagePath } from "@/lib/wvp-workdir";
@@ -85,6 +86,16 @@ export async function POST(
         );
       }
 
+      const chapterCount = composition.chapters.filter((ch) => !ch.parentId).length;
+      const initialProgress = createInitialWvpBuildProgress(chapterCount);
+      const initialResult = {
+        ok: false,
+        chapterCount,
+        previewUrl: wvpPlayPagePath(id),
+        embedUrl: wvpEmbedBasePath(id),
+        progress: initialProgress,
+      };
+
       const { data: jobRun, error: jobError } = await supabase
         .from("job_runs")
         .insert({
@@ -92,7 +103,8 @@ export async function POST(
           user_id: user.id,
           job_type: "wvp-build",
           status: "pending",
-          payload: {},
+          result: initialResult,
+          payload: { themeId: requestedThemeId },
         })
         .select("id")
         .single();

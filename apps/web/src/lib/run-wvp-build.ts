@@ -1,8 +1,14 @@
 import { createServiceClient } from "@/lib/supabase/admin";
 import { syncFullWvpProject } from "@/lib/wvp-presentation-sync";
 import { wvpEmbedBasePath, wvpPlayPagePath } from "@/lib/wvp-workdir";
+import {
+  createInitialWvpBuildProgress,
+  type WvpBuildPhase,
+  type WvpBuildProgress,
+} from "@/lib/wvp-build-progress";
 
 export type WvpBuildJobResult = {
+  ok?: boolean;
   chapterCount: number;
   previewUrl: string;
   embedUrl: string;
@@ -11,6 +17,7 @@ export type WvpBuildJobResult = {
   audioSyncWarning?: string;
   illustrationSyncWarning?: string;
   chaptersVisualUpgraded?: string[];
+  progress?: WvpBuildProgress;
 };
 
 export async function runWvpBuild(payload: {
@@ -20,14 +27,44 @@ export async function runWvpBuild(payload: {
   themeId?: string;
 }): Promise<WvpBuildJobResult> {
   const supabase = createServiceClient();
+  let progress = createInitialWvpBuildProgress();
+  let lastStageAt = Date.now();
 
   const patchJob = async (patch: {
     status: string;
     result?: WvpBuildJobResult;
     error_message?: string | null;
+    updated_at?: string;
   }) => {
     // @ts-expect-error Supabase 客戶端對 job_runs.update 推斷為 never
     await supabase.from("job_runs").update(patch).eq("id", payload.jobRunId);
+  };
+
+  const emitStage = async (phase: WvpBuildPhase, chapterCount?: number): Promise<void> => {
+    const now = Date.now();
+    progress.stageDurationsMs.push(now - lastStageAt);
+    lastStageAt = now;
+    progress = {
+      ...progress,
+      phase,
+      chapterCount: chapterCount ?? progress.chapterCount,
+      stageDurationsMs: [...progress.stageDurationsMs],
+    };
+    const partial: WvpBuildJobResult = {
+      ok: false,
+      chapterCount: progress.chapterCount ?? 0,
+      previewUrl: wvpPlayPagePath(payload.projectId),
+      embedUrl: wvpEmbedBasePath(payload.projectId),
+      progress,
+    };
+    await patchJob({
+      status: "running",
+      result: partial,
+      updated_at: new Date().toISOString(),
+    });
+    console.log(
+      `[wvp-build] progress job=${payload.jobRunId} phase=${phase} chapters=${progress.chapterCount ?? "-"}`,
+    );
   };
 
   const { data: owned } = await supabase
@@ -41,7 +78,17 @@ export async function runWvpBuild(payload: {
     throw new Error("找不到專案");
   }
 
-  await patchJob({ status: "running" });
+  await patchJob({
+    status: "running",
+    result: {
+      ok: false,
+      chapterCount: 0,
+      previewUrl: wvpPlayPagePath(payload.projectId),
+      embedUrl: wvpEmbedBasePath(payload.projectId),
+      progress,
+    },
+    updated_at: new Date().toISOString(),
+  });
   const startedAt = Date.now();
   console.log(
     `[wvp-build] job start job=${payload.jobRunId} project=${payload.projectId} user=${payload.userId} theme=${payload.themeId ?? "default"}`,
@@ -53,6 +100,7 @@ export async function runWvpBuild(payload: {
       build: true,
       previewBase: wvpEmbedBasePath(payload.projectId),
       themeId: payload.themeId,
+      onBuildStage: emitStage,
     });
 
     if (result.chapterCount === 0) {
@@ -63,7 +111,10 @@ export async function runWvpBuild(payload: {
       `[wvp-build] job sync+build ok job=${payload.jobRunId} chapters=${result.chapterCount} built=${result.built} storageUploaded=${result.storageUploaded}`,
     );
 
+    await emitStage("done", result.chapterCount);
+
     const jobResult: WvpBuildJobResult = {
+      ok: true,
       chapterCount: result.chapterCount,
       previewUrl: wvpPlayPagePath(payload.projectId),
       embedUrl: wvpEmbedBasePath(payload.projectId),
@@ -75,9 +126,14 @@ export async function runWvpBuild(payload: {
       audioSyncWarning: result.audioSyncWarning,
       illustrationSyncWarning: result.illustrationSyncWarning,
       chaptersVisualUpgraded: result.chaptersVisualUpgraded,
+      progress,
     };
 
-    await patchJob({ status: "completed", result: jobResult });
+    await patchJob({
+      status: "completed",
+      result: jobResult,
+      updated_at: new Date().toISOString(),
+    });
     console.log(
       `[wvp-build] done job=${payload.jobRunId} in ${Math.round((Date.now() - startedAt) / 1000)}s chapters=${result.chapterCount}`,
     );
@@ -85,7 +141,18 @@ export async function runWvpBuild(payload: {
   } catch (e) {
     const message = e instanceof Error ? e.message : "建置失敗";
     console.error("[wvp-build] 背景建置失敗:", message);
-    await patchJob({ status: "failed", error_message: message.slice(0, 2000) });
+    await patchJob({
+      status: "failed",
+      error_message: message.slice(0, 2000),
+      result: {
+        ok: false,
+        chapterCount: progress.chapterCount ?? 0,
+        previewUrl: wvpPlayPagePath(payload.projectId),
+        embedUrl: wvpEmbedBasePath(payload.projectId),
+        progress,
+      },
+      updated_at: new Date().toISOString(),
+    });
     throw e;
   }
 }

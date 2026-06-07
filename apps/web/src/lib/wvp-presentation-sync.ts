@@ -49,6 +49,7 @@ import {
 import { readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
+import type { WvpBuildPhase } from "@/lib/wvp-build-progress";
 import type { CourseComposition } from "@courseflow/core";
 
 type CraftRow = {
@@ -818,7 +819,12 @@ export async function syncFullWvpProject(
   supabase: SupabaseClient,
   projectId: string,
   userId: string,
-  opts?: { themeId?: string; build?: boolean; previewBase?: string },
+  opts?: {
+    themeId?: string;
+    build?: boolean;
+    previewBase?: string;
+    onBuildStage?: (phase: WvpBuildPhase, chapterCount?: number) => void | Promise<void>;
+  },
 ): Promise<{
   presentationDir: string;
   chapterCount: number;
@@ -874,9 +880,11 @@ export async function syncFullWvpProject(
   let illustrationSyncWarning: string | undefined;
   if (opts?.build && entries.length > 0) {
     const buildStartedAt = Date.now();
+    const emitStage = opts.onBuildStage;
     console.log(
       `[wvp-build] sync start project=${projectId} chapters=${entries.length} theme=${themeId}`,
     );
+    await emitStage?.("prepare", entries.length);
     invalidateWvpDistCaches(userId, projectId);
     const audioGate = evaluateWvpAudioBuildGate(composition);
     if (!audioGate.ready) {
@@ -886,6 +894,7 @@ export async function syncFullWvpProject(
 
     await syncCheckpointAssetsToPresentation(projectId, wvpSettings.assets);
     console.log(`[wvp-build] checkpoint assets synced project=${projectId}`);
+    await emitStage?.("assets", entries.length);
 
     const audioSync = await syncPresentationAudioFromComposition(
       supabase,
@@ -905,6 +914,7 @@ export async function syncFullWvpProject(
     } else if (audioSync.written < audioSync.expectedSteps) {
       audioSyncWarning = `僅寫入 ${audioSync.written}/${audioSync.expectedSteps} 段語音；部分步驟將無聲或依字數估算自動換頁。`;
     }
+    await emitStage?.("audio", entries.length);
 
     // 先把「章節配圖」（整章一張圖）複製成各步驟本機圖片，
     // 讓後續 syncPresentationIllustrations 的 reuseExistingFiles 路徑能掃到
@@ -930,6 +940,7 @@ export async function syncFullWvpProject(
     }
 
     const illusMode = packIllustrationMode();
+    await emitStage?.("illustrations", entries.length);
     if (illusMode !== "skip") {
       const styleFragment = await resolveImageStyleFragment(wvpSettings.imageStyle, themeId);
       const syncOpts =
@@ -972,6 +983,7 @@ export async function syncFullWvpProject(
         illustrationSyncWarning = `已生成 ${illus.written}/${illus.attempted} 張配圖，其餘卡片僅顯示標題。`;
       }
 
+      await emitStage?.("animations", entries.length);
       await syncPresentationStepAnimations(
         supabase,
         userId,
@@ -1008,9 +1020,14 @@ export async function syncFullWvpProject(
         wvpSettings.assets,
         { preserveApprovedAnchorChapter },
       );
+    } else {
+      await emitStage?.("animations", entries.length);
     }
 
+    await emitStage?.("registry", entries.length);
+
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;
+    await emitStage?.("vite", entries.length);
     console.log(`[wvp-build] vite build start project=${projectId} base=${base}`);
     const viteStartedAt = Date.now();
     const result = await buildProjectPresentation(projectId, base);
@@ -1022,6 +1039,7 @@ export async function syncFullWvpProject(
     built = true;
     chaptersVisualUpgraded = result.chaptersVisualUpgraded;
     try {
+      await emitStage?.("upload", entries.length);
       console.log(`[wvp-build] storage upload start project=${projectId}`);
       await uploadWvpDistToStorage(supabase, userId, projectId);
       storageUploaded = true;

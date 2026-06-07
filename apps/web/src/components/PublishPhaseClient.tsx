@@ -7,6 +7,15 @@ import { WvpPhaseBottomActions, WvpPhaseNav } from "@/components/ProjectPhaseNav
 import { ExportMp4Button } from "@/components/ExportMp4Button";
 import { useToast } from "@/components/Toast";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
+import { FullWidthProgressPanel } from "@/components/FullWidthProgressPanel";
+import {
+  createInitialWvpBuildProgress,
+  estimateWvpBuildRemainingMs,
+  parseWvpBuildProgress,
+  WVP_BUILD_PHASE_LABEL,
+  WVP_BUILD_PHASE_PERCENT,
+  type WvpBuildProgress,
+} from "@/lib/wvp-build-progress";
 import { stepCountForChapter } from "@/lib/wvp-chapters";
 import { titleToWvpChapterId } from "@/lib/wvp-slug";
 
@@ -71,7 +80,8 @@ export function PublishPhaseClient({
   const [readiness, setReadiness] = useState<ExportReadiness | null>(null);
   const [previewBuilt, setPreviewBuilt] = useState(initialPreviewBuilt);
   const [building, setBuilding] = useState(false);
-  const [buildElapsedSec, setBuildElapsedSec] = useState(0);
+  const [buildProgress, setBuildProgress] = useState<WvpBuildProgress | null>(null);
+  const [buildQueueHint, setBuildQueueHint] = useState<string | null>(null);
   const [skippingChapterId, setSkippingChapterId] = useState<string | null>(null);
   const { toast } = useToast();
   const locked = locks.publish;
@@ -107,17 +117,13 @@ export function PublishPhaseClient({
   const POLL_MAX_ATTEMPTS = 600;
 
   const pollWvpBuildJob = async (jobRunId: string, attempt = 0): Promise<void> => {
-    setBuildElapsedSec(attempt * (POLL_INTERVAL_MS / 1000));
     let res: Response;
     let data: {
       error?: string;
       job?: {
         status?: string;
         error_message?: string | null;
-        result?: {
-          warning?: string;
-          storageUploaded?: boolean;
-        };
+        result?: Record<string, unknown>;
       };
     } = {};
 
@@ -147,11 +153,25 @@ export function PublishPhaseClient({
     }
 
     const status = data.job?.status;
+    const result = data.job?.result;
+
+    if (status === "pending") {
+      setBuildQueueHint("打包任務排隊中…");
+      const progress = parseWvpBuildProgress(result);
+      if (progress) setBuildProgress(progress);
+    } else if (status === "running") {
+      setBuildQueueHint(null);
+      const progress = parseWvpBuildProgress(result);
+      if (progress) setBuildProgress(progress);
+    }
+
     if (status === "completed") {
-      const result = data.job?.result;
+      const doneProgress = parseWvpBuildProgress(result);
+      if (doneProgress) setBuildProgress(doneProgress);
       setPreviewBuilt(true);
-      if (result?.warning && !result.storageUploaded) {
-        toast(`預覽已打包；雲端上傳略過：${result.warning}`, "info");
+      const completed = result as { warning?: string; storageUploaded?: boolean } | undefined;
+      if (completed?.warning && !completed.storageUploaded) {
+        toast(`預覽已打包；雲端上傳略過：${completed.warning}`, "info");
       } else {
         toast("課程預覽已打包（含語音），可開啟播放", "success", { taskComplete: true });
       }
@@ -159,6 +179,8 @@ export function PublishPhaseClient({
       return;
     }
     if (status === "failed") {
+      const failedProgress = parseWvpBuildProgress(result);
+      if (failedProgress) setBuildProgress(failedProgress);
       throw new Error(data.job?.error_message ?? "打包失敗");
     }
 
@@ -178,7 +200,9 @@ export function PublishPhaseClient({
       return;
     }
     setBuilding(true);
-    setBuildElapsedSec(0);
+    setBuildQueueHint("正在啟動打包任務…");
+    const rootChapterCount = composition.chapters.filter((ch) => !ch.parentId).length;
+    setBuildProgress(createInitialWvpBuildProgress(rootChapterCount));
     try {
       const res = await fetch(`/api/projects/${projectId}/wvp/build`, {
         method: "POST",
@@ -225,8 +249,23 @@ export function PublishPhaseClient({
       toast(e instanceof Error ? e.message : "建置失敗", "error");
     } finally {
       setBuilding(false);
+      setBuildQueueHint(null);
     }
   };
+
+  const buildProgressLabel = useMemo(() => {
+    if (!buildProgress) return "正在打包…";
+    const phase = WVP_BUILD_PHASE_LABEL[buildProgress.phase] ?? buildProgress.phase;
+    const chapters =
+      buildProgress.chapterCount && buildProgress.chapterCount > 0
+        ? ` · ${buildProgress.chapterCount} 章`
+        : "";
+    return `${phase}${chapters}`;
+  }, [buildProgress]);
+
+  const buildProgressPercent = buildProgress
+    ? WVP_BUILD_PHASE_PERCENT[buildProgress.phase] ?? 0
+    : 0;
 
   const chapterStatuses = useMemo(() => {
     type ReadinessChapter = NonNullable<ExportReadiness["chapters"]>[number] & {
@@ -371,13 +410,7 @@ export function PublishPhaseClient({
             onClick={buildWvpPreview}
             title={audioGate.message ?? undefined}
           >
-            {building
-              ? buildElapsedSec >= 60
-                ? `打包中（已 ${Math.floor(buildElapsedSec / 60)} 分 ${buildElapsedSec % 60} 秒）…`
-                : buildElapsedSec > 0
-                  ? `打包中（已 ${buildElapsedSec} 秒）…`
-                  : "打包中（首次較久）…"
-              : "打包課程"}
+            {building ? "打包中…" : "打包課程"}
           </button>
           {previewBuilt ? (
             <Link
@@ -415,6 +448,13 @@ export function PublishPhaseClient({
           )}
           <ExportMp4Button projectId={projectId} />
         </div>
+        <FullWidthProgressPanel
+          busy={building}
+          label={buildProgressLabel}
+          percent={buildProgressPercent}
+          eta={buildProgress ? estimateWvpBuildRemainingMs(buildProgress) : null}
+          queueHint={buildQueueHint}
+        />
       </section>
 
       <section className="cf-card cf-card-padded space-y-4">
