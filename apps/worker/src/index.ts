@@ -12,7 +12,8 @@ import {
   touchWorkerHeartbeat,
   WORKER_HEARTBEAT_INTERVAL_MS,
 } from "@courseflow/shared";
-import { processRender, processSynthesizeAudio } from "./processors.js";
+import { processRender } from "./processors.js";
+import { processSynthesizeAudio } from "./process-synthesize-audio.js";
 import { processWvpBatchCraft } from "./process-wvp-batch-craft.js";
 
 async function main() {

@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  CompactBatchProgressPanel,
+  type CompactBatchItemStatus,
+} from "@/components/CompactBatchProgressPanel";
+import {
   BATCH_CRAFT_PHASE_LABEL,
   estimateBatchRemainingMs,
   formatEtaMs,
@@ -59,48 +63,55 @@ export function BatchCraftProgressPanel({
       : "";
 
   const firstFailed = failedJobProgress?.chapters.find((ch) => ch.status === "failed");
-  const statusLine = busy
-    ? queueHint ?? (active ? `${chapterLabel}${currentTitle ? ` · ${currentTitle}` : ""} · ${phaseLabel}` : "正在啟動批次…")
-    : "上次批次結果";
+
+  const mapChapterStatus = (
+    status: WvpBatchCraftChapterProgress["status"],
+  ): CompactBatchItemStatus => {
+    if (status === "materialized") return "done";
+    if (status === "synced" || status === "generated") return "running";
+    if (status === "skipped") return "skipped";
+    if (status === "failed") return "failed";
+    if (status === "running") return "running";
+    return "pending";
+  };
 
   if (compact) {
+    const compactSource = active ?? failedJobProgress;
     return (
-      <div className="min-h-[2.75rem] flex-1 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2">
-        <div className="flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[11px] text-zinc-400" title={statusLine}>
-            {busy ? "⟳ " : ""}
-            {statusLine}
-          </p>
-          <span className="shrink-0 text-[11px] font-medium text-emerald-500/90">{percent}%</span>
-        </div>
-        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-zinc-800">
-          <div
-            className="h-full rounded-full bg-emerald-600 transition-all duration-500"
-            style={{ width: `${Math.max(busy && !active ? 4 : percent, busy ? 4 : 0)}%` }}
-          />
-        </div>
-        {busy && eta !== null ? (
-          <p className="mt-1 text-[10px] text-zinc-600">預估剩餘 {formatEtaMs(eta)}</p>
-        ) : null}
-        {busy && onCancel ? (
-          <button
-            type="button"
-            className="mt-1.5 text-[10px] text-zinc-500 underline hover:text-zinc-300"
-            onClick={() => onCancel()}
-          >
-            取消批次
-          </button>
-        ) : null}
-        {!busy && firstFailed && onResume ? (
-          <button
-            type="button"
-            className="mt-1.5 text-[10px] text-emerald-500/90 underline hover:text-emerald-400"
-            onClick={() => onResume(firstFailed.sortOrder)}
-          >
-            從「{firstFailed.title}」續跑
-          </button>
-        ) : null}
-      </div>
+      <CompactBatchProgressPanel
+        busy={busy}
+        queueHint={queueHint}
+        busyTitle="上次批次結果"
+        onCancel={busy && onCancel ? () => onCancel() : undefined}
+        onResume={
+          !busy && firstFailed && onResume
+            ? {
+                label: `從「${firstFailed.title}」續跑`,
+                onClick: () => onResume(firstFailed.sortOrder),
+              }
+            : undefined
+        }
+        estimateRemainingMs={
+          compactSource ? () => estimateBatchRemainingMs(compactSource) : undefined
+        }
+        progress={
+          compactSource
+            ? {
+                phaseLabel,
+                currentIndex: compactSource.currentChapterIndex,
+                totalItems: compactSource.totalChapters,
+                currentLabel: currentTitle,
+                itemUnit: "章",
+                itemDurationsMs: compactSource.chapterDurationsMs,
+                items: compactSource.chapters.map((ch) => ({
+                  id: ch.wvpChapterId,
+                  label: ch.title,
+                  status: mapChapterStatus(ch.status),
+                })),
+              }
+            : null
+        }
+      />
     );
   }
 

@@ -4,6 +4,12 @@ import { synthesizeSpeech } from "@courseflow/tts";
 import { decryptApiKey } from "@/lib/crypto";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { saveComposition } from "@/lib/project-composition";
+import {
+  createInitialTtsBatchProgress,
+  stepLabelFromScript,
+  type TtsBatchProgress,
+  type TtsSynthesizeJobResult,
+} from "@/lib/tts-batch-progress";
 
 async function synthesizeStepAudio(
   provider: TtsProviderId,
@@ -21,6 +27,17 @@ async function synthesizeStepAudio(
   );
 }
 
+function updateStepProgress(
+  progress: TtsBatchProgress,
+  stepId: string,
+  patch: Partial<TtsBatchProgress["steps"][number]>,
+): void {
+  const idx = progress.steps.findIndex((s) => s.stepId === stepId);
+  if (idx >= 0) {
+    progress.steps[idx] = { ...progress.steps[idx]!, ...patch };
+  }
+}
+
 export async function runSynthesizeAudio(payload: {
   projectId: string;
   userId: string;
@@ -28,8 +45,20 @@ export async function runSynthesizeAudio(payload: {
   voiceId: string;
   model?: string;
   stepIds?: string[];
-}) {
+  jobRunId?: string;
+}): Promise<TtsSynthesizeJobResult> {
   const supabase = createServiceClient();
+
+  const patchJob = async (patch: {
+    status: string;
+    result?: TtsSynthesizeJobResult;
+    error_message?: string | null;
+    updated_at?: string;
+  }) => {
+    if (!payload.jobRunId) return;
+    // @ts-expect-error Supabase 對 job_runs.update 推斷為 never
+    await supabase.from("job_runs").update(patch).eq("id", payload.jobRunId);
+  };
 
   const { data: project, error: projectError } = await supabase
     .from("projects")
@@ -43,6 +72,49 @@ export async function runSynthesizeAudio(payload: {
     ?.composition_snapshot;
   if (!composition?.steps?.length) {
     throw new Error("專案沒有可合成的步驟");
+  }
+
+  const targetSteps = payload.stepIds?.length
+    ? composition.steps.filter((step) => payload.stepIds!.includes(step.id))
+    : composition.steps;
+
+  const progress = createInitialTtsBatchProgress(
+    targetSteps.map((step, index) => ({
+      stepId: step.id,
+      label: stepLabelFromScript(step.script, step.sortOrder ?? index),
+      sortOrder: step.sortOrder ?? index,
+      hasScript: Boolean(step.script.trim()),
+    })),
+  );
+
+  let progressChain: Promise<void> = Promise.resolve();
+  const emitProgress = async (): Promise<void> => {
+    progressChain = progressChain.then(async () => {
+      const partial: TtsSynthesizeJobResult = {
+        ok: false,
+        progress: { ...progress, steps: [...progress.steps] },
+        summary: {
+          total: progress.totalSteps,
+          done: progress.steps.filter((s) => s.status === "done").length,
+          failed: progress.steps.filter((s) => s.status === "failed").length,
+          skipped: progress.steps.filter((s) => s.status === "skipped").length,
+        },
+      };
+      await patchJob({
+        status: "running",
+        result: partial,
+        updated_at: new Date().toISOString(),
+      });
+    });
+    await progressChain;
+  };
+
+  if (payload.jobRunId) {
+    console.log(
+      `[tts-batch] start job=${payload.jobRunId} project=${payload.projectId} steps=${progress.totalSteps} provider=${payload.provider}`,
+    );
+    await patchJob({ status: "running", updated_at: new Date().toISOString() });
+    await emitProgress();
   }
 
   let apiKey: string | undefined;
@@ -61,46 +133,102 @@ export async function runSynthesizeAudio(payload: {
   }
 
   const audioEntries = [...composition.audio];
-  const targetSteps = payload.stepIds?.length
-    ? composition.steps.filter((step) => payload.stepIds!.includes(step.id))
-    : composition.steps;
 
-  for (const step of targetSteps) {
-    if (!step.script.trim()) continue;
-
-    const buffer = await synthesizeStepAudio(
-      payload.provider,
-      step.script,
-      payload.voiceId,
-      apiKey,
-      payload.model,
-    );
-
-    const storagePath = `${payload.userId}/${payload.projectId}/audio/${step.id}.mp3`;
-    const { error: uploadError } = await supabase.storage
-      .from("courseflow-assets")
-      .upload(storagePath, buffer, {
-        contentType: "audio/mpeg",
-        upsert: true,
-      });
-    if (uploadError) {
-      throw new Error(`音訊上傳失敗：${uploadError.message}`);
+  for (let i = 0; i < targetSteps.length; i++) {
+    const step = targetSteps[i]!;
+    const stepIdx = progress.steps.findIndex((s) => s.stepId === step.id);
+    if (stepIdx >= 0) {
+      progress.currentStepIndex = stepIdx;
+      progress.currentStepId = step.id;
+      progress.currentLabel = progress.steps[stepIdx]!.label;
     }
 
-    const { data: urlData } = supabase.storage.from("courseflow-assets").getPublicUrl(storagePath);
-    const entry = {
-      stepId: step.id,
-      storagePath,
-      publicUrl: urlData.publicUrl,
-      durationMs: step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000,
-    };
-    const index = audioEntries.findIndex((item) => item.stepId === step.id);
-    if (index >= 0) audioEntries[index] = entry;
-    else audioEntries.push(entry);
+    if (!step.script.trim()) {
+      updateStepProgress(progress, step.id, { status: "skipped" });
+      await emitProgress();
+      continue;
+    }
+
+    const stepStartedAt = Date.now();
+    updateStepProgress(progress, step.id, { status: "running" });
+    progress.phase = "synthesize";
+    await emitProgress();
+
+    try {
+      const buffer = await synthesizeStepAudio(
+        payload.provider,
+        step.script,
+        payload.voiceId,
+        apiKey,
+        payload.model,
+      );
+
+      const storagePath = `${payload.userId}/${payload.projectId}/audio/${step.id}.mp3`;
+      const { error: uploadError } = await supabase.storage
+        .from("courseflow-assets")
+        .upload(storagePath, buffer, {
+          contentType: "audio/mpeg",
+          upsert: true,
+        });
+      if (uploadError) {
+        throw new Error(`音訊上傳失敗：${uploadError.message}`);
+      }
+
+      const { data: urlData } = supabase.storage.from("courseflow-assets").getPublicUrl(storagePath);
+      const entry = {
+        stepId: step.id,
+        storagePath,
+        publicUrl: urlData.publicUrl,
+        durationMs: step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000,
+      };
+      const index = audioEntries.findIndex((item) => item.stepId === step.id);
+      if (index >= 0) audioEntries[index] = entry;
+      else audioEntries.push(entry);
+
+      updateStepProgress(progress, step.id, { status: "done" });
+      progress.stepDurationsMs.push(Date.now() - stepStartedAt);
+      await emitProgress();
+      console.log(
+        `[tts-batch] step done job=${payload.jobRunId ?? "-"} step=${step.id} elapsed=${Math.round((Date.now() - stepStartedAt) / 1000)}s`,
+      );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "合成失敗";
+      updateStepProgress(progress, step.id, { status: "failed", error: message });
+      progress.stepDurationsMs.push(Date.now() - stepStartedAt);
+      await emitProgress();
+      throw e;
+    }
   }
 
   await saveComposition(supabase, payload.projectId, {
     ...composition,
     audio: audioEntries,
   });
+
+  progress.phase = "done";
+  progress.currentStepIndex = progress.totalSteps;
+  const jobResult: TtsSynthesizeJobResult = {
+    ok: progress.steps.every((s) => s.status !== "failed"),
+    progress: { ...progress, steps: [...progress.steps] },
+    summary: {
+      total: progress.totalSteps,
+      done: progress.steps.filter((s) => s.status === "done").length,
+      failed: progress.steps.filter((s) => s.status === "failed").length,
+      skipped: progress.steps.filter((s) => s.status === "skipped").length,
+    },
+  };
+
+  if (payload.jobRunId) {
+    await patchJob({
+      status: jobResult.ok ? "completed" : "failed",
+      result: jobResult,
+      error_message: jobResult.ok ? null : "部分步驟合成失敗",
+      updated_at: new Date().toISOString(),
+    });
+    console.log(
+      `[tts-batch] done job=${payload.jobRunId} project=${payload.projectId} done=${jobResult.summary.done}/${jobResult.summary.total}`,
+    );
+  }
+
+  return jobResult;
 }

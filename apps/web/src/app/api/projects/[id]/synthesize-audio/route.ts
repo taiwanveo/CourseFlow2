@@ -5,6 +5,11 @@ import { assertPhaseEditable } from "@courseflow/core";
 import type { PhaseLocks } from "@courseflow/core";
 import type { TtsProviderId } from "@courseflow/tts";
 import { runSynthesizeAudio } from "@/lib/run-synthesize-audio";
+import {
+  createInitialTtsBatchProgress,
+  stepLabelFromScript,
+} from "@/lib/tts-batch-progress";
+import { loadProjectComposition } from "@/lib/project-composition";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -54,12 +59,51 @@ export async function POST(
     stepIds: body.stepIds,
   };
 
+  const isBatch = !body.stepIds?.length;
+  const composition = isBatch ? await loadProjectComposition(supabase, id) : null;
+  const targetSteps = composition?.steps
+    ? body.stepIds?.length
+      ? composition.steps.filter((step) => body.stepIds!.includes(step.id))
+      : composition.steps
+    : [];
+
+  const initialProgress =
+    isBatch && targetSteps.length > 0
+      ? createInitialTtsBatchProgress(
+          targetSteps.map((step, index) => ({
+            stepId: step.id,
+            label: stepLabelFromScript(step.script, step.sortOrder ?? index),
+            sortOrder: step.sortOrder ?? index,
+            hasScript: Boolean(step.script.trim()),
+          })),
+        )
+      : undefined;
+
+  const initialResult = initialProgress
+    ? {
+        ok: false,
+        progress: initialProgress,
+        summary: {
+          total: initialProgress.totalSteps,
+          done: 0,
+          failed: 0,
+          skipped: initialProgress.steps.filter((s) => s.status === "skipped").length,
+        },
+      }
+    : undefined;
+
+  console.log(
+    `[tts-batch] create job project=${id} user=${user.id} batch=${isBatch} steps=${initialProgress?.totalSteps ?? body.stepIds?.length ?? 0}`,
+  );
+
   const { data: jobRun, error: jobError } = await supabase
     .from("job_runs")
     .insert({
       project_id: id,
       user_id: user.id,
       job_type: "synthesize-audio",
+      status: "pending",
+      result: initialResult,
       payload: body,
     })
     .select()
@@ -87,6 +131,21 @@ export async function POST(
     }
   }
 
+  if (!queued && isBatch) {
+    console.log(`[tts-batch] Web inline job=${jobRun.id} project=${id}`);
+    setImmediate(() => {
+      void runSynthesizeAudio({ ...jobPayload, jobRunId: jobRun.id }).catch((err) => {
+        console.error(`[tts-batch] Web inline failed job=${jobRun.id}:`, err);
+      });
+    });
+    return NextResponse.json({
+      ok: true,
+      jobRunId: jobRun.id,
+      inline: false,
+      message: "批次語音合成已開始，請稍候…",
+    });
+  }
+
   if (!queued) {
     const internalSecret = process.env.API_KEY_ENCRYPTION_SECRET;
     if (!internalSecret) {
@@ -98,8 +157,7 @@ export async function POST(
     }
 
     try {
-      await runSynthesizeAudio(jobPayload);
-      await supabase.from("job_runs").update({ status: "completed" }).eq("id", jobRun.id);
+      await runSynthesizeAudio({ ...jobPayload, jobRunId: jobRun.id });
       return NextResponse.json({ ok: true, jobRunId: jobRun.id, inline: true });
     } catch (e) {
       await supabase
@@ -110,5 +168,11 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({ ok: true, jobRunId: jobRun.id, inline: false });
+  console.log(`[tts-batch] enqueued job=${jobRun.id} project=${id}`);
+  return NextResponse.json({
+    ok: true,
+    jobRunId: jobRun.id,
+    inline: false,
+    message: "批次語音合成已加入佇列，請稍候…",
+  });
 }

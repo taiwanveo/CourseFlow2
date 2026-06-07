@@ -17,6 +17,18 @@ import {
 } from "@/lib/step-tts";
 import { ensureStorageCompatibleAudioFile } from "@/lib/audio-upload";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
+import {
+  CompactBatchProgressPanel,
+  type CompactBatchItemStatus,
+} from "@/components/CompactBatchProgressPanel";
+import {
+  createInitialTtsBatchProgress,
+  estimateTtsBatchRemainingMs,
+  parseTtsBatchProgress,
+  stepLabelFromScript,
+  TTS_BATCH_PHASE_LABEL,
+  type TtsBatchProgress,
+} from "@/lib/tts-batch-progress";
 
 const TTS_PROVIDER_ORDER = ["openai", "gemini", "openrouter", "edge-tts"] as const;
 
@@ -134,6 +146,9 @@ export function AudioPhaseClient({
   const [batchModel, setBatchModel] = useState(initialDefaults.model);
   const [stepIndex, setStepIndex] = useState(0);
   const [batchSynthesizing, setBatchSynthesizing] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<TtsBatchProgress | null>(null);
+  const [batchQueueHint, setBatchQueueHint] = useState<string | null>(null);
+  const lastTtsDoneCount = useRef(0);
   const [stepSynthesizing, setStepSynthesizing] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingBusy, setRecordingBusy] = useState(false);
@@ -367,9 +382,21 @@ export function AudioPhaseClient({
   );
 
   const pollJobRun = useCallback(
-    async (jobRunId: string, onDone: () => void, attempt = 0) => {
+    async (
+      jobRunId: string,
+      onDone: () => void,
+      opts?: { trackBatchProgress?: boolean },
+      attempt = 0,
+    ) => {
       let res: Response;
-      let data: { error?: string; job?: { status?: string; error_message?: string | null } } = {};
+      let data: {
+        error?: string;
+        job?: {
+          status?: string;
+          error_message?: string | null;
+          result?: Record<string, unknown>;
+        };
+      } = {};
 
       try {
         res = await fetch(`/api/job-runs/${jobRunId}`);
@@ -377,22 +404,35 @@ export function AudioPhaseClient({
         if (text.trim()) {
           const parsed: unknown = JSON.parse(text);
           if (parsed && typeof parsed === "object") {
-            data = parsed as { error?: string; job?: { status?: string; error_message?: string | null } };
+            data = parsed as {
+              error?: string;
+              job?: {
+                status?: string;
+                error_message?: string | null;
+                result?: Record<string, unknown>;
+              };
+            };
           }
         }
       } catch {
-        if (attempt >= 60) {
+        if (attempt >= 900) {
           toast("任務狀態查詢逾時，請稍後重新整理頁面確認結果", "error");
           onDone();
           return;
         }
-        window.setTimeout(() => void pollJobRun(jobRunId, onDone, attempt + 1), 2000);
+        window.setTimeout(
+          () => void pollJobRun(jobRunId, onDone, opts, attempt + 1),
+          2000,
+        );
         return;
       }
 
       if (!res.ok) {
-        if ([502, 503, 504].includes(res.status) && attempt < 60) {
-          window.setTimeout(() => void pollJobRun(jobRunId, onDone, attempt + 1), 2000);
+        if ([502, 503, 504].includes(res.status) && attempt < 900) {
+          window.setTimeout(
+            () => void pollJobRun(jobRunId, onDone, opts, attempt + 1),
+            2000,
+          );
           return;
         }
         toast(data.error ?? "無法查詢合成狀態", "error");
@@ -401,28 +441,58 @@ export function AudioPhaseClient({
       }
 
       const status = data.job?.status as string | undefined;
+      const result = data.job?.result;
+
+      if (opts?.trackBatchProgress) {
+        if (status === "pending") {
+          setBatchQueueHint("任務排隊中，等待 Worker…");
+          if (result) {
+            const progress = parseTtsBatchProgress(result);
+            if (progress) setBatchProgress(progress);
+          }
+        } else if (status === "running") {
+          setBatchQueueHint(null);
+          const progress = parseTtsBatchProgress(result);
+          if (progress) {
+            setBatchProgress(progress);
+            const done = progress.steps.filter((s) => s.status === "done").length;
+            if (done > lastTtsDoneCount.current) {
+              lastTtsDoneCount.current = done;
+              void refreshComposition();
+            }
+          }
+        }
+      }
+
       if (status === "completed") {
+        const progress = parseTtsBatchProgress(result);
+        if (progress) setBatchProgress(progress);
         await refreshComposition();
         toast("語音合成完成", "success", { taskComplete: true });
         onDone();
         return;
       }
       if (status === "failed") {
+        const progress = parseTtsBatchProgress(result);
+        if (progress) setBatchProgress(progress);
         toast(data.job?.error_message ?? "語音合成失敗", "error");
         onDone();
         return;
       }
 
-      if (attempt >= 60) {
+      if (attempt >= 900) {
         toast(
-          "任務仍在佇列中，請確認 courseflow-worker 已啟動（本機：pnpm dev:worker；Render：需部署 worker 服務）",
+          "任務執行時間過長，請稍後重新整理頁面確認狀態",
           "error",
         );
         onDone();
         return;
       }
 
-      window.setTimeout(() => pollJobRun(jobRunId, onDone, attempt + 1), 2000);
+      window.setTimeout(
+        () => void pollJobRun(jobRunId, onDone, opts, attempt + 1),
+        2000,
+      );
     },
     [refreshComposition, toast],
   );
@@ -435,6 +505,7 @@ export function AudioPhaseClient({
       model?: string;
     },
     onDone?: () => void,
+    opts?: { trackBatchProgress?: boolean },
   ) =>
     new Promise<boolean>(async (resolve) => {
       const finish = () => {
@@ -459,6 +530,7 @@ export function AudioPhaseClient({
         error?: string;
         inline?: boolean;
         jobRunId?: string;
+        message?: string;
       };
       if (!res.ok) {
         toast(data.error ?? "合成失敗", "error");
@@ -480,17 +552,57 @@ export function AudioPhaseClient({
 
       if (data.jobRunId) {
         toast(
-          payload.stepIds?.length === 1
-            ? "此步驟語音合成已加入佇列，處理中…"
-            : "語音合成已加入佇列，處理中…",
+          typeof data.message === "string" && data.message
+            ? data.message
+            : payload.stepIds?.length === 1
+              ? "此步驟語音合成已加入佇列，處理中…"
+              : "語音合成已加入佇列，處理中…",
           "info",
         );
-        pollJobRun(data.jobRunId, finish);
+        if (opts?.trackBatchProgress) {
+          setBatchQueueHint("等待 Worker 接手…");
+        }
+        pollJobRun(data.jobRunId, finish, opts);
         return;
       }
 
       finish();
     });
+
+  const buildInitialBatchProgress = useCallback((): TtsBatchProgress | null => {
+    if (orderedSteps.length === 0) return null;
+    return createInitialTtsBatchProgress(
+      orderedSteps.map((s, index) => ({
+        stepId: s.id,
+        label: stepLabelFromScript(s.script, s.sortOrder ?? index),
+        sortOrder: s.sortOrder ?? index,
+        hasScript: Boolean(s.script.trim()),
+      })),
+    );
+  }, [orderedSteps]);
+
+  const toCompactTtsProgress = useCallback((progress: TtsBatchProgress) => {
+    const mapStatus = (status: TtsBatchProgress["steps"][number]["status"]): CompactBatchItemStatus => {
+      if (status === "done") return "done";
+      if (status === "skipped") return "skipped";
+      if (status === "failed") return "failed";
+      if (status === "running") return "running";
+      return "pending";
+    };
+    return {
+      phaseLabel: TTS_BATCH_PHASE_LABEL[progress.phase] ?? progress.phase,
+      currentIndex: progress.currentStepIndex,
+      totalItems: progress.totalSteps,
+      currentLabel: progress.currentLabel,
+      itemUnit: "步",
+      itemDurationsMs: progress.stepDurationsMs,
+      items: progress.steps.map((step) => ({
+        id: step.stepId,
+        label: step.label,
+        status: mapStatus(step.status),
+      })),
+    };
+  }, []);
 
   const synthesizeBatch = async () => {
     if (!batchVoiceId) {
@@ -498,6 +610,10 @@ export function AudioPhaseClient({
       return;
     }
     setBatchSynthesizing(true);
+    setBatchQueueHint("正在送出批次任務…");
+    lastTtsDoneCount.current = 0;
+    const initial = buildInitialBatchProgress();
+    setBatchProgress(initial);
     try {
       await synthesize(
         {
@@ -505,10 +621,15 @@ export function AudioPhaseClient({
           voiceId: batchVoiceId,
           model: providerNeedsModel(batchProvider) ? batchModel : undefined,
         },
-        () => setBatchSynthesizing(false),
+        () => {
+          setBatchSynthesizing(false);
+          setBatchQueueHint(null);
+        },
+        { trackBatchProgress: true },
       );
     } catch {
       setBatchSynthesizing(false);
+      setBatchQueueHint(null);
     }
   };
 
@@ -834,7 +955,7 @@ export function AudioPhaseClient({
             <select
               value={batchProvider}
               onChange={(event) => setBatchProvider(event.target.value)}
-              disabled={locked}
+              disabled={locked || batchSynthesizing}
               className="cf-select mt-1 w-auto min-w-[140px]"
             >
               {availableProviders.map((provider) => (
@@ -853,13 +974,12 @@ export function AudioPhaseClient({
                 onChange={(event) => {
                   const modelId = event.target.value;
                   setBatchModel(modelId);
-                  // 切換模型時重算語音，並選第一個
                   const nextVoices = voicesForModel(batchProvider, modelId);
                   if (nextVoices.length > 0 && !nextVoices.some((v) => v.id === batchVoiceId)) {
                     setBatchVoiceId(nextVoices[0]!.id);
                   }
                 }}
-                disabled={locked || modelsLoading || batchModels.length === 0}
+                disabled={locked || batchSynthesizing || modelsLoading || batchModels.length === 0}
                 className="cf-select mt-1 w-auto min-w-[160px]"
               >
                 {modelsLoading ? (
@@ -880,7 +1000,7 @@ export function AudioPhaseClient({
             <select
               value={batchVoiceId}
               onChange={(event) => setBatchVoiceId(event.target.value)}
-              disabled={locked || batchVoices.length === 0}
+              disabled={locked || batchSynthesizing || batchVoices.length === 0}
               className="cf-select mt-1 w-auto min-w-[200px]"
             >
               {batchVoices.map((voice) => (
@@ -890,15 +1010,25 @@ export function AudioPhaseClient({
               ))}
             </select>
           </label>
-
+        </div>
+        <div className="mt-3 flex w-full flex-wrap items-start gap-2">
           <button
             type="button"
             disabled={locked || batchSynthesizing || !batchVoiceId}
             onClick={synthesizeBatch}
-            className="cf-btn cf-btn-primary"
+            className="cf-btn cf-btn-primary shrink-0"
           >
-            {batchSynthesizing ? "提交中…" : "批次合成語音"}
+            {batchSynthesizing ? "處理中…" : "批次合成語音"}
           </button>
+          <CompactBatchProgressPanel
+            busy={batchSynthesizing}
+            queueHint={batchQueueHint}
+            busyTitle="上次批次結果"
+            estimateRemainingMs={
+              batchProgress ? () => estimateTtsBatchRemainingMs(batchProgress) : undefined
+            }
+            progress={batchProgress ? toCompactTtsProgress(batchProgress) : null}
+          />
         </div>
       </section>
 
