@@ -14,6 +14,7 @@ import { resolveJobStaleMs, shouldAsyncWvpCraftJobs } from "@/lib/wvp-craft-asyn
 import { runWvpBatchCraft } from "@/lib/run-wvp-batch-craft";
 import { shouldUseJobQueue } from "@/lib/job-queue";
 import { getCraftQueue } from "@/lib/queue";
+import { createInitialBatchProgress } from "@courseflow/wvp-craft";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
@@ -159,6 +160,35 @@ export async function POST(
       );
     }
 
+    const { data: craftRows } = await supabase
+      .from("chapter_craft")
+      .select("wvp_chapter_id, title, sort_order")
+      .eq("project_id", id)
+      .order("sort_order");
+
+    const initialProgress = createInitialBatchProgress(
+      (craftRows ?? []).map((row) => ({
+        wvpChapterId: row.wvp_chapter_id as string,
+        title: row.title as string,
+        sortOrder: row.sort_order as number,
+      })),
+    );
+    const initialResult = {
+      ok: false,
+      mode: body.includeBuild ? ("batch-craft-build" as const) : ("batch-craft" as const),
+      progress: initialProgress,
+      summary: {
+        total: initialProgress.totalChapters,
+        synced: 0,
+        generated: 0,
+        failed: 0,
+      },
+    };
+
+    console.log(
+      `[wvp-batch-craft] create job project=${id} user=${user.id} chapters=${initialProgress.totalChapters} onlyMissing=${Boolean(body.onlyMissing)} includeBuild=${Boolean(body.includeBuild)}`,
+    );
+
     const { data: jobRun, error: jobError } = await supabase
       .from("job_runs")
       .insert({
@@ -166,6 +196,7 @@ export async function POST(
         user_id: user.id,
         job_type: jobType,
         status: "pending",
+        result: initialResult,
         payload: {
           provider: resolved.provider,
           onlyMissing: body.onlyMissing ?? false,
@@ -197,6 +228,10 @@ export async function POST(
     const queueJobName = body.includeBuild ? "wvp-batch-craft-build" : "wvp-batch-craft";
     const useQueue = await shouldUseJobQueue();
 
+    console.log(
+      `[wvp-batch-craft] dispatch job=${jobRun.id} project=${id} queue=${useQueue} jobName=${queueJobName}`,
+    );
+
     if (useQueue) {
       try {
         const craftQueue = getCraftQueue();
@@ -205,18 +240,20 @@ export async function POST(
           removeOnComplete: 100,
           removeOnFail: 50,
         });
+        console.log(`[wvp-batch-craft] enqueued job=${jobRun.id} on craft queue`);
       } catch (queueErr) {
-        console.warn("[wvp-batch-job] 佇列入隊失敗，改走 inline:", queueErr);
+        console.warn("[wvp-batch-craft] 佇列入隊失敗，改走 Web inline:", queueErr);
         setImmediate(() => {
           void runWvpBatchCraft(craftPayload).catch((err) => {
-            console.error("[wvp-batch-job] 背景批次失敗:", err);
+            console.error("[wvp-batch-craft] Web inline 批次失敗:", err);
           });
         });
       }
     } else {
+      console.log(`[wvp-batch-craft] Web inline job=${jobRun.id} (no queue or worker offline)`);
       setImmediate(() => {
         void runWvpBatchCraft(craftPayload).catch((err) => {
-          console.error("[wvp-batch-job] 背景批次失敗:", err);
+          console.error("[wvp-batch-craft] Web inline 批次失敗:", err);
         });
       });
     }

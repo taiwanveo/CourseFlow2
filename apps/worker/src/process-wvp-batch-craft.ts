@@ -23,8 +23,12 @@ const jiti = createJiti(import.meta.url, {
 });
 
 export async function processWvpBatchCraft(payload: WvpBatchCraftQueuePayload): Promise<void> {
+  console.log(
+    `[wvp-batch-craft] worker picked job=${payload.jobRunId} project=${payload.projectId} onlyMissing=${payload.onlyMissing} includeBuild=${payload.includeBuild}`,
+  );
   const mod = jiti(join(repoRoot, "apps/web/src/lib/run-wvp-batch-craft.ts")) as {
     runWvpBatchCraft: (p: WvpBatchCraftQueuePayload) => Promise<unknown>;
   };
   await mod.runWvpBatchCraft(payload);
+  console.log(`[wvp-batch-craft] worker finished job=${payload.jobRunId} project=${payload.projectId}`);
 }

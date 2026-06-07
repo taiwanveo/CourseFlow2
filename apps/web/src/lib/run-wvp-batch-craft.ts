@@ -61,7 +61,7 @@ export async function runWvpBatchCraft(payload: {
   }, HEARTBEAT_INTERVAL_MS);
 
   console.log(
-    `[wvp-batch-job] start job=${payload.jobRunId} project=${payload.projectId} includeBuild=${payload.includeBuild}`,
+    `[wvp-batch-job] start job=${payload.jobRunId} project=${payload.projectId} user=${payload.userId} onlyMissing=${payload.onlyMissing} includeBuild=${payload.includeBuild} resumeFrom=${payload.resumeFromSortOrder ?? "none"}`,
   );
 
   try {
@@ -84,6 +84,13 @@ export async function runWvpBatchCraft(payload: {
       isCancelled,
       onProgress: async (progress: WvpBatchCraftProgress) => {
         latestProgress = progress;
+        const done = progress.chapters.filter((ch) =>
+          ["materialized", "skipped", "failed"].includes(ch.status),
+        ).length;
+        const running = progress.chapters.find((ch) => ch.status === "running");
+        console.log(
+          `[wvp-batch-job] progress job=${payload.jobRunId} project=${payload.projectId} phase=${progress.phase} done=${done}/${progress.totalChapters} current=${progress.currentTitle ?? running?.title ?? "-"} chStatus=${running?.status ?? "-"}`,
+        );
         const partial: WvpBatchCraftJobResult = {
           ok: false,
           mode: payload.includeBuild ? "batch-craft-build" : "batch-craft",

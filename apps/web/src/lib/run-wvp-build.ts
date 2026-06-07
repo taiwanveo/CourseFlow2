@@ -44,10 +44,11 @@ export async function runWvpBuild(payload: {
   await patchJob({ status: "running" });
   const startedAt = Date.now();
   console.log(
-    `[wvp-build] start job=${payload.jobRunId} project=${payload.projectId}`,
+    `[wvp-build] job start job=${payload.jobRunId} project=${payload.projectId} user=${payload.userId} theme=${payload.themeId ?? "default"}`,
   );
 
   try {
+    console.log(`[wvp-build] job sync+build begin job=${payload.jobRunId} project=${payload.projectId}`);
     const result = await syncFullWvpProject(supabase, payload.projectId, payload.userId, {
       build: true,
       previewBase: wvpEmbedBasePath(payload.projectId),
@@ -55,8 +56,12 @@ export async function runWvpBuild(payload: {
     });
 
     if (result.chapterCount === 0) {
+      console.warn(`[wvp-build] job aborted job=${payload.jobRunId}: no chapters`);
       throw new Error("請先同步 narrations 並產生至少一章 AI 視覺計畫");
     }
+    console.log(
+      `[wvp-build] job sync+build ok job=${payload.jobRunId} chapters=${result.chapterCount} built=${result.built} storageUploaded=${result.storageUploaded}`,
+    );
 
     const jobResult: WvpBuildJobResult = {
       chapterCount: result.chapterCount,

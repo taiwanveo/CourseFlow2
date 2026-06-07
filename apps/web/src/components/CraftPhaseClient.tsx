@@ -26,7 +26,10 @@ import {
   resolveChapterTemplateSelectState,
 } from "@/lib/wvp-chapter-template";
 import { BatchCraftProgressPanel } from "@/components/BatchCraftProgressPanel";
-import type { WvpBatchCraftProgress } from "@/lib/wvp-batch-craft-progress";
+import {
+  createInitialBatchProgress,
+  type WvpBatchCraftProgress,
+} from "@/lib/wvp-batch-craft-progress";
 import {
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
@@ -286,8 +289,10 @@ export function CraftPhaseClient({
     null,
   );
   const [activeBatchJobId, setActiveBatchJobId] = useState<string | null>(null);
+  const [batchQueueHint, setBatchQueueHint] = useState<string | null>(null);
   const autoScaffoldAttempted = useRef(false);
   const lastWvpRefreshAt = useRef(0);
+  const lastMaterializedCount = useRef(0);
   const { toast } = useToast();
   const { providers, defaultProvider } = useConfiguredLlmProviders();
   const craftAccessible = canAccessWvpPhase(locks, "craft");
@@ -510,6 +515,7 @@ export function CraftPhaseClient({
       jobRunId: string,
       hooks?: {
         onRunning?: (result: ResponsePayload) => void;
+        onPending?: () => void;
         throttleRefresh?: () => void;
       },
     ): Promise<ResponsePayload> => {
@@ -557,7 +563,16 @@ export function CraftPhaseClient({
           throw new Error(job?.error_message ?? "背景任務失敗");
         }
 
-        if (status === "running" || status === "cancelling" || status === "pending") {
+        if (status === "pending") {
+          const result = job?.result;
+          if (result && typeof result === "object") {
+            hooks?.onRunning?.(result as ResponsePayload);
+          } else {
+            hooks?.onPending?.();
+          }
+        }
+
+        if (status === "running" || status === "cancelling") {
           const result = job?.result;
           if (result && typeof result === "object") {
             hooks?.onRunning?.(result as ResponsePayload);
@@ -608,9 +623,23 @@ export function CraftPhaseClient({
       return;
     }
     setBusy("batch-craft");
-    setBatchProgress(null);
     setFailedBatchProgress(null);
     setActiveBatchJobId(null);
+    setBatchQueueHint("正在送出批次任務…");
+    lastMaterializedCount.current = 0;
+    if (chapters.length > 0) {
+      setBatchProgress(
+        createInitialBatchProgress(
+          chapters.map((ch) => ({
+            wvpChapterId: ch.wvp_chapter_id,
+            title: ch.title,
+            sortOrder: ch.sort_order,
+          })),
+        ),
+      );
+    } else {
+      setBatchProgress(null);
+    }
     try {
       const res = await fetch(`/api/projects/${projectId}/wvp/batch-craft`, {
         method: "POST",
@@ -633,10 +662,23 @@ export function CraftPhaseClient({
             : "全課批次已開始，請稍候…",
           "info",
         );
+        setBatchQueueHint("等待 Worker 接手…");
         finalData = await pollJobRun(data.jobRunId, {
+          onPending: () => {
+            setBatchQueueHint("任務排隊中，等待 Worker…");
+          },
           onRunning: (result) => {
+            setBatchQueueHint(null);
             const progress = parseBatchProgress(result);
-            if (progress) setBatchProgress(progress);
+            if (!progress) return;
+            setBatchProgress(progress);
+            const materialized = progress.chapters.filter(
+              (ch) => ch.status === "materialized",
+            ).length;
+            if (materialized > lastMaterializedCount.current) {
+              lastMaterializedCount.current = materialized;
+              void refreshWvp();
+            }
           },
           throttleRefresh: () => {
             const now = Date.now();
@@ -677,6 +719,7 @@ export function CraftPhaseClient({
     } finally {
       setBusy(null);
       setActiveBatchJobId(null);
+      setBatchQueueHint(null);
     }
   };
 
@@ -1032,46 +1075,52 @@ export function CraftPhaseClient({
                     ) : null}
                   </div>
                 ) : null}
-                <BatchCraftProgressPanel
-                  progress={batchProgress}
-                  busy={busy === "batch-craft"}
-                  onCancel={activeBatchJobId ? () => void cancelBatchCraft() : undefined}
-                  onResume={(sortOrder) =>
-                    void batchCraftAll(false, { resumeFromSortOrder: sortOrder })
-                  }
-                  failedJobProgress={failedBatchProgress}
-                />
-                <button
-                  type="button"
-                  className="cf-btn cf-btn-primary cf-btn-sm"
-                  disabled={
-                    !!busy ||
-                    locks.craft ||
-                    chapters.length === 0 ||
-                    !providers.length ||
-                    !anchorOk ||
-                    !anchorTrialDone ||
-                    !hasSelectedTheme
-                  }
-                  onClick={() => batchCraftAll(false)}
-                >
-                  {busy === "batch-craft" ? "處理中…" : "開始執行"}
-                </button>
-                <button
-                  type="button"
-                  className="cf-btn cf-btn-secondary cf-btn-sm"
-                  disabled={
-                    !!busy ||
-                    chapters.length === 0 ||
-                    !providers.length ||
-                    !anchorOk ||
-                    !anchorTrialDone
-                  }
-                  onClick={() => batchCraftAll(true)}
-                  title="只對尚未產生畫面的章節執行 AI"
-                >
-                  僅補未完成
-                </button>
+                <div className="flex w-full flex-wrap items-start gap-2">
+                  <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="cf-btn cf-btn-primary cf-btn-sm"
+                      disabled={
+                        !!busy ||
+                        locks.craft ||
+                        chapters.length === 0 ||
+                        !providers.length ||
+                        !anchorOk ||
+                        !anchorTrialDone ||
+                        !hasSelectedTheme
+                      }
+                      onClick={() => batchCraftAll(false)}
+                    >
+                      {busy === "batch-craft" ? "處理中…" : "開始執行"}
+                    </button>
+                    <button
+                      type="button"
+                      className="cf-btn cf-btn-secondary cf-btn-sm"
+                      disabled={
+                        !!busy ||
+                        chapters.length === 0 ||
+                        !providers.length ||
+                        !anchorOk ||
+                        !anchorTrialDone
+                      }
+                      onClick={() => batchCraftAll(true)}
+                      title="只對尚未產生畫面的章節執行 AI"
+                    >
+                      僅補未完成
+                    </button>
+                  </div>
+                  <BatchCraftProgressPanel
+                    compact
+                    progress={batchProgress}
+                    busy={busy === "batch-craft"}
+                    queueHint={batchQueueHint}
+                    onCancel={activeBatchJobId ? () => void cancelBatchCraft() : undefined}
+                    onResume={(sortOrder) =>
+                      void batchCraftAll(false, { resumeFromSortOrder: sortOrder })
+                    }
+                    failedJobProgress={failedBatchProgress}
+                  />
+                </div>
               </CraftWorkflowStep>
 
             </div>

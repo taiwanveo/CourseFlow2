@@ -43,6 +43,9 @@ export async function POST(
   }
 
   try {
+    console.log(
+      `[wvp-chapter-preview] POST project=${id} chapter=${wvpChapterId} user=${user.id}`,
+    );
     const build = await buildSingleChapterPreview(supabase, id, user.id, wvpChapterId, {
       themeId,
     });

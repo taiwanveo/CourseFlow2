@@ -840,6 +840,9 @@ async function processBatchChapter(
   }
 
   const chapterStartedAt = Date.now();
+  console.log(
+    `[wvp-batch-chapter] start project=${projectId} chapter=${row.wvp_chapter_id} sort=${row.sort_order} title="${row.title}"`,
+  );
   ctx.progress.phase = "sync";
   updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "running" });
   await ctx.emitProgress();
@@ -921,6 +924,12 @@ async function processBatchChapter(
 
   ctx.progress.chapterDurationsMs.push(Date.now() - chapterStartedAt);
   await ctx.emitProgress();
+  const elapsedSec = Math.round((Date.now() - chapterStartedAt) / 1000);
+  const finalStatus =
+    ctx.progress.chapters.find((ch) => ch.wvpChapterId === row.wvp_chapter_id)?.status ?? "unknown";
+  console.log(
+    `[wvp-batch-chapter] done project=${projectId} chapter=${row.wvp_chapter_id} status=${finalStatus} synced=${entry.synced} generated=${entry.generated} elapsed=${elapsedSec}s${entry.error ? ` error="${entry.error}"` : ""}`,
+  );
   return entry;
 }
 
@@ -1007,6 +1016,9 @@ export async function batchCraftAllChapters(
   const firstChapter = craftRows.find((row) => row.sort_order === firstSort);
   const restChapters = craftRows.filter((row) => row.sort_order !== firstSort);
   const concurrency = resolveBatchConcurrency();
+  console.log(
+    `[wvp-batch-chapter] batch start project=${projectId} total=${craftRows.length} concurrency=${concurrency} onlyMissing=${Boolean(opts.onlyMissing)} skipMaterialize=${Boolean(opts.skipMaterialize)}`,
+  );
 
   const firstResults: BatchChapterResult[] = [];
   if (firstChapter) {

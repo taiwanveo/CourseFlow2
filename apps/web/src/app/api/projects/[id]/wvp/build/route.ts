@@ -57,6 +57,10 @@ export async function POST(
       );
     }
 
+    console.log(
+      `[wvp-build] POST project=${id} user=${user.id} async=${shouldAsyncWvpBuild()} theme=${requestedThemeId ?? "default"}`,
+    );
+
     if (shouldAsyncWvpBuild()) {
       const { data: existingJob } = await supabase
         .from("job_runs")
@@ -69,6 +73,7 @@ export async function POST(
         .maybeSingle();
 
       if (existingJob?.id) {
+        console.log(`[wvp-build] reuse running job=${existingJob.id} project=${id}`);
         return NextResponse.json(
           {
             ok: true,
@@ -105,10 +110,11 @@ export async function POST(
         jobRunId: jobRun.id,
         themeId: requestedThemeId,
       };
+      console.log(`[wvp-build] created job=${jobRun.id} project=${id} dispatch=web-inline`);
       // Render Docker 長駐程序：setImmediate 比 after() 更可靠，避免任務卡在 pending
       setImmediate(() => {
         void runWvpBuild(buildPayload).catch((err) => {
-          console.error("[wvp-build] 背景建置失敗:", err);
+          console.error(`[wvp-build] inline failed job=${jobRun.id}:`, err);
         });
       });
 
@@ -123,11 +129,15 @@ export async function POST(
       );
     }
 
+    console.log(`[wvp-build] sync inline project=${id}`);
     const result = await syncFullWvpProject(supabase, id, user.id, {
       build: true,
       previewBase: wvpEmbedBasePath(id),
       themeId: requestedThemeId,
     });
+    console.log(
+      `[wvp-build] sync inline done project=${id} chapters=${result.chapterCount} built=${result.built}`,
+    );
     if (result.chapterCount === 0) {
       return NextResponse.json(
         { error: "請先同步 narrations 並產生至少一章 AI 視覺計畫" },

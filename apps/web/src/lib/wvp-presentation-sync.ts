@@ -644,6 +644,11 @@ export async function buildSingleChapterPreview(
   const target = craft as CraftRow | null;
   if (!target) throw new Error("找不到章節");
 
+  const previewStartedAt = Date.now();
+  console.log(
+    `[wvp-chapter-preview] start project=${projectId} chapter=${wvpChapterId} title="${target.title}" markAnchorTrial=${Boolean(opts?.markAnchorTrial)}`,
+  );
+
   const narrations = target.checklist_result?.narrations?.filter(Boolean) ?? [];
   if (narrations.length === 0) {
     throw new Error(`「${target.title}」尚無口播步驟，請先匯入口播`);
@@ -726,11 +731,16 @@ export async function buildSingleChapterPreview(
 
   const base = `/projects/${projectId}/wvp-embed/`;
   await opts?.onStage?.("vite-build-start");
+  console.log(`[wvp-chapter-preview] vite build start project=${projectId} chapter=${wvpChapterId}`);
+  const viteStartedAt = Date.now();
   try {
     await buildProjectPresentation(projectId, base);
   } finally {
     await opts?.onStage?.("vite-build-done");
   }
+  console.log(
+    `[wvp-chapter-preview] vite build done project=${projectId} chapter=${wvpChapterId} elapsed=${Math.round((Date.now() - viteStartedAt) / 1000)}s`,
+  );
 
   logWvpBuildQuality(composition, themeId);
 
@@ -762,6 +772,9 @@ export async function buildSingleChapterPreview(
     }
   }
 
+  console.log(
+    `[wvp-chapter-preview] done project=${projectId} chapter=${wvpChapterId} elapsed=${Math.round((Date.now() - previewStartedAt) / 1000)}s`,
+  );
   return {
     built: true,
     wvpChapterId: target.wvp_chapter_id,
@@ -860,19 +873,28 @@ export async function syncFullWvpProject(
   let audioSyncWarning: string | undefined;
   let illustrationSyncWarning: string | undefined;
   if (opts?.build && entries.length > 0) {
+    const buildStartedAt = Date.now();
+    console.log(
+      `[wvp-build] sync start project=${projectId} chapters=${entries.length} theme=${themeId}`,
+    );
     invalidateWvpDistCaches(userId, projectId);
     const audioGate = evaluateWvpAudioBuildGate(composition);
     if (!audioGate.ready) {
+      console.warn(`[wvp-build] audio gate blocked project=${projectId}: ${audioGate.message}`);
       throw new Error(audioGate.message ?? "請先完成語音合成");
     }
 
     await syncCheckpointAssetsToPresentation(projectId, wvpSettings.assets);
+    console.log(`[wvp-build] checkpoint assets synced project=${projectId}`);
 
     const audioSync = await syncPresentationAudioFromComposition(
       supabase,
       projectId,
       composition,
       (crafts ?? []) as CraftRow[],
+    );
+    console.log(
+      `[wvp-build] audio sync project=${projectId} written=${audioSync.written}/${audioSync.expectedSteps} compositionAudio=${audioSync.compositionAudioCount}`,
     );
     if (audioSync.compositionAudioCount === 0) {
       audioSyncWarning =
@@ -925,6 +947,9 @@ export async function syncFullWvpProject(
         styleFragment,
         themeId,
         syncOpts,
+      );
+      console.log(
+        `[wvp-build] illustrations project=${projectId} mode=${illusMode} written=${illus.written} reused=${illus.reusedExisting} attempted=${illus.attempted}`,
       );
       if (illusMode === "reuse") {
         const packed = illus.written + illus.reusedExisting;
@@ -986,18 +1011,25 @@ export async function syncFullWvpProject(
     }
 
     const base = opts.previewBase ?? `/projects/${projectId}/wvp-embed/`;
+    console.log(`[wvp-build] vite build start project=${projectId} base=${base}`);
+    const viteStartedAt = Date.now();
     const result = await buildProjectPresentation(projectId, base);
+    console.log(
+      `[wvp-build] vite build done project=${projectId} elapsed=${Math.round((Date.now() - viteStartedAt) / 1000)}s dist=${result.distDir}`,
+    );
     logWvpBuildQuality(composition, themeId);
     distDir = result.distDir;
     built = true;
     chaptersVisualUpgraded = result.chaptersVisualUpgraded;
     try {
+      console.log(`[wvp-build] storage upload start project=${projectId}`);
       await uploadWvpDistToStorage(supabase, userId, projectId);
       storageUploaded = true;
+      console.log(`[wvp-build] storage upload done project=${projectId}`);
     } catch (e) {
       const msg = (e as Error).message;
       storageUploadWarning = msg;
-      console.warn("[wvp] dist 上傳 Storage 失敗:", msg);
+      console.warn(`[wvp-build] storage upload failed project=${projectId}:`, msg);
     }
     if (requiresDistInStorage() && !storageUploaded) {
       throw new Error(
@@ -1009,6 +1041,9 @@ export async function syncFullWvpProject(
       .from("projects")
       .update({ presentation_revision: `built-${Date.now()}` })
       .eq("id", projectId);
+    console.log(
+      `[wvp-build] sync done project=${projectId} elapsed=${Math.round((Date.now() - buildStartedAt) / 1000)}s built=${built} storageUploaded=${storageUploaded}`,
+    );
   }
 
   return {

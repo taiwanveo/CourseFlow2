@@ -53,6 +53,7 @@ async function main() {
         job.name === "wvp-batch-craft" ||
         job.name === "wvp-batch-craft-build"
       ) {
+        console.log(`[craft] dequeue ${job.name} id=${job.id ?? "?"}`);
         await processWvpBatchCraft(job.data);
       }
     },
