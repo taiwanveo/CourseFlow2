@@ -23,6 +23,7 @@
     "@courseflow/tts": "workspace:*",
     "@courseflow/visual-config": "workspace:*",
     "@courseflow/wvp-bridge": "workspace:*",
+    "@courseflow/wvp-craft": "workspace:*",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.8",
     "bullmq": "^5.53.0",

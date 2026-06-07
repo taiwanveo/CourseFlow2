@@ -4,6 +4,7 @@ export * from "./tokens/theme-bridge.js";
 export * from "./llm/prompt.js";
 export * from "./llm/generate.js";
 export * from "./llm/visual-director.js";
+export * from "./llm/visual-director-batch.js";
 export type { LlmJsonCaller } from "./llm/generate.js";
 export * from "./llm/visual-director-prompt.js";
 export * from "./heuristic.js";

@@ -29,7 +29,9 @@ ENV NODE_ENV=development
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
 COPY apps/worker/package.json apps/worker/
 COPY packages/composition/package.json packages/composition/
+COPY packages/craft-agent/package.json packages/craft-agent/
 COPY packages/core/package.json packages/core/
+COPY packages/explain-animation/package.json packages/explain-animation/
 COPY packages/db/package.json packages/db/
 COPY packages/hf-bridge/package.json packages/hf-bridge/
 COPY packages/llm/package.json packages/llm/
@@ -38,6 +40,7 @@ COPY packages/tts/package.json packages/tts/
 COPY packages/wvp-bridge/package.json packages/wvp-bridge/
 COPY packages/presentation/package.json packages/presentation/
 COPY packages/visual-config/package.json packages/visual-config/
+COPY packages/wvp-craft/package.json packages/wvp-craft/
 RUN pnpm install --frozen-lockfile
 
 FROM deps AS builder
@@ -60,6 +63,7 @@ WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 # pnpm workspace：需保留 apps/worker/node_modules 符號連結，否則執行期找不到 dotenv 等依賴
 COPY --from=builder /app/apps/worker ./apps/worker
+COPY --from=builder /app/apps/web/src/lib ./apps/web/src/lib
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml

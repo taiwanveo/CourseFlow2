@@ -10,11 +10,21 @@ import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { batchCraftAllChapters, batchCraftAllChaptersAndBuild } from "@/lib/wvp-chapter-craft";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { wvpPlayPagePath } from "@/lib/wvp-workdir";
-import { shouldAsyncWvpCraftJobs } from "@/lib/wvp-craft-async";
+import { resolveJobStaleMs, shouldAsyncWvpCraftJobs } from "@/lib/wvp-craft-async";
 import { runWvpBatchCraft } from "@/lib/run-wvp-batch-craft";
+import { shouldUseJobQueue } from "@/lib/job-queue";
+import { getCraftQueue } from "@/lib/queue";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
+
+function isStaleJob(updatedAt: string | null, createdAt: string | null, staleMs: number): boolean {
+  const touchedAt = updatedAt ?? createdAt;
+  if (!touchedAt) return false;
+  const touchedTs = Date.parse(touchedAt);
+  if (!Number.isFinite(touchedTs)) return false;
+  return Date.now() - touchedTs > staleMs;
+}
 
 /** 一鍵：全課批次生成（視覺動效），可選一併打包預覽 */
 export async function POST(
@@ -48,6 +58,8 @@ export async function POST(
     onlyMissing?: boolean;
     syncOnly?: boolean;
     includeBuild?: boolean;
+    resumeFromSortOrder?: number;
+    parentJobRunId?: string;
   };
 
   if (body.syncOnly) {
@@ -112,9 +124,10 @@ export async function POST(
     }
 
     const jobType = body.includeBuild ? "wvp-batch-craft-build" : "wvp-batch-craft";
+    const staleMs = resolveJobStaleMs();
     const { data: existingJob } = await supabase
       .from("job_runs")
-      .select("id")
+      .select("id, created_at, updated_at")
       .eq("project_id", id)
       .eq("job_type", jobType)
       .in("status", ["pending", "running"])
@@ -122,7 +135,19 @@ export async function POST(
       .limit(1)
       .maybeSingle();
 
-    if (existingJob?.id) {
+    if (
+      existingJob?.id &&
+      isStaleJob(existingJob.updated_at, existingJob.created_at, staleMs)
+    ) {
+      await supabase
+        .from("job_runs")
+        .update({
+          status: "failed",
+          error_message: "任務逾時（僵死），已自動標記失敗，請重新執行",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", existingJob.id);
+    } else if (existingJob?.id) {
       return NextResponse.json(
         {
           ok: true,
@@ -145,6 +170,8 @@ export async function POST(
           provider: resolved.provider,
           onlyMissing: body.onlyMissing ?? false,
           includeBuild: body.includeBuild ?? false,
+          resumeFromSortOrder: body.resumeFromSortOrder,
+          parentJobRunId: body.parentJobRunId,
         },
       })
       .select("id")
@@ -157,18 +184,42 @@ export async function POST(
       );
     }
 
-    setImmediate(() => {
-      void runWvpBatchCraft({
-        projectId: id,
-        userId: user.id,
-        jobRunId: jobRun.id,
-        provider: resolved.provider,
-        onlyMissing: body.onlyMissing ?? false,
-        includeBuild: body.includeBuild ?? false,
-      }).catch((err) => {
-        console.error("[wvp-batch-job] 背景批次失敗:", err);
+    const craftPayload = {
+      projectId: id,
+      userId: user.id,
+      jobRunId: jobRun.id,
+      provider: resolved.provider,
+      onlyMissing: body.onlyMissing ?? false,
+      includeBuild: body.includeBuild ?? false,
+      resumeFromSortOrder: body.resumeFromSortOrder,
+    };
+
+    const queueJobName = body.includeBuild ? "wvp-batch-craft-build" : "wvp-batch-craft";
+    const useQueue = await shouldUseJobQueue();
+
+    if (useQueue) {
+      try {
+        const craftQueue = getCraftQueue();
+        await craftQueue.add(queueJobName, craftPayload, {
+          jobId: jobRun.id,
+          removeOnComplete: 100,
+          removeOnFail: 50,
+        });
+      } catch (queueErr) {
+        console.warn("[wvp-batch-job] 佇列入隊失敗，改走 inline:", queueErr);
+        setImmediate(() => {
+          void runWvpBatchCraft(craftPayload).catch((err) => {
+            console.error("[wvp-batch-job] 背景批次失敗:", err);
+          });
+        });
+      }
+    } else {
+      setImmediate(() => {
+        void runWvpBatchCraft(craftPayload).catch((err) => {
+          console.error("[wvp-batch-job] 背景批次失敗:", err);
+        });
       });
-    });
+    }
 
     return NextResponse.json(
       {

@@ -49,9 +49,15 @@ import {
 import { syncChapterIllustrationToStepImages } from "@/lib/wvp-craft-illustrations";
 import { makeDefaultStepMotions } from "@/lib/wvp-motion-utils";
 import {
-  generateStepVisualConfigsForChapter,
+  generateStepVisualConfigsForChapterBatched,
   type StepVisualDecision,
 } from "@/lib/wvp-step-visual-config";
+import {
+  createInitialBatchProgress,
+  resolveBatchConcurrency,
+  runPool,
+  type WvpBatchCraftProgress,
+} from "@courseflow/wvp-craft";
 import { parseCssCustomProperties, themesDir } from "@courseflow/wvp-bridge";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -154,6 +160,8 @@ export async function generateChapterCraft(
     forceTemplate?: WvpChapterKind;
     assets?: WvpAssetRef[];
     userId?: string;
+    skipLlmTsx?: boolean;
+    anchorChapterApproved?: boolean;
   },
 ): Promise<{
   ok: boolean;
@@ -210,7 +218,7 @@ export async function generateChapterCraft(
       templateKind?: string;
     } = { source: "template" };
     let stepVisualConfigs: Awaited<
-      ReturnType<typeof generateStepVisualConfigsForChapter>
+      ReturnType<typeof generateStepVisualConfigsForChapterBatched>
     >["configs"] = [];
     let stepVisualDecisions: StepVisualDecision[] = [];
 
@@ -218,9 +226,32 @@ export async function generateChapterCraft(
 
     if (opts.narrations.length > 0) {
       const componentName = `Chapter${chapterComponentName(wvpChapterId)}`;
+      const resolvedKind =
+        opts.forceTemplate ??
+        (contentChapter
+          ? chapterKindForCraft(
+              opts.composition,
+              contentChapter.id,
+              craft.title,
+              opts.narrations,
+              plan,
+            )
+          : (plan.chapterKind as WvpChapterKind | undefined));
+      const dataVisualForSkip = isDataVisualChapter({
+        chapterTitle: craft.title,
+        narrations: opts.narrations,
+        screenContents,
+      });
+      const shouldSkipLlmTsx =
+        opts.skipLlmTsx !== false &&
+        opts.anchorChapterApproved === true &&
+        resolvedKind !== undefined &&
+        resolvedKind !== "custom" &&
+        !dataVisualForSkip;
+
       const maxLlmAttempts = 2;
       let validationFeedback = "";
-      for (let attempt = 0; attempt < maxLlmAttempts; attempt++) {
+      if (!shouldSkipLlmTsx) for (let attempt = 0; attempt < maxLlmAttempts; attempt++) {
         try {
           const sourceUser = buildChapterSourceUserPrompt({
             wvpChapterId,
@@ -287,7 +318,7 @@ export async function generateChapterCraft(
                 plan,
               )
             : undefined);
-        const visualDecisionResult = await generateStepVisualConfigsForChapter({
+        const visualDecisionResult = await generateStepVisualConfigsForChapterBatched({
           provider: opts.provider,
           apiKey,
           narrations: opts.narrations,
@@ -424,6 +455,7 @@ export async function materializeAllChapters(
   supabase: SupabaseClient,
   projectId: string,
   themeId: string,
+  opts?: { preserveApprovedAnchorChapter?: boolean },
 ): Promise<boolean> {
   const composition = await loadCompositionForWvpBuild(supabase, projectId);
   if (!composition) return false;
@@ -445,8 +477,31 @@ export async function materializeAllChapters(
     allCrafts as CraftRow[],
     composition,
     wvpSettings.assets,
+    {
+      preserveApprovedAnchorChapter:
+        opts?.preserveApprovedAnchorChapter ?? wvpSettings.anchorChapterApproved,
+    },
   );
   return true;
+}
+
+let materializeChain: Promise<void> = Promise.resolve();
+
+/** 序列化 registry 寫入，避免並行批次競態 */
+export async function materializeSingleChapter(
+  supabase: SupabaseClient,
+  projectId: string,
+  themeId: string,
+  opts?: { preserveApprovedAnchorChapter?: boolean },
+): Promise<boolean> {
+  const run = materializeChain.then(() =>
+    materializeAllChapters(supabase, projectId, themeId, opts),
+  );
+  materializeChain = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
 }
 
 /** 第 1 章套用 list-reveal / flow 骨架（無需 LLM） */
@@ -707,6 +762,168 @@ export type BatchChapterResult = {
   error?: string;
 };
 
+function updateChapterProgress(
+  progress: WvpBatchCraftProgress,
+  wvpChapterId: string,
+  patch: Partial<WvpBatchCraftProgress["chapters"][number]>,
+): void {
+  const idx = progress.chapters.findIndex((ch) => ch.wvpChapterId === wvpChapterId);
+  if (idx < 0) return;
+  progress.chapters[idx] = { ...progress.chapters[idx]!, ...patch };
+}
+
+async function processBatchChapter(
+  supabase: SupabaseClient,
+  projectId: string,
+  userId: string,
+  row: CraftRow,
+  ctx: {
+    composition: CourseComposition;
+    article: string;
+    themeId: string;
+    wvpSettings: ReturnType<typeof parseWvpSettings>;
+    anchorProfile: WvpAnchorProfile | undefined;
+    firstSort: number;
+    opts: {
+      provider: LlmProviderId;
+      encryptedKey: string;
+      textModel?: string | null;
+      onlyMissing?: boolean;
+      skipGenerate?: boolean;
+      skipMaterialize?: boolean;
+      skipLlmTsx?: boolean;
+      resumeFromSortOrder?: number;
+      signal?: AbortSignal;
+      isCancelled?: () => Promise<boolean>;
+    };
+    progress: WvpBatchCraftProgress;
+    emitProgress: () => Promise<void>;
+  },
+): Promise<BatchChapterResult> {
+  const entry: BatchChapterResult = {
+    wvpChapterId: row.wvp_chapter_id,
+    title: row.title,
+    synced: false,
+    generated: false,
+  };
+
+  const chapterIdx = ctx.progress.chapters.findIndex((ch) => ch.wvpChapterId === row.wvp_chapter_id);
+  if (chapterIdx >= 0) {
+    ctx.progress.currentChapterIndex = chapterIdx;
+    ctx.progress.currentWvpChapterId = row.wvp_chapter_id;
+    ctx.progress.currentTitle = row.title;
+  }
+
+  if (ctx.opts.signal?.aborted || (await ctx.opts.isCancelled?.())) {
+    updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "skipped" });
+    await ctx.emitProgress();
+    return entry;
+  }
+
+  if (
+    ctx.opts.resumeFromSortOrder !== undefined &&
+    row.sort_order < ctx.opts.resumeFromSortOrder
+  ) {
+    updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "skipped" });
+    await ctx.emitProgress();
+    return entry;
+  }
+
+  if (row.sort_order !== ctx.firstSort && !ctx.wvpSettings.anchorChapterApproved) {
+    entry.error = "請先在 Studio 驗收第 1 章風格錨點，再批量處理其餘章節";
+    updateChapterProgress(ctx.progress, row.wvp_chapter_id, {
+      status: "failed",
+      error: entry.error,
+    });
+    await ctx.emitProgress();
+    return entry;
+  }
+
+  const chapterStartedAt = Date.now();
+  ctx.progress.phase = "sync";
+  updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "running" });
+  await ctx.emitProgress();
+
+  const sync = await syncChapterNarrations(supabase, projectId, row, ctx.composition);
+  if (sync.error) {
+    entry.error = sync.error;
+    updateChapterProgress(ctx.progress, row.wvp_chapter_id, {
+      status: "failed",
+      error: entry.error,
+    });
+    ctx.progress.chapterDurationsMs.push(Date.now() - chapterStartedAt);
+    await ctx.emitProgress();
+    return entry;
+  }
+  entry.synced = true;
+  updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "synced" });
+  await ctx.emitProgress();
+
+  const prevCheck = row.checklist_result as { chapterSource?: unknown } | null | undefined;
+  const hasSource = !!prevCheck?.chapterSource;
+  if (ctx.opts.skipGenerate || (ctx.opts.onlyMissing && hasSource)) {
+    if (!ctx.opts.skipMaterialize && entry.synced) {
+      ctx.progress.phase = "materialize";
+      await ctx.emitProgress();
+      await materializeSingleChapter(supabase, projectId, ctx.themeId, {
+        preserveApprovedAnchorChapter: ctx.wvpSettings.anchorChapterApproved,
+      });
+      updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "materialized" });
+    }
+    ctx.progress.chapterDurationsMs.push(Date.now() - chapterStartedAt);
+    await ctx.emitProgress();
+    return entry;
+  }
+
+  ctx.progress.phase = "generate";
+  updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "running" });
+  await ctx.emitProgress();
+
+  const gen = await generateChapterCraft(supabase, projectId, row, {
+    provider: ctx.opts.provider,
+    encryptedKey: ctx.opts.encryptedKey,
+    textModel: ctx.opts.textModel,
+    composition: ctx.composition,
+    article: ctx.article,
+    themeId: ctx.themeId,
+    narrations: sync.narrations,
+    anchorProfile: row.sort_order !== ctx.firstSort ? ctx.anchorProfile : undefined,
+    assets: ctx.wvpSettings.assets,
+    userId,
+    skipLlmTsx: ctx.opts.skipLlmTsx,
+    anchorChapterApproved: ctx.wvpSettings.anchorChapterApproved,
+  });
+  entry.generated = gen.ok;
+  entry.chapterSource = gen.chapterSource;
+  if (gen.error) entry.error = gen.error;
+
+  if (gen.ok) {
+    updateChapterProgress(ctx.progress, row.wvp_chapter_id, {
+      status: "generated",
+      chapterSource: gen.chapterSource,
+    });
+    await ctx.emitProgress();
+
+    if (!ctx.opts.skipMaterialize) {
+      ctx.progress.phase = "materialize";
+      await ctx.emitProgress();
+      await materializeSingleChapter(supabase, projectId, ctx.themeId, {
+        preserveApprovedAnchorChapter: ctx.wvpSettings.anchorChapterApproved,
+      });
+      updateChapterProgress(ctx.progress, row.wvp_chapter_id, { status: "materialized" });
+    }
+  } else {
+    updateChapterProgress(ctx.progress, row.wvp_chapter_id, {
+      status: "failed",
+      error: gen.error,
+    });
+  }
+
+  ctx.progress.chapterDurationsMs.push(Date.now() - chapterStartedAt);
+  await ctx.emitProgress();
+  return entry;
+}
+
 export async function batchCraftAllChapters(
   supabase: SupabaseClient,
   projectId: string,
@@ -718,8 +935,13 @@ export async function batchCraftAllChapters(
     onlyMissing?: boolean;
     skipGenerate?: boolean;
     skipMaterialize?: boolean;
+    skipLlmTsx?: boolean;
+    resumeFromSortOrder?: number;
+    signal?: AbortSignal;
+    isCancelled?: () => Promise<boolean>;
+    onProgress?: (progress: WvpBatchCraftProgress) => void | Promise<void>;
   },
-): Promise<{ results: BatchChapterResult[]; materialized: boolean }> {
+): Promise<{ results: BatchChapterResult[]; materialized: boolean; progress: WvpBatchCraftProgress }> {
   const { data: project } = await supabase
     .from("projects")
     .select("article, theme_id")
@@ -747,61 +969,66 @@ export async function batchCraftAllChapters(
     .single();
   const wvpSettings = parseWvpSettings(settingsRow?.wvp_settings);
   const anchorProfile = wvpSettings.anchorProfile;
-  const firstSort = (crafts as CraftRow[])[0]?.sort_order;
+  const craftRows = crafts as CraftRow[];
+  const firstSort = craftRows[0]?.sort_order ?? 0;
 
-  const results: BatchChapterResult[] = [];
-
-  for (const row of crafts as CraftRow[]) {
-    const entry: BatchChapterResult = {
+  const progress = createInitialBatchProgress(
+    craftRows.map((row) => ({
       wvpChapterId: row.wvp_chapter_id,
       title: row.title,
-      synced: false,
-      generated: false,
-    };
+      sortOrder: row.sort_order,
+    })),
+  );
 
-    if (row.sort_order !== firstSort && !wvpSettings.anchorChapterApproved) {
-      entry.error = "請先在 Studio 驗收第 1 章風格錨點，再批量處理其餘章節";
-      results.push(entry);
-      continue;
-    }
-
-    const sync = await syncChapterNarrations(supabase, projectId, row, composition);
-    if (sync.error) {
-      entry.error = sync.error;
-      results.push(entry);
-      continue;
-    }
-    entry.synced = true;
-
-    const prevCheck = row.checklist_result as { chapterSource?: unknown } | null | undefined;
-    const hasSource = !!prevCheck?.chapterSource;
-    if (opts.skipGenerate || (opts.onlyMissing && hasSource)) {
-      results.push(entry);
-      continue;
-    }
-
-    const gen = await generateChapterCraft(supabase, projectId, row, {
-      provider: opts.provider,
-      encryptedKey: opts.encryptedKey,
-      textModel: opts.textModel,
-      composition,
-      article,
-      themeId,
-      narrations: sync.narrations,
-      anchorProfile: row.sort_order !== firstSort ? anchorProfile : undefined,
-      assets: wvpSettings.assets,
-      userId,
+  let progressChain: Promise<void> = Promise.resolve();
+  const emitProgress = async (): Promise<void> => {
+    progressChain = progressChain.then(async () => {
+      await opts.onProgress?.({ ...progress, chapters: [...progress.chapters] });
     });
-    entry.generated = gen.ok;
-    entry.chapterSource = gen.chapterSource;
-    if (gen.error) entry.error = gen.error;
-    results.push(entry);
+    await progressChain;
+  };
+  await emitProgress();
+
+  const ctx = {
+    composition,
+    article,
+    themeId,
+    wvpSettings,
+    anchorProfile,
+    firstSort,
+    opts: {
+      ...opts,
+      skipLlmTsx: opts.skipLlmTsx ?? true,
+    },
+    progress,
+    emitProgress,
+  };
+
+  const firstChapter = craftRows.find((row) => row.sort_order === firstSort);
+  const restChapters = craftRows.filter((row) => row.sort_order !== firstSort);
+  const concurrency = resolveBatchConcurrency();
+
+  const firstResults: BatchChapterResult[] = [];
+  if (firstChapter) {
+    firstResults.push(await processBatchChapter(supabase, projectId, userId, firstChapter, ctx));
   }
 
-  const materialized = opts.skipMaterialize
-    ? false
-    : await materializeAllChapters(supabase, projectId, themeId);
-  return { results, materialized };
+  const restResults = await runPool(restChapters, concurrency, (row) =>
+    processBatchChapter(supabase, projectId, userId, row, ctx),
+  );
+
+  const results = [...firstResults, ...restResults].sort((a, b) => {
+    const aSort = craftRows.find((r) => r.wvp_chapter_id === a.wvpChapterId)?.sort_order ?? 0;
+    const bSort = craftRows.find((r) => r.wvp_chapter_id === b.wvpChapterId)?.sort_order ?? 0;
+    return aSort - bSort;
+  });
+
+  progress.phase = "done";
+  progress.currentChapterIndex = progress.totalChapters;
+  await emitProgress();
+
+  const materialized = !opts.skipMaterialize && results.some((r) => r.synced || r.generated);
+  return { results, materialized, progress };
 }
 
 export type BatchBuildResult = {
@@ -824,6 +1051,11 @@ export async function batchCraftAllChaptersAndBuild(
     encryptedKey: string;
     textModel?: string | null;
     onlyMissing?: boolean;
+    skipLlmTsx?: boolean;
+    resumeFromSortOrder?: number;
+    signal?: AbortSignal;
+    isCancelled?: () => Promise<boolean>;
+    onProgress?: (progress: WvpBatchCraftProgress) => void | Promise<void>;
   },
 ): Promise<{
   results: BatchChapterResult[];

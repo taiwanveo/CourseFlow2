@@ -56,6 +56,9 @@ importers:
       '@courseflow/wvp-bridge':
         specifier: workspace:*
         version: link:../../packages/wvp-bridge
+      '@courseflow/wvp-craft':
+        specifier: workspace:*
+        version: link:../../packages/wvp-craft
       '@supabase/ssr':
         specifier: ^0.6.1
         version: 0.6.1(@supabase/supabase-js@2.106.1)
@@ -174,6 +177,9 @@ importers:
       '@courseflow/tts':
         specifier: workspace:*
         version: link:../../packages/tts
+      '@courseflow/wvp-craft':
+        specifier: workspace:*
+        version: link:../../packages/wvp-craft
       '@supabase/supabase-js':
         specifier: ^2.49.8
         version: 2.106.1
@@ -192,6 +198,9 @@ importers:
       ioredis:
         specifier: ^5.6.1
         version: 5.10.1
+      jiti:
+        specifier: ^2.4.2
+        version: 2.7.0
       music-metadata:
         specifier: ^11.2.3
         version: 11.12.3
@@ -402,6 +411,15 @@ importers:
       '@courseflow/core':
         specifier: workspace:*
         version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.21
+        version: 22.19.19
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
+  packages/wvp-craft:
     devDependencies:
       '@types/node':
         specifier: ^22.15.21

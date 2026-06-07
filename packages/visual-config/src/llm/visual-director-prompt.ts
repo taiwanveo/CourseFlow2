@@ -60,6 +60,69 @@ export function buildVisualDirectorSystemPrompt(theme: DesignTokens): string {
 }`);
 }
 
+export function buildVisualDirectorBatchUserPrompt(opts: {
+  courseTopic: string;
+  narrations: string[];
+  screenContents: string[];
+  articleSnippet?: string;
+}): string {
+  const blocks = opts.narrations.map((script, step) => {
+    const screen = (opts.screenContents[step] ?? "").trim();
+    const narration = script.trim();
+    return [
+      `--- 步驟 ${step} ---`,
+      screen ? `螢幕文字：\n${screen.slice(0, 800)}` : "螢幕文字：（無）",
+      narration ? `口播稿：\n${narration.slice(0, 1200)}` : "口播稿：（無）",
+    ].join("\n");
+  });
+
+  return [
+    `課程主題：${opts.courseTopic.trim() || "教學課程"}`,
+    opts.articleSnippet?.trim()
+      ? `章節摘錄：\n${opts.articleSnippet.trim().slice(0, 600)}`
+      : "",
+    "以下為本章各步驟內容：",
+    blocks.join("\n\n"),
+    `請為每個步驟（step 0 到 ${opts.narrations.length - 1}）各輸出一筆 director 計畫。`,
+    '只回傳 JSON：{ "steps": [ { "step": 0, "screenSummary": "...", "scriptSummary": "...", "coreMessage": "...", "visualType": "...", "recommendedOutput": "ai-image|chart|table|animation|none", "sceneDescription": "...", "motionEffect": "...", "imagePromptEn": "", "animationPromptEn": "", "animationPromptZh": "", "avoidElements": [], "layoutIntegration": "...", "skipReason": "..." } ] }',
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+export function buildVisualConfigBatchSystemPrompt(theme: DesignTokens): string {
+  return `${buildVisualDirectorSystemPrompt(theme)}
+
+你現在要為多個步驟一次產出 chart / table / animation 的 VisualConfig JSON。
+每筆 config 必須通過 schema：kind 為 chart|table|animation，並含 step 欄位（0-based）。`;
+}
+
+export function buildVisualConfigBatchUserPrompt(opts: {
+  narrations: string[];
+  screenContents: string[];
+  articleSnippet?: string;
+  directorSteps: Array<{ step: number; plan: { recommendedOutput: string; coreMessage?: string } }>;
+}): string {
+  const blocks = opts.directorSteps.map((entry) => {
+    const step = entry.step;
+    return [
+      `--- 步驟 ${step}（${entry.plan.recommendedOutput}）---`,
+      `核心訊息：${entry.plan.coreMessage ?? ""}`,
+      `螢幕：${(opts.screenContents[step] ?? "").slice(0, 400)}`,
+      `口播：${(opts.narrations[step] ?? "").slice(0, 600)}`,
+    ].join("\n");
+  });
+
+  return [
+    opts.articleSnippet?.trim() ? `章節摘錄：\n${opts.articleSnippet.slice(0, 400)}` : "",
+    "請為以下步驟各產出一筆 VisualConfig：",
+    blocks.join("\n\n"),
+    '只回傳 JSON：{ "configs": [ { "step": 0, "kind": "chart", ... } ] }',
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function buildVisualDirectorUserPrompt(opts: {
   stepIndex: number;
   courseTopic: string;

@@ -42,3 +42,5 @@ export function resolveJobStaleMs(): number {
 export function shouldTrialFastPath(): boolean {
   return true;
 }
+
+export { resolveBatchConcurrency, shouldBatchVisualDirector } from "@courseflow/wvp-craft";

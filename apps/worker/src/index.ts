@@ -13,6 +13,7 @@ import {
   WORKER_HEARTBEAT_INTERVAL_MS,
 } from "@courseflow/shared";
 import { processRender, processSynthesizeAudio } from "./processors.js";
+import { processWvpBatchCraft } from "./process-wvp-batch-craft.js";
 
 async function main() {
   const connection = createRedisConnection();
@@ -45,7 +46,24 @@ async function main() {
     console.error(`[render] 佇列任務失敗 ${job?.id ?? "?"}:`, err?.message ?? err);
   });
 
-  console.log("CourseFlow worker 已啟動");
+  const craftWorker = new Worker(
+    QUEUE_NAMES.craft,
+    async (job) => {
+      if (
+        job.name === "wvp-batch-craft" ||
+        job.name === "wvp-batch-craft-build"
+      ) {
+        await processWvpBatchCraft(job.data);
+      }
+    },
+    { connection },
+  );
+
+  craftWorker.on("failed", (job, err) => {
+    console.error(`[craft] 佇列任務失敗 ${job?.id ?? "?"}:`, err?.message ?? err);
+  });
+
+  console.log("CourseFlow worker 已啟動（含 craft 佇列）");
 }
 
 main().catch(console.error);

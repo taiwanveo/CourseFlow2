@@ -25,6 +25,8 @@ import {
   CRAFT_TEMPLATE_OPTIONS,
   resolveChapterTemplateSelectState,
 } from "@/lib/wvp-chapter-template";
+import { BatchCraftProgressPanel } from "@/components/BatchCraftProgressPanel";
+import type { WvpBatchCraftProgress } from "@/lib/wvp-batch-craft-progress";
 import {
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
@@ -137,7 +139,17 @@ function ChapterIllustrationBlock({
 
 const JOB_POLL_INTERVAL_MS = 2000;
 const JOB_POLL_MAX_ATTEMPTS = 900;
+const WVP_REFRESH_THROTTLE_MS = 5000;
 const TRANSIENT_POLL_STATUS = new Set([502, 503, 504]);
+
+function parseBatchProgress(raw: unknown): WvpBatchCraftProgress | null {
+  if (!raw || typeof raw !== "object") return null;
+  const progress = (raw as { progress?: unknown }).progress;
+  if (!progress || typeof progress !== "object") return null;
+  const p = progress as WvpBatchCraftProgress;
+  if (!Array.isArray(p.chapters) || typeof p.totalChapters !== "number") return null;
+  return p;
+}
 
 async function readResponsePayload(response: Response): Promise<ResponsePayload> {
   const text = await response.text();
@@ -269,7 +281,13 @@ export function CraftPhaseClient({
   const [illustrationReloadByChapter, setIllustrationReloadByChapter] = useState<
     Record<string, number>
   >({});
+  const [batchProgress, setBatchProgress] = useState<WvpBatchCraftProgress | null>(null);
+  const [failedBatchProgress, setFailedBatchProgress] = useState<WvpBatchCraftProgress | null>(
+    null,
+  );
+  const [activeBatchJobId, setActiveBatchJobId] = useState<string | null>(null);
   const autoScaffoldAttempted = useRef(false);
+  const lastWvpRefreshAt = useRef(0);
   const { toast } = useToast();
   const { providers, defaultProvider } = useConfiguredLlmProviders();
   const craftAccessible = canAccessWvpPhase(locks, "craft");
@@ -488,7 +506,13 @@ export function CraftPhaseClient({
   };
 
   const pollJobRun = useCallback(
-    async (jobRunId: string): Promise<ResponsePayload> => {
+    async (
+      jobRunId: string,
+      hooks?: {
+        onRunning?: (result: ResponsePayload) => void;
+        throttleRefresh?: () => void;
+      },
+    ): Promise<ResponsePayload> => {
       const run = async (attempt: number): Promise<ResponsePayload> => {
         let res: Response;
         let payload: ResponsePayload = {};
@@ -522,12 +546,23 @@ export function CraftPhaseClient({
           : undefined;
         const status = job?.status;
 
-        if (status === "completed") {
+        if (status === "completed" || status === "cancelled") {
           const result = job?.result;
           return result && typeof result === "object" ? (result as ResponsePayload) : {};
         }
         if (status === "failed") {
+          const result = job?.result;
+          const progress = parseBatchProgress(result);
+          if (progress) setFailedBatchProgress(progress);
           throw new Error(job?.error_message ?? "背景任務失敗");
+        }
+
+        if (status === "running" || status === "cancelling" || status === "pending") {
+          const result = job?.result;
+          if (result && typeof result === "object") {
+            hooks?.onRunning?.(result as ResponsePayload);
+            hooks?.throttleRefresh?.();
+          }
         }
 
         if (attempt >= JOB_POLL_MAX_ATTEMPTS) {
@@ -543,7 +578,27 @@ export function CraftPhaseClient({
     [],
   );
 
-  const batchCraftAll = async (onlyMissing: boolean) => {
+  const cancelBatchCraft = async () => {
+    if (!activeBatchJobId) return;
+    try {
+      const res = await fetch(`/api/job-runs/${activeBatchJobId}/cancel`, { method: "POST" });
+      const data = await readResponsePayload(res);
+      if (!res.ok) {
+        throw new Error(getResponseErrorMessage(res, data, "取消失敗"));
+      }
+      toast(
+        typeof data.message === "string" ? data.message : "已送出取消請求",
+        "info",
+      );
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "取消失敗", "error");
+    }
+  };
+
+  const batchCraftAll = async (
+    onlyMissing: boolean,
+    opts?: { resumeFromSortOrder?: number; parentJobRunId?: string },
+  ) => {
     if (!defaultProvider) {
       toast("請先在設定頁填寫 LLM API Key", "error");
       return;
@@ -553,33 +608,61 @@ export function CraftPhaseClient({
       return;
     }
     setBusy("batch-craft");
+    setBatchProgress(null);
+    setFailedBatchProgress(null);
+    setActiveBatchJobId(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/wvp/batch-craft`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: defaultProvider, onlyMissing }),
+        body: JSON.stringify({
+          provider: defaultProvider,
+          onlyMissing,
+          resumeFromSortOrder: opts?.resumeFromSortOrder,
+          parentJobRunId: opts?.parentJobRunId,
+        }),
       });
       const data = await readResponsePayload(res);
       let finalData = data;
 
       if (res.status === 202 && typeof data.jobRunId === "string") {
+        setActiveBatchJobId(data.jobRunId);
         toast(
           typeof data.message === "string" && data.message
             ? data.message
             : "全課批次已開始，請稍候…",
           "info",
         );
-        finalData = await pollJobRun(data.jobRunId);
+        finalData = await pollJobRun(data.jobRunId, {
+          onRunning: (result) => {
+            const progress = parseBatchProgress(result);
+            if (progress) setBatchProgress(progress);
+          },
+          throttleRefresh: () => {
+            const now = Date.now();
+            if (now - lastWvpRefreshAt.current < WVP_REFRESH_THROTTLE_MS) return;
+            lastWvpRefreshAt.current = now;
+            void refreshWvp();
+          },
+        });
+        const doneProgress = parseBatchProgress(finalData);
+        if (doneProgress) setBatchProgress(doneProgress);
       } else if (!res.ok) {
         throw new Error(getResponseErrorMessage(res, data, "批次處理失敗"));
       }
 
       await refreshWvp();
       const s = toBatchSummary(finalData, chapters.length);
-      if (s.failed && s.failed > 0) {
+      const cancelled = finalData.cancelled === true;
+      if (cancelled) {
         playWarningSound();
+        toast("批次已取消；已完成章節已保留。", "info");
+      } else if (s.failed && s.failed > 0) {
+        playWarningSound();
+        const progress = parseBatchProgress(finalData);
+        if (progress) setFailedBatchProgress(progress);
         toast(
-          `已完成 ${s.generated}/${s.total} 章 AI 產生；${s.failed} 章有錯誤（見主控台或重試單章）`,
+          `已完成 ${s.generated}/${s.total} 章 AI 產生；${s.failed} 章有錯誤（可從失敗章節續跑）`,
           "info",
         );
       } else {
@@ -593,6 +676,7 @@ export function CraftPhaseClient({
       toast(e instanceof Error ? e.message : "批次處理失敗", "error");
     } finally {
       setBusy(null);
+      setActiveBatchJobId(null);
     }
   };
 
@@ -948,6 +1032,15 @@ export function CraftPhaseClient({
                     ) : null}
                   </div>
                 ) : null}
+                <BatchCraftProgressPanel
+                  progress={batchProgress}
+                  busy={busy === "batch-craft"}
+                  onCancel={activeBatchJobId ? () => void cancelBatchCraft() : undefined}
+                  onResume={(sortOrder) =>
+                    void batchCraftAll(false, { resumeFromSortOrder: sortOrder })
+                  }
+                  failedJobProgress={failedBatchProgress}
+                />
                 <button
                   type="button"
                   className="cf-btn cf-btn-primary cf-btn-sm"
@@ -1013,6 +1106,17 @@ export function CraftPhaseClient({
                 const isPreviewing = busy === `preview-${ch.wvp_chapter_id}`;
                 const previewReady = canPreviewChapter(ch);
                 const templateState = resolveChapterTemplateSelectState(composition, ch);
+                const batchCh = (batchProgress ?? failedBatchProgress)?.chapters.find(
+                  (row) => row.wvpChapterId === ch.wvp_chapter_id,
+                );
+                const batchBadge =
+                  batchCh?.status === "materialized"
+                    ? "✓"
+                    : batchCh?.status === "running" || batchCh?.status === "generated"
+                      ? "⟳"
+                      : batchCh?.status === "failed"
+                        ? "✗"
+                        : null;
 
                 return (
                   <div
@@ -1028,7 +1132,12 @@ export function CraftPhaseClient({
                       onClick={() => setSelectedWvpId(ch.wvp_chapter_id)}
                       className="min-w-0 flex-1 text-left hover:opacity-90"
                     >
-                      <span className="line-clamp-2 text-sm font-medium leading-snug">{ch.title}</span>
+                      <span className="line-clamp-2 text-sm font-medium leading-snug">
+                        {batchBadge ? (
+                          <span className="mr-1 text-emerald-500/90">{batchBadge}</span>
+                        ) : null}
+                        {ch.title}
+                      </span>
                       <span className="mt-0.5 block text-[10px] leading-relaxed text-zinc-500">
                         {STATUS_LABEL[ch.craft_status] ?? ch.craft_status}
                         {ch.step_count > 0 ? ` · ${ch.step_count} 步` : ""}

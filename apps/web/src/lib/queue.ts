@@ -41,3 +41,7 @@ export function getVisualsQueue() {
 export function getRenderQueue() {
   return new Queue(QUEUE_NAMES.render, { connection: getConnection() });
 }
+
+export function getCraftQueue() {
+  return new Queue(QUEUE_NAMES.craft, { connection: getConnection() });
+}
