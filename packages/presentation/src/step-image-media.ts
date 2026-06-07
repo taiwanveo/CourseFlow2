@@ -46,6 +46,36 @@ export function contentTypeForStepImageExt(ext: WvpStepImageExt): string {
   }
 }
 
+/** 緩衝區開頭是否像 HTML／JSON 錯誤頁（生圖 API 偶爾回傳） */
+export function looksLikeHtmlOrJsonErrorPayload(buf: Buffer): boolean {
+  if (!buf.length) return true;
+  const head = buf.subarray(0, Math.min(256, buf.length)).toString("utf8").trimStart();
+  return (
+    /^<!DOCTYPE\s+html/i.test(head) ||
+    /^<html[\s>]/i.test(head) ||
+    /^\{\s*"error"/i.test(head)
+  );
+}
+
+/** 是否為可辨識的點陣圖檔（拒絕 HTML 誤存成 .jpg） */
+export function isValidImageBuffer(buf: Buffer): boolean {
+  if (buf.length < 12) return false;
+  if (looksLikeHtmlOrJsonErrorPayload(buf)) return false;
+  if (buf.length >= 6 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return true;
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8) return true;
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47
+  ) {
+    return true;
+  }
+  if (buf.length >= 2 && buf[0] === 0x42 && buf[1] === 0x4d) return true;
+  return false;
+}
+
 export function detectStepImageExtFromBuffer(buf: Buffer): WvpStepImageExt {
   if (buf.length >= 6 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) return "gif";
   if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xd8) return "jpg";

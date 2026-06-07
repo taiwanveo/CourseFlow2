@@ -28,6 +28,7 @@ import {
   syncPresentationStepAnimations,
 } from "@/lib/wvp-animation-sync";
 import { syncCheckpointAssetsToPresentation } from "@/lib/wvp-checkpoint-assets-sync";
+import { isPlayableAnimationHtml } from "@/lib/wvp-animation-html";
 import { invalidateWvpDistCaches, uploadWvpDistToStorage } from "@/lib/wvp-dist-storage";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapters";
@@ -46,7 +47,7 @@ import {
   resolveStepImageExtMapFromLocalDir,
   resolveStepImageExtMapLocal,
 } from "@/lib/wvp-step-image-resolve";
-import { readdir } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import type { WvpBuildPhase } from "@/lib/wvp-build-progress";
@@ -359,7 +360,14 @@ export async function materializeChapterFromCraft(
         const m = /^(\d{2})\.html$/i.exec(name);
         if (!m) continue;
         const step = Number.parseInt(m[1]!, 10) - 1;
-        if (step >= 0) stepAnimationIndices.push(step);
+        if (step < 0) continue;
+        try {
+          const html = await readFile(join(animDir, name), "utf-8");
+          if (!isPlayableAnimationHtml(html)) continue;
+        } catch {
+          continue;
+        }
+        stepAnimationIndices.push(step);
       }
     } catch { /* 目錄不存在 */ }
 

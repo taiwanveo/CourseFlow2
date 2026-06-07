@@ -20,6 +20,7 @@ import {
   contentTypeForStepImageExt,
   detectStepImageExtFromBuffer,
   detectStepImageExtFromMime,
+  isValidImageBuffer,
   isAllowedUploadImage,
   normalizeStepImageExt,
   wvpStepImageFileName,
@@ -891,6 +892,9 @@ export async function generateChapterIllustrationSteps(
         promptToUse,
       );
       const buffer = Buffer.from(bytes);
+      if (!isValidImageBuffer(buffer)) {
+        throw new Error("生圖 API 回傳非圖片內容（可能是 HTML 錯誤頁），請重試或更換模型");
+      }
       const ext = detectStepImageExtFromBuffer(buffer);
       const storagePath = craftIllustrationStoragePath(
         userId,

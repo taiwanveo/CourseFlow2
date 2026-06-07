@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { MaskReveal } from "./MaskReveal";
+import { SafeAnimationFrame } from "./SafeAnimationFrame";
 import "./ListRevealGrid.css";
 
 export type ListRevealItem = {
@@ -68,7 +69,7 @@ export function ListRevealGrid({
         {showIntroAnim ? (
           <MaskReveal show delay={220} duration={900}>
             <div className="lr-intro-visual" data-no-advance>
-              <iframe
+              <SafeAnimationFrame
                 className="lr-item-anim"
                 src={introAnimationUrl}
                 sandbox="allow-scripts allow-same-origin"
@@ -164,7 +165,7 @@ function FeaturedCard({ item }: { item: ListRevealItem }) {
       {hasAnimation ? (
         <MaskReveal show delay={220} duration={900}>
           <div className="lr-featured-visual lr-featured-visual--anim">
-            <iframe
+            <SafeAnimationFrame
               className="lr-featured-anim"
               srcDoc={item.animationHtml || undefined}
               src={item.animationHtml ? undefined : item.animationUrl}

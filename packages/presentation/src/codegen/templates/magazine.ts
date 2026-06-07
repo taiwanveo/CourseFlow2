@@ -334,11 +334,12 @@ ${stepBlocks.join("\n")}
 }
 .${prefix}-divider-figure {
   flex: 1;
-  width: 100%;
+  width: min(100%, var(--stage-viz-max-w));
   max-width: var(--stage-viz-max-w);
   min-height: 0;
   max-height: var(--stage-figure-h);
-  align-self: stretch;
+  align-self: center;
+  margin-inline: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -355,12 +356,13 @@ ${stepBlocks.join("\n")}
 .${prefix}-cover-body {
   flex: 1;
   width: 100%;
-  max-width: var(--stage-safe-w);
+  max-width: var(--stage-viz-max-w);
   margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
-  gap: var(--space-7);
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
   align-items: center;
+  justify-items: center;
   padding-top: var(--space-4);
   min-height: 0;
   max-height: var(--stage-safe-h);
@@ -391,22 +393,50 @@ ${stepBlocks.join("\n")}
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) .${prefix}-quote {
   text-align: center;
 }
-/* 有配圖：維持雜誌跨頁雙欄，勿收成置中小卡 */
+/* 有配圖：標題與配圖上下堆疊、左右置中（避免空欄導致圖偏一侧） */
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body,
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner,
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-with-figure,
 .${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-grid {
   width: 100%;
-  max-width: var(--stage-safe-w);
+  max-width: var(--stage-viz-max-w);
   margin-inline: auto;
-  text-align: left;
+  text-align: center;
   max-height: var(--stage-safe-h);
+  grid-template-columns: 1fr;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-5);
 }
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-inner {
-  grid-template-columns: minmax(0, 1fr) minmax(520px, 50%);
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body > .${prefix}-cover-num,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body > .${prefix}-cover-h,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-text,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-copy,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-close-copy,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-aside,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure {
+  grid-column: 1;
+  width: 100%;
+  max-width: var(--stage-viz-max-w);
+  margin-inline: auto;
+  text-align: center;
+  align-items: center;
 }
-.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-body {
-  grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-h,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-quote,
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-split-num {
+  text-align: center;
+  align-self: center;
+}
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-cover-aside {
+  grid-row: auto;
+  grid-column: 1;
+}
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-grid .${prefix}-figure {
+  order: 2;
+}
+.${prefix}-scene:has(.cf-chapter-figure img) .${prefix}-figure-first-copy {
+  order: 1;
 }
 /* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
@@ -427,16 +457,12 @@ ${stepBlocks.join("\n")}
 }
 .${prefix}-cover-num { font-size: 128px; margin-bottom: var(--space-4); }
 .${prefix}-cover-aside {
-  grid-column: 2;
-  grid-row: 1 / -1;
   align-self: center;
   width: 100%;
+  max-width: var(--stage-viz-max-w);
+  margin-inline: auto;
   min-height: 0;
   max-height: var(--stage-figure-h);
-}
-.${prefix}-cover-body > .${prefix}-cover-num,
-.${prefix}-cover-body > .${prefix}-cover-h {
-  grid-column: 1;
 }
 /* 內文段落：調這裡可改 body 字級、行高、單欄最長寬度。 */
 .${prefix}-body {
@@ -450,43 +476,46 @@ ${stepBlocks.join("\n")}
 .${prefix}-split {
   flex: 1;
   width: 100%;
-  max-width: var(--stage-safe-w);
+  max-width: var(--stage-viz-max-w);
   margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(480px, 48%);
-  gap: var(--space-7);
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
   align-items: center;
+  justify-items: center;
   max-height: var(--stage-safe-h);
 }
-.${prefix}-split-text { display: flex; flex-direction: column; gap: var(--space-4); justify-content: center; }
-.${prefix}-split-h { text-align: left; }
-.${prefix}-split-num { align-self: flex-start; }
-/* figure-first 版左右欄比例。 */
+.${prefix}-split-text { display: flex; flex-direction: column; gap: var(--space-4); justify-content: center; align-items: center; text-align: center; width: 100%; }
+.${prefix}-split-h { text-align: center; }
+.${prefix}-split-num { align-self: center; }
+/* figure-first：預設亦為單欄置中（有圖時由上列 :has 規則覆寫順序） */
 .${prefix}-figure-first-grid {
   flex: 1;
   width: 100%;
-  max-width: var(--stage-safe-w);
+  max-width: var(--stage-viz-max-w);
   margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(480px, 50%) minmax(0, 1fr);
-  gap: var(--space-7);
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
   align-items: center;
+  justify-items: center;
   max-height: var(--stage-safe-h);
 }
 .${prefix}-figure-first-copy { display: flex; flex-direction: column; gap: var(--space-4); }
 .${prefix}-close-inner {
   flex: 1;
   width: 100%;
-  max-width: var(--stage-safe-w);
+  max-width: var(--stage-viz-max-w);
   margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(520px, 50%);
-  gap: var(--space-7);
+  grid-template-columns: 1fr;
+  gap: var(--space-5);
   align-items: center;
+  justify-items: center;
   max-height: var(--stage-safe-h);
 }
-.${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); }
-.${prefix}-quote { text-align: left; font-size: 80px; }
+.${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); align-items: center; text-align: center; width: 100%; }
+.${prefix}-quote { text-align: center; font-size: 80px; }
 .${prefix}-figure {
   align-self: stretch;
   width: 100%;

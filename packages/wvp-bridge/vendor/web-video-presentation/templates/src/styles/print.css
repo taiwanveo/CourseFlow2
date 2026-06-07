@@ -96,9 +96,13 @@
 }
 
 /* The chapter scene mounts inside the frame just like in live mode. */
+.scene-print {
+  --stage-subtitle-band: 104px;
+}
 .scene-print .scene {
   position: absolute;
-  inset: 0;
+  inset: 0 0 var(--stage-subtitle-band) 0;
+  overflow: hidden;
 }
 
 /* SubtitleBar inside a printed page — anchor to the scene, not the

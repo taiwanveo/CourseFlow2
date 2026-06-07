@@ -14,7 +14,8 @@
  * ───────────────────────────────────────────────────────────────────── */
 
 /* ══ 字幕背景條 ══ 固定在螢幕底部，黑色半透明背景，高 8vh
-   修改 height / background 可調整字幕列高度與透明度 */
+   修改 height / background 可調整字幕列高度與透明度。
+   舞台安全區：base.css 的 --stage-subtitle-band（104px）須與此列視覺高度同步。 */
 .sub-bar {
   position: fixed;
   left: 0;

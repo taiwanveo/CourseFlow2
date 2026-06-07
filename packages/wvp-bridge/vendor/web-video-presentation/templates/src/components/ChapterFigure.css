@@ -1,7 +1,8 @@
 /* ══ 章節配圖框 ══ 1920×1080 舞台尺度 */
 .cf-chapter-figure {
-  margin: 0;
+  margin: 0 auto;
   max-width: var(--stage-viz-max-w);
+  width: min(100%, var(--stage-viz-max-w));
   min-width: min(520px, 100%);
   min-height: 420px;
   max-height: var(--stage-figure-h);

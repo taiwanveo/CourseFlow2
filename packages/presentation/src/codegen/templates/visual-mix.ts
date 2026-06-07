@@ -30,7 +30,7 @@ function stepAnimationEmbedBranch(step: number, componentName: string): string {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
       <div className={\`${componentName}-anim-wrap scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <iframe className="${componentName}-anim-frame" src={stepAnimationUrl(${step})} title="" loading="eager" />
+        <SafeAnimationFrame className="${componentName}-anim-frame" src={stepAnimationUrl(${step})} title="" loading="eager" sandbox="allow-scripts allow-same-origin" />
       </div>
     );
   }`;
@@ -81,6 +81,7 @@ export function generateVisualMixSources(
 
   const tsx = `import { VisualBlock } from "../../components/VisualBlock";
 import type { VisualConfigProp } from "../../components/VisualBlock";
+import { SafeAnimationFrame } from "../../components/SafeAnimationFrame";
 import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 

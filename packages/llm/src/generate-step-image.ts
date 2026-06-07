@@ -41,6 +41,31 @@ function parseDataUrl(dataUrl: string): Uint8Array | null {
   return decodeBase64Image(match[1]);
 }
 
+function assertImageBytes(bytes: Uint8Array, context: string): Uint8Array {
+  if (bytes.length < 12) {
+    throw new Error(`${context}：回傳內容過短，非有效圖片`);
+  }
+  const head = Buffer.from(bytes.subarray(0, Math.min(256, bytes.length)))
+    .toString("utf8")
+    .trimStart();
+  if (/^<!DOCTYPE\s+html/i.test(head) || /^<html[\s>]/i.test(head)) {
+    throw new Error(`${context}：收到 HTML 頁面而非圖片，請確認 API 或模型設定`);
+  }
+  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+  const isPng =
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47;
+  const isGif = bytes.length >= 6 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46;
+  const isBmp = bytes.length >= 2 && bytes[0] === 0x42 && bytes[1] === 0x4d;
+  if (!isJpeg && !isPng && !isGif && !isBmp) {
+    throw new Error(`${context}：無法辨識圖片格式`);
+  }
+  return bytes;
+}
+
 async function generateStepImageOpenRouter(
   apiKey: string,
   prompt: string,
@@ -94,20 +119,26 @@ async function generateStepImageOpenRouter(
   const imageUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
   if (imageUrl) {
     const parsed = parseDataUrl(imageUrl);
-    if (parsed) return parsed;
+    if (parsed) return assertImageBytes(parsed, "OpenRouter 生圖");
     // URL 格式（非 data URL）
     const imgRes = await fetch(imageUrl);
     if (!imgRes.ok) throw new Error("下載 OpenRouter 生成圖片失敗");
-    return new Uint8Array(await imgRes.arrayBuffer());
+    return assertImageBytes(
+      new Uint8Array(await imgRes.arrayBuffer()),
+      "下載 OpenRouter 生成圖片",
+    );
   }
 
   // 舊版相容：OpenAI images/generations 格式 (data[0].b64_json / url)
   const item = data?.data?.[0];
-  if (item?.b64_json) return decodeBase64Image(item.b64_json);
+  if (item?.b64_json) return assertImageBytes(decodeBase64Image(item.b64_json), "OpenRouter 生圖");
   if (item?.url) {
     const imgRes = await fetch(item.url);
     if (!imgRes.ok) throw new Error("下載 OpenRouter 生成圖片失敗");
-    return new Uint8Array(await imgRes.arrayBuffer());
+    return assertImageBytes(
+      new Uint8Array(await imgRes.arrayBuffer()),
+      "下載 OpenRouter 生成圖片",
+    );
   }
 
   throw new Error("OpenRouter 生圖 API 未回傳圖片（請確認模型支援圖像生成，並在「設定」頁確認 image model 設定）");
@@ -146,7 +177,7 @@ export async function generateStepImage(
 
   const item = res.data?.[0];
   if (item?.b64_json) {
-    return decodeBase64Image(item.b64_json);
+    return assertImageBytes(decodeBase64Image(item.b64_json), "OpenAI 生圖");
   }
 
   const url = item?.url;
@@ -154,7 +185,10 @@ export async function generateStepImage(
 
   const imageRes = await fetch(url);
   if (!imageRes.ok) throw new Error("下載生成圖片失敗");
-  return new Uint8Array(await imageRes.arrayBuffer());
+  return assertImageBytes(
+    new Uint8Array(await imageRes.arrayBuffer()),
+    "下載 OpenAI 生成圖片",
+  );
 }
 
 /** 判斷 style fragment 是否為中文規格；這會直接影響 prompt 走中文或英文版本。 */

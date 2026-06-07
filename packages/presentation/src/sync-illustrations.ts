@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
   detectStepImageExtFromBuffer,
+  isValidImageBuffer,
   normalizeStepImageExt,
   wvpStepImageFileName,
   type WvpStepImageExt,
@@ -22,7 +23,7 @@ export async function writePresentationIllustrationFiles(
 ): Promise<number> {
   let written = 0;
   for (const f of files) {
-    if (!f.buffer.length) continue;
+    if (!f.buffer.length || !isValidImageBuffer(f.buffer)) continue;
     const dir = join(presentationDir, "public", "images", f.wvpChapterId);
     await mkdir(dir, { recursive: true });
     const ext =

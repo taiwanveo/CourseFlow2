@@ -431,7 +431,15 @@ export async function syncPresentationIllustrations(
       }
 
       if (buffer?.length) {
-        const { detectStepImageExtFromBuffer } = await import("@courseflow/presentation");
+        const { detectStepImageExtFromBuffer, isValidImageBuffer } = await import(
+          "@courseflow/presentation"
+        );
+        if (!isValidImageBuffer(buffer)) {
+          console.warn(
+            `[wvp] ${craft.wvp_chapter_id} step ${stepIndex + 1} 略過無效圖片緩衝（可能為 HTML 錯誤頁）`,
+          );
+          continue;
+        }
         files.push({
           wvpChapterId: craft.wvp_chapter_id,
           stepIndex,

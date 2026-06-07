@@ -1,0 +1,15 @@
+.cf-anim-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 200px;
+  padding: 1.25rem 1.5rem;
+  border-radius: calc(var(--r-card, 12px) - 2px);
+  background: var(--surface-2, rgba(0, 0, 0, 0.04));
+  border: 1px dashed var(--rule, rgba(0, 0, 0, 0.12));
+  color: var(--text-mute, #6b7280);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-align: center;
+}

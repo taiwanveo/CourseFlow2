@@ -1,4 +1,5 @@
 import { MaskReveal } from "./MaskReveal";
+import { SafeAnimationFrame } from "./SafeAnimationFrame";
 import "./FlowDiagram.css";
 
 export type FlowNode = { id: string; label: string; detail: string };
@@ -101,7 +102,7 @@ export function FlowDiagram({
     hasAnimation || hasImage ? (
       <aside className="cf-flow-aside" data-no-advance>
         {hasAnimation ? (
-          <iframe
+          <SafeAnimationFrame
             className="cf-flow-anim"
             src={stepAnimationUrl}
             sandbox="allow-scripts allow-same-origin"

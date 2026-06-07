@@ -97,6 +97,16 @@ export function animationHtmlMeetsQualityBar(html: string): boolean {
   return true;
 }
 
+/** 動畫 HTML 是否可寫入 presentation／嵌入 iframe 播放 */
+export function isPlayableAnimationHtml(html: string): boolean {
+  const trimmed = html.trim();
+  if (!trimmed) return false;
+  if (inspectAnimationHtml(trimmed) !== null) return false;
+  // 僅有 <head> 片段、或明顯以原始碼形式呈現時視為無效
+  if (trimmed.length < 500 && !/<body[\s>]/i.test(trimmed)) return false;
+  return true;
+}
+
 export function animationHtmlIssueMessage(issue: AnimationHtmlIssue): string {
   switch (issue) {
     case "markdown-leak":

@@ -1,6 +1,7 @@
 import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isPlayableAnimationHtml } from "@/lib/wvp-animation-html";
 
 const CRAFT_ASSETS_BUCKET = "courseflow-assets";
 
@@ -111,7 +112,7 @@ export async function syncPresentationStepAnimations(
           (await downloadCraftAnimationFromStorage(supabase, step.animationStoragePath.trim())) ??
           "";
       }
-      if (!html) continue;
+      if (!html || !isPlayableAnimationHtml(html)) continue;
 
       const animDir = join(
         presentationDir,
@@ -186,6 +187,7 @@ export async function syncHeuristicExplainAnimations(
     const inferred = inferExplainAnimation(script, screen);
     if (!inferred) continue;
     const html = renderExplainAnimationHtml(inferred.config, { themeId: opts.themeId });
+    if (!isPlayableAnimationHtml(html)) continue;
     await writePresentationAnimationFile(
       presentationDir,
       opts.wvpChapterId,

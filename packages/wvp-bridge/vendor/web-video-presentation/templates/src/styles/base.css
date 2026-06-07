@@ -76,17 +76,23 @@ body {
   --stage-pad-x: 96px;   /* 幻燈片內容安全左右邊距 — 縮小可讓內容更寬，放大可讓內容更集中 */
   --stage-pad-y: 80px;   /* 幻燈片內容安全上下邊距 — 想把內容整體上移/下移時可連動參考 */
 
+  /* ── 底部字幕帶（與 SubtitleBar 8vh 對齊；`html[data-subs="on"]` 時啟用） ── */
+  --stage-subtitle-band: 0px;
+
   /* ── 1920×1080 舞台內容區（勿用 vh/vw — 在縮放舞台內會對到瀏覽器視窗） ── */
   --stage-w: 1920px;
   --stage-h: 1080px;
   --stage-safe-w: 1728px;   /* 1920 − 2×--stage-pad-x */
-  --stage-safe-h: 920px;    /* 1080 − 2×--stage-pad-y */
+  /* 1080 − 上/下 pad − 字幕帶；所有章節 max-height 應引用此 token */
+  --stage-safe-h: calc(
+    var(--stage-h) - var(--stage-pad-y) - var(--stage-pad-y) - var(--stage-subtitle-band)
+  );
   --stage-viz-max-w: 1680px; /* 主視覺橫向上限（留右側裝飾／步驟色條） */
   --stage-headline-band: 100px; /* 標題列 + 下距，圖表區扣除此高度 */
-  --stage-chart-h: 760px;   /* 折線／長條／圓餅主繪圖區 */
-  --stage-anim-h: 760px;    /* 解說動畫 iframe 高度 */
-  --stage-table-h: 720px;   /* 表格卡片主體 */
-  --stage-figure-h: 720px;  /* 雜誌／配圖主區 */
+  --stage-chart-h: min(760px, calc(var(--stage-safe-h) - var(--stage-headline-band)));
+  --stage-anim-h: min(760px, calc(var(--stage-safe-h) - var(--stage-headline-band)));
+  --stage-table-h: min(720px, calc(var(--stage-safe-h) - var(--stage-headline-band)));
+  --stage-figure-h: min(720px, calc(var(--stage-safe-h) - var(--stage-headline-band)));
 
   /* ── Radius scale (themes reference these via --r-card; chapters write
         their own radii freely) ── */
@@ -167,6 +173,11 @@ body {
   border-radius: var(--r-stage, 0);
 }
 
+/* 字幕開啟時：底部預留與 SubtitleBar 等高的安全帶（約 8vh @ 1080 + 兩行緩衝） */
+html[data-subs="on"] {
+  --stage-subtitle-band: 104px;
+}
+
 /* OPTIONAL pattern layer drawn ON the stage so screen recordings catch it */
 .stage-frame::after {
   content: "";
@@ -189,8 +200,17 @@ body {
   z-index: 1;
 }
 
-/* every chapter root */
-.scene { position: absolute; inset: 0; z-index: 2; }
+/* every chapter root — 字幕開啟時縮短底部，內容不得侵入字幕區 */
+.scene {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+html[data-subs="on"] .stage-frame > .scene {
+  bottom: var(--stage-subtitle-band);
+}
 
 /* ─────────────────────────────────────────────────────────────────────
  * 4. Type primitives — chapters compose with these instead of hard sizes.
@@ -255,6 +275,10 @@ body {
   padding: var(--stage-pad-y) var(--stage-pad-x);
   display: flex;
   flex-direction: column;
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 .stack { display: flex; flex-direction: column; }
 .row   { display: flex; flex-direction: row; }

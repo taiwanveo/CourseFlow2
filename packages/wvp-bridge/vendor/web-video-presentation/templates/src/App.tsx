@@ -52,6 +52,13 @@ export default function App() {
 
   const subtitles = useSubtitleSettings();
 
+  useEffect(() => {
+    document.documentElement.dataset.subs = subtitles.enabled ? "on" : "off";
+    return () => {
+      delete document.documentElement.dataset.subs;
+    };
+  }, [subtitles.enabled]);
+
   usePlayControlBridge({
     onFirst: () => stepper.jumpToChapter(0, 0),
     onPrev: stepper.prev,

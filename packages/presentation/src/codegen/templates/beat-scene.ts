@@ -150,9 +150,9 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
     const hasStepImage = assetStepIndex in (input.stepImageExtensions ?? {});
     let figureLine = "";
     if (checkpoint?.url?.trim()) {
-      figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src="${escapeTsString(checkpoint.url.trim())}" alt="" /></div>`;
+      figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src="${escapeTsString(checkpoint.url.trim())}" alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /></div>`;
     } else if (hasStepImage) {
-      figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src={stepImageUrl(${assetStepIndex})} alt="" /></div>`;
+      figureLine = `<div className="${prefix}-figure-wrap" data-no-advance><img className="${prefix}-figure" src={stepImageUrl(${assetStepIndex})} alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /></div>`;
     }
     return stepSceneBlock(
       stepIndex,
@@ -310,7 +310,13 @@ ${scenes.join("\n")}
   border-radius: 50%;
   animation: ${prefix}-pulse 2.4s ease-in-out infinite;
 }
-.${prefix}-figure-wrap { display: flex; align-items: center; justify-content: center; }
+.${prefix}-figure-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline: auto;
+  width: min(100%, var(--stage-viz-max-w));
+}
 .${prefix}-scene:has(.${prefix}-figure-wrap img) .${prefix}-figure-wrap {
   width: 100%;
   max-width: var(--stage-viz-max-w);
