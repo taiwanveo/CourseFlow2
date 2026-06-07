@@ -109,6 +109,17 @@ export default function App() {
     ) {
       return;
     }
+    const lastChapter = CHAPTERS.length - 1;
+    const lastStep = CHAPTERS[lastChapter]?.narrations.length ?? 1;
+    const atDeckEnd =
+      stepper.cursor.chapter === lastChapter &&
+      stepper.cursor.step === lastStep - 1;
+    if (atDeckEnd && mode === "auto") {
+      // Playwright 錄製器（record.ts）等待此旗標後才結束錄屏並轉檔 MP4。
+      document.documentElement.dataset.cfPresentationDone = "1";
+      window.dispatchEvent(new Event("cf-presentation-auto-done"));
+      return;
+    }
     stepper.next();
   }, [mode, stepper]);
 

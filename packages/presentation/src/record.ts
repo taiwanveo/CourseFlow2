@@ -99,6 +99,7 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
   });
   const page = await context.newPage();
   page.setDefaultTimeout(maxMs);
+  let progressHeartbeat: ReturnType<typeof setInterval> | null = null;
 
   try {
     await page.goto(url, { waitUntil: "networkidle", timeout: 120_000 });
@@ -114,6 +115,12 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
       await page.keyboard.press("Space");
     }
     opts.onProgress?.(55);
+
+    let playbackPct = 55;
+    progressHeartbeat = setInterval(() => {
+      playbackPct = Math.min(79, playbackPct + 1);
+      opts.onProgress?.(playbackPct);
+    }, 20_000);
 
     try {
       await page.waitForFunction(
@@ -146,8 +153,10 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
         { cause: e },
       );
     }
+    if (progressHeartbeat) clearInterval(progressHeartbeat);
     opts.onProgress?.(80);
   } finally {
+    if (progressHeartbeat) clearInterval(progressHeartbeat);
     const pageVideo = page.video();
     await page.close();
     await context.close();
@@ -166,6 +175,7 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
     }
     if (!webmPath) throw new Error("Playwright 未產生錄屏檔");
 
+    opts.onProgress?.(82);
     const converted = await convertWebmToMp4(webmPath, opts.outputPath);
     if (!converted) {
       const buf = await readFile(webmPath);

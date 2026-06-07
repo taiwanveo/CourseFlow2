@@ -16,9 +16,10 @@ function renderProgressLabel(
 ): string {
   if (pipeline === "wvp") {
     if (progress < 30) return "準備 WVP 簡報…";
-    if (progress < 55) return "Playwright 錄製中（?auto=1）…";
-    if (progress < 85) return "轉檔 / 上傳 MP4…";
-    if (progress < 100) return "完成中…";
+    if (progress < 45) return "啟動錄製環境…";
+    if (progress < 80) return "Playwright 錄製播放中（?auto=1）…";
+    if (progress < 88) return "轉檔 WebM → MP4…";
+    if (progress < 100) return "上傳 MP4…";
     return "完成";
   }
   if (progress < 15) return "準備中…";
