@@ -482,7 +482,8 @@ export function AudioPhaseClient({
       if (status === "failed") {
         const progress = parseTtsBatchProgress(result);
         if (progress) setBatchProgress(progress);
-        toast(data.job?.error_message ?? "語音合成失敗", "error");
+        const stepError = progress?.steps.find((s) => s.error)?.error;
+        toast(stepError ?? data.job?.error_message ?? "語音合成失敗", "error");
         onDone();
         return;
       }

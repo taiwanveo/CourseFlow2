@@ -134,8 +134,17 @@ export async function POST(
   if (!queued && isBatch) {
     console.log(`[tts-batch] Web inline job=${jobRun.id} project=${id}`);
     setImmediate(() => {
-      void runSynthesizeAudio({ ...jobPayload, jobRunId: jobRun.id }).catch((err) => {
-        console.error(`[tts-batch] Web inline failed job=${jobRun.id}:`, err);
+      void runSynthesizeAudio({ ...jobPayload, jobRunId: jobRun.id }).catch(async (err) => {
+        const message = err instanceof Error ? err.message : "語音合成失敗";
+        console.error(`[tts-batch] Web inline failed job=${jobRun.id}:`, message);
+        await supabase
+          .from("job_runs")
+          .update({
+            status: "failed",
+            error_message: message.slice(0, 2000),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", jobRun.id);
       });
     });
     return NextResponse.json({

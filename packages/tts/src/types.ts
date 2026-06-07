@@ -129,27 +129,23 @@ export function getTtsVoicesForModel(modelId: string, provider: TtsProviderId): 
   return OPENAI_TTS_VOICES.map((v) => ({ ...v, provider }));
 }
 
-// 已知確認在 OpenRouter 上存在且為真實 TTS 的模型（用於 API 找不到時的候補）
-// 注意：只列入已驗證的模型，未驗證的請透過動態 API 發現
+// 已知在 OpenRouter 上可透過 audio/speech 使用的 TTS 模型（靜態候補；實際清單以 /api/tts/models 動態驗證）
 export const OPENROUTER_KNOWN_TTS_MODEL_IDS: readonly string[] = [
-  "openai/gpt-4o-mini-tts-2025-12-15",
+  "openai/tts-1",
+  "openai/tts-1-hd",
 ];
 
 export const OPENROUTER_TTS_MODELS: TtsModel[] = [
-  {
-    id: "openai/gpt-4o-mini-tts-2025-12-15",
-    name: "GPT-4o Mini TTS",
-    provider: "openrouter",
-  },
+  { id: "openai/tts-1", name: "OpenAI TTS-1", provider: "openrouter" },
+  { id: "openai/tts-1-hd", name: "OpenAI TTS-1 HD", provider: "openrouter" },
 ];
 
-export const OPENROUTER_DEFAULT_TTS_MODEL = OPENROUTER_TTS_MODELS[0]!.id;
+export const OPENROUTER_DEFAULT_TTS_MODEL = "openai/tts-1";
 
 const LEGACY_OPENROUTER_MODEL_MAP: Record<string, string> = {
   "tts-1": OPENROUTER_DEFAULT_TTS_MODEL,
-  "tts-1-hd": OPENROUTER_DEFAULT_TTS_MODEL,
-  "openai/tts-1": OPENROUTER_DEFAULT_TTS_MODEL,
-  "openai/tts-1-hd": OPENROUTER_DEFAULT_TTS_MODEL,
+  "tts-1-hd": "openai/tts-1-hd",
+  "openai/gpt-4o-mini-tts-2025-12-15": OPENROUTER_DEFAULT_TTS_MODEL,
 };
 
 export function resolveTtsModel(provider: TtsProviderId, model?: string): string | undefined {

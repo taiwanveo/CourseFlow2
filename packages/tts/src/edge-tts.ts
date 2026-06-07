@@ -11,9 +11,19 @@ export const edgeTtsProvider: TtsProvider = {
   },
 
   async synthesize(text: string, voiceId: string): Promise<Buffer> {
-    const tts = new EdgeTTS(text, voiceId);
-    const result = await tts.synthesize();
-    const arrayBuffer = await result.audio.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const EDGE_TTS_TIMEOUT_MS = 120_000;
+    const work = (async () => {
+      const tts = new EdgeTTS(text, voiceId);
+      const result = await tts.synthesize();
+      const arrayBuffer = await result.audio.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    })();
+    const timeout = new Promise<Buffer>((_, reject) => {
+      setTimeout(
+        () => reject(new Error(`Edge-TTS 逾時（>${EDGE_TTS_TIMEOUT_MS / 1000} 秒），請稍後重試`)),
+        EDGE_TTS_TIMEOUT_MS,
+      );
+    });
+    return Promise.race([work, timeout]);
   },
 };

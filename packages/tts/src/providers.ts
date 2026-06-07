@@ -53,7 +53,7 @@ export const openRouterTtsProvider: TtsProvider = {
       baseURL: "https://openrouter.ai/api/v1",
     });
     const res = await client.audio.speech.create({
-      model: resolveTtsModel("openrouter", options?.model) ?? "openai/gpt-4o-mini-tts-2025-12-15",
+      model: resolveTtsModel("openrouter", options?.model) ?? "openai/tts-1",
       voice: voiceId as "alloy",
       input: text,
       response_format: "mp3",
