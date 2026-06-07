@@ -31,7 +31,7 @@ import {
 } from "@/lib/tts-batch-progress";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
 
-const TTS_PROVIDER_ORDER = ["openai", "gemini", "openrouter", "edge-tts"] as const;
+const TTS_PROVIDER_ORDER = ["openai", "gemini", "edge-tts"] as const;
 
 function pickDefaultTtsSelection(
   language: string,
@@ -228,8 +228,9 @@ export function AudioPhaseClient({
           return;
         }
         const fetched = (data.models ?? []) as TtsModel[];
-        if (fetched.length > 0) {
-          setModels((prev) => ({ ...prev, [provider]: fetched }));
+        setModels((prev) => ({ ...prev, [provider]: fetched }));
+        if (fetched.length === 0) {
+          toast("此提供者目前沒有可用的 TTS 模型", "warning");
         }
       } catch {
         toast("無法連線取得模型列表", "warning");

@@ -12,47 +12,14 @@ const MUSIC_MODEL_PATTERN = /lyria|musicgen|music-gen|bark|audiogen|audiocraft|m
 // 已知的 TTS 模型 ID 字串（有此即安全引入，不依賴 modality）
 const TTS_ID_PATTERN = /tts|speech-synthesis|voice(-gen)?$/i;
 
-async function fetchOpenRouterTtsModels(apiKey: string): Promise<TtsModel[]> {
-  const res = await fetch("https://openrouter.ai/api/v1/models", {
-    headers: { Authorization: `Bearer ${apiKey}` },
-    next: { revalidate: 300 },
-  });
-  if (!res.ok) throw new Error(`OpenRouter API error: ${res.status}`);
-  const data = (await res.json()) as {
-    data: {
-      id: string;
-      name: string;
-      architecture?: { modality?: string };
-    }[];
-  };
-
-  const all = data.data ?? [];
-  const seen = new Set<string>();
-  const result: TtsModel[] = [];
-
-  // 1. 預填「已知 TTS 模型」——只有在 API 確認存在時才加入，防止幽靈模型出現
-  for (const known of OPENROUTER_TTS_MODELS) {
-    const found = all.find((m) => m.id === known.id);
-    if (!found) continue; // API 找不到就跳過，不強制顯示
-    result.push({ id: found.id, name: found.name || known.name, provider: "openrouter" as const });
-    seen.add(found.id);
-  }
-
-  // 2. 動態拉取：modality 輸出含 audio 且非音樂模型
-  for (const m of all) {
-    if (seen.has(m.id)) continue;
-    const mod = m.architecture?.modality ?? "";
-    const outputPart = mod.split("->")[1] ?? "";
-    const hasAudioOutput = outputPart.toLowerCase().includes("audio");
-    const isMusicModel = MUSIC_MODEL_PATTERN.test(m.id) || MUSIC_MODEL_PATTERN.test(m.name);
-    const isTtsById = TTS_ID_PATTERN.test(m.id);
-    if ((hasAudioOutput && !isMusicModel) || isTtsById) {
-      result.push({ id: m.id, name: m.name || m.id, provider: "openrouter" as const });
-      seen.add(m.id);
-    }
-  }
-
-  return result;
+async function fetchOpenRouterTtsModels(_apiKey: string): Promise<TtsModel[]> {
+  // OpenRouter 模型目錄無 openai/tts-1；audio/speech 端點亦未對外提供。
+  // gpt-audio 系列需走 chat completions，與現有 TTS 管線不相容。
+  void OPENROUTER_KNOWN_TTS_MODEL_IDS;
+  void OPENROUTER_TTS_MODELS;
+  void MUSIC_MODEL_PATTERN;
+  void TTS_ID_PATTERN;
+  return [];
 }
 
 async function fetchOpenAITtsModels(apiKey: string): Promise<TtsModel[]> {

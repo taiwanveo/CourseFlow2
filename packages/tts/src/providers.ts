@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import type { TtsCredentials, TtsProvider, TtsVoice, TtsSynthesizeOptions } from "./types.js";
-import { OPENAI_TTS_VOICES, resolveTtsModel } from "./types.js";
+import {
+  OPENAI_TTS_VOICES,
+  OPENROUTER_TTS_UNSUPPORTED_MESSAGE,
+  resolveTtsModel,
+} from "./types.js";
 
 export const openAiTtsProvider: TtsProvider = {
   id: "openai",
@@ -42,23 +46,13 @@ export const openRouterTtsProvider: TtsProvider = {
   },
 
   async synthesize(
-    text: string,
-    voiceId: string,
+    _text: string,
+    _voiceId: string,
     credentials?: TtsCredentials,
-    options?: TtsSynthesizeOptions,
+    _options?: TtsSynthesizeOptions,
   ): Promise<Buffer> {
     if (!credentials?.apiKey) throw new Error("缺少 OpenRouter API Key");
-    const client = new OpenAI({
-      apiKey: credentials.apiKey,
-      baseURL: "https://openrouter.ai/api/v1",
-    });
-    const res = await client.audio.speech.create({
-      model: resolveTtsModel("openrouter", options?.model) ?? "openai/tts-1",
-      voice: voiceId as "alloy",
-      input: text,
-      response_format: "mp3",
-    });
-    return Buffer.from(await res.arrayBuffer());
+    throw new Error(OPENROUTER_TTS_UNSUPPORTED_MESSAGE);
   },
 };
 

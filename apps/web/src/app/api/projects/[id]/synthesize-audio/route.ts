@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { assertPhaseEditable } from "@courseflow/core";
 import type { PhaseLocks } from "@courseflow/core";
 import type { TtsProviderId } from "@courseflow/tts";
+import { OPENROUTER_TTS_UNSUPPORTED_MESSAGE } from "@courseflow/tts/types";
 import { runSynthesizeAudio } from "@/lib/run-synthesize-audio";
 import {
   createInitialTtsBatchProgress,
@@ -48,6 +49,10 @@ export async function POST(
 
   if (!body.voiceId?.trim()) {
     return NextResponse.json({ error: "請選擇語音" }, { status: 400 });
+  }
+
+  if (body.provider === "openrouter") {
+    return NextResponse.json({ error: OPENROUTER_TTS_UNSUPPORTED_MESSAGE }, { status: 400 });
   }
 
   const jobPayload = {

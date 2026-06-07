@@ -1,5 +1,5 @@
 import type { TtsCredentials, TtsProvider, TtsProviderId, TtsVoice, TtsModel, ProjectLanguage, TtsSynthesizeOptions } from "./types.js";
-import { edgeTtsVisibleForLanguage, EDGE_TTS_ZH_TW_VOICES, OPENAI_TTS_MODELS, OPENROUTER_TTS_MODELS, getTtsVoicesForModel } from "./types.js";
+import { edgeTtsVisibleForLanguage, EDGE_TTS_ZH_TW_VOICES, OPENAI_TTS_MODELS, getTtsVoicesForModel } from "./types.js";
 import { edgeTtsProvider } from "./edge-tts.js";
 import {
   openAiTtsProvider,
@@ -34,7 +34,7 @@ export async function listAllVoices(
 ): Promise<TtsVoice[]> {
   const voices: TtsVoice[] = [];
 
-  for (const id of ["openai", "gemini", "openrouter"] as TtsProviderId[]) {
+  for (const id of ["openai", "gemini"] as TtsProviderId[]) {
     const creds = credentialsByProvider[id];
     if (creds?.apiKey) {
       const provider = getTtsProvider(id);
@@ -56,9 +56,7 @@ export function listTtsModels(
   if (credentialsByProvider.openai?.apiKey) {
     models.openai = OPENAI_TTS_MODELS;
   }
-  if (credentialsByProvider.openrouter?.apiKey) {
-    models.openrouter = OPENROUTER_TTS_MODELS;
-  }
+  // OpenRouter 不支援 audio/speech；不在此預填模型，避免 UI 出現無法使用的幽靈模型
   return models;
 }
 

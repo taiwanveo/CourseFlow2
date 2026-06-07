@@ -9,7 +9,8 @@ import {
   type TtsVoice,
 } from "@courseflow/tts";
 
-const KEY_PROVIDERS = ["openai", "gemini", "openrouter"] as const;
+/** 語音合成可用的 API Key 提供者（OpenRouter 不支援 audio/speech，故排除） */
+const KEY_PROVIDERS = ["openai", "gemini"] as const;
 
 export type TtsOptionsPayload = {
   voices: TtsVoice[];
