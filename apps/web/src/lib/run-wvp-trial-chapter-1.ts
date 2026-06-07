@@ -3,9 +3,15 @@ import { createServiceClient } from "@/lib/supabase/admin";
 import { resolveEffectiveTextModel, resolveLlmProvider } from "@/lib/llm-provider";
 import { resolveTrialJobTimeoutMs } from "@/lib/wvp-craft-async";
 import { runAnchorChapterTrial } from "@/lib/wvp-chapter-craft";
+import {
+  advanceTrialProgress,
+  createInitialTrialProgress,
+  type WvpTrialChapterProgress,
+} from "@/lib/wvp-trial-progress";
 
 export type WvpTrialChapter1JobResult = {
   ok: boolean;
+  progress?: WvpTrialChapterProgress;
   wvpChapterId?: string;
   templateKind?: string;
   chapterSource?: "llm" | "template";
@@ -63,10 +69,25 @@ export async function runWvpTrialChapter1(payload: {
     throw new Error("找不到專案");
   }
 
-  await patchJob({ status: "running", updated_at: new Date().toISOString() });
+  let latestProgress = createInitialTrialProgress();
+  const patchRunningProgress = async (progress: WvpTrialChapterProgress) => {
+    latestProgress = progress;
+    const partial: WvpTrialChapter1JobResult = { ok: false, progress };
+    await patchJob({
+      status: "running",
+      result: partial,
+      updated_at: new Date().toISOString(),
+    });
+  };
+
+  await patchRunningProgress(latestProgress);
   const startedAt = Date.now();
   const heartbeat = setInterval(() => {
-    void patchJob({ status: "running", updated_at: new Date().toISOString() });
+    void patchJob({
+      status: "running",
+      result: { ok: false, progress: latestProgress },
+      updated_at: new Date().toISOString(),
+    });
   }, HEARTBEAT_INTERVAL_MS);
   console.log(
     `[wvp-trial-job] start job=${payload.jobRunId} project=${payload.projectId}`,
@@ -91,7 +112,7 @@ export async function runWvpTrialChapter1(payload: {
         themeId: payload.themeId,
         onStage: async (stage) => {
           console.info(`[wvp-trial-job] stage=${stage} job=${payload.jobRunId}`);
-          await patchJob({ status: "running", updated_at: new Date().toISOString() });
+          await patchRunningProgress(advanceTrialProgress(latestProgress, stage));
         },
       }),
       timeoutMs,
@@ -104,6 +125,7 @@ export async function runWvpTrialChapter1(payload: {
 
     const jobResult: WvpTrialChapter1JobResult = {
       ok: true,
+      progress: advanceTrialProgress(latestProgress, "preview-built"),
       wvpChapterId: result.wvpChapterId,
       templateKind: result.templateKind,
       chapterSource: result.chapterSource,

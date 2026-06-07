@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { CompactBatchProgressPanel } from "@/components/CompactBatchProgressPanel";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
 import { canAccessWvpPhase, type WvpPhaseLocks } from "@courseflow/core";
 import { WvpPhaseBottomActions, WvpPhaseNav } from "@/components/ProjectPhaseNav";
 import { useToast } from "@/components/Toast";
@@ -26,6 +28,14 @@ import {
   resolveChapterTemplateSelectState,
 } from "@/lib/wvp-chapter-template";
 import { BatchCraftProgressPanel } from "@/components/BatchCraftProgressPanel";
+import {
+  createInitialTrialProgress,
+  estimateTrialOptimisticPhaseIndex,
+  estimateTrialRemainingMs,
+  parseWvpTrialProgress,
+  toTrialCompactProgress,
+  type WvpTrialChapterProgress,
+} from "@/lib/wvp-trial-progress";
 import {
   createInitialBatchProgress,
   type WvpBatchCraftProgress,
@@ -290,6 +300,17 @@ export function CraftPhaseClient({
   );
   const [activeBatchJobId, setActiveBatchJobId] = useState<string | null>(null);
   const [batchQueueHint, setBatchQueueHint] = useState<string | null>(null);
+  const [trialProgress, setTrialProgress] = useState<WvpTrialChapterProgress | null>(null);
+  const [trialQueueHint, setTrialQueueHint] = useState<string | null>(null);
+  const trialElapsedMs = useElapsedMs(busy === "trial-ch1");
+  const trialCompactProgress = useMemo(() => {
+    if (busy !== "trial-ch1") return null;
+    if (trialProgress) return toTrialCompactProgress(trialProgress);
+    return toTrialCompactProgress(
+      null,
+      estimateTrialOptimisticPhaseIndex(trialElapsedMs),
+    );
+  }, [busy, trialProgress, trialElapsedMs]);
   const autoScaffoldAttempted = useRef(false);
   const lastWvpRefreshAt = useRef(0);
   const lastMaterializedCount = useRef(0);
@@ -823,6 +844,8 @@ export function CraftPhaseClient({
       return;
     }
     setBusy("trial-ch1");
+    setTrialProgress(createInitialTrialProgress(chapters[0]?.title));
+    setTrialQueueHint(null);
     try {
       await saveWvpSettings();
       const res = await fetch(`/api/projects/${projectId}/wvp/trial-chapter-1`, {
@@ -840,7 +863,19 @@ export function CraftPhaseClient({
             : "第 1 章試執行已開始（雲端約 3–8 分鐘，含 Vite 打包），請保持此頁開啟…",
           "info",
         );
-        finalData = await pollJobRun(data.jobRunId);
+        setTrialQueueHint("等待 Worker 接手…");
+        finalData = await pollJobRun(data.jobRunId, {
+          onPending: () => {
+            setTrialQueueHint("任務排隊中，等待 Worker…");
+          },
+          onRunning: (result) => {
+            setTrialQueueHint(null);
+            const progress = parseWvpTrialProgress(result);
+            if (progress) setTrialProgress(progress);
+          },
+        });
+        const doneProgress = parseWvpTrialProgress(finalData);
+        if (doneProgress) setTrialProgress(doneProgress);
       } else if (!res.ok) {
         throw new Error(getResponseErrorMessage(res, data, "試執行失敗"));
       }
@@ -874,6 +909,8 @@ export function CraftPhaseClient({
       toast(e instanceof Error ? e.message : "試執行失敗", "error");
     } finally {
       setBusy(null);
+      setTrialProgress(null);
+      setTrialQueueHint(null);
     }
   };
 
@@ -1044,29 +1081,41 @@ export function CraftPhaseClient({
                     <p className="text-[11px] leading-relaxed text-zinc-500">
                       系統會依 Checkpoint 素材自動選擇 Hook 或清單揭示模板，無需手動逐一套用。不滿意結果可再次試執行。
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        className="cf-btn cf-btn-primary cf-btn-sm"
-                        disabled={!!busy || !canTrialChapter1}
-                        onClick={() => void trialChapter1()}
-                      >
-                        {busy === "trial-ch1"
-                          ? "試執行中…"
-                          : anchorTrialDone
-                            ? "重新試執行第 1 章"
-                            : "試執行第 1 章"}
-                      </button>
-                      {anchorTrialDone ? (
-                        <Link
-                          href={`/projects/${projectId}/wvp-play?anchor=1&start=1`}
-                          className="cf-btn cf-btn-secondary cf-btn-sm"
-                          target="_blank"
-                          rel="noopener noreferrer"
+                    <div className="flex w-full flex-wrap items-start gap-2">
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          className="cf-btn cf-btn-primary cf-btn-sm"
+                          disabled={!!busy || !canTrialChapter1}
+                          onClick={() => void trialChapter1()}
                         >
-                          預覽第 1 章
-                        </Link>
-                      ) : null}
+                          {busy === "trial-ch1"
+                            ? "試執行中…"
+                            : anchorTrialDone
+                              ? "重新試執行第 1 章"
+                              : "試執行第 1 章"}
+                        </button>
+                        {anchorTrialDone ? (
+                          <Link
+                            href={`/projects/${projectId}/wvp-play?anchor=1&start=1`}
+                            className="cf-btn cf-btn-secondary cf-btn-sm"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            預覽第 1 章
+                          </Link>
+                        ) : null}
+                      </div>
+                      <CompactBatchProgressPanel
+                        progress={trialCompactProgress}
+                        busy={busy === "trial-ch1"}
+                        queueHint={trialQueueHint}
+                        estimateRemainingMs={
+                          trialProgress
+                            ? () => estimateTrialRemainingMs(trialProgress)
+                            : undefined
+                        }
+                      />
                     </div>
                     {anchorTrialDone && !anchorOk ? (
                       <p className="text-[11px] text-amber-500/90">

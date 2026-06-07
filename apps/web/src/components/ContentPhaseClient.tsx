@@ -1,6 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CompactBatchProgressPanel } from "@/components/CompactBatchProgressPanel";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
+import {
+  estimateContentGeneratePhaseIndex,
+  toContentGenerateCompactProgress,
+} from "@/lib/content-generate-progress";
 import { useRouter } from "next/navigation";
 import { PhaseBottomActions, ProjectPhaseNav } from "@/components/ProjectPhaseNav";
 import { OutlineEditor } from "@/components/OutlineEditor";
@@ -46,6 +52,12 @@ export function ContentPhaseClient({
   const [selectedFileName, setSelectedFileName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const generateElapsedMs = useElapsedMs(generating);
+  const generateProgress = useMemo(() => {
+    if (!generating) return null;
+    const phaseIndex = estimateContentGeneratePhaseIndex(generateElapsedMs);
+    return toContentGenerateCompactProgress(phaseIndex);
+  }, [generating, generateElapsedMs]);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saving" | "saved" | null>(null);
   const [lastEditedField, setLastEditedField] = useState<"screen" | "narration" | null>(null);
@@ -288,12 +300,12 @@ export function ContentPhaseClient({
               )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-wrap items-start gap-2">
             <button
               type="button"
               onClick={generate}
               disabled={generating || !providers.length}
-              className="cf-btn cf-btn-primary"
+              className="cf-btn cf-btn-primary shrink-0"
             >
               {generating ? (
                 <span className="inline-flex items-center gap-2">
@@ -304,6 +316,7 @@ export function ContentPhaseClient({
                 "生成大綱與口播稿"
               )}
             </button>
+            <CompactBatchProgressPanel progress={generateProgress} busy={generating} />
           </div>
         </section>
       ) : null}
