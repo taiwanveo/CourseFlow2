@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>平衡點</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf3 100%);
+    font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1 {
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 22px;
+  }
+  .subtitle {
+    color: #7f8c8d;
+    margin-bottom: 30px;
+    font-size: 14px;
+  }
+  .scene {
+    background: white;
+    border-radius: 16px;
+    padding: 30px 20px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    max-width: 560px;
+    width: 100%;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 8px;
+    background: #3498db;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.1s, background 0.2s;
+  }
+  button:hover { background: #2980b9; }
+  button:active { transform: scale(0.96); }
+  button.secondary { background: #95a5a6; }
+  button.secondary:hover { background: #7f8c8d; }
+  .label-left { fill: #c0392b; font-weight: 600; }
+  .label-right { fill: #2980b9; font-weight: 600; }
+  .sublabel { fill: #7f8c8d; font-size: 11px; }
+  .status {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 14px;
+    color: #34495e;
+    min-height: 22px;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+  <h1>在兩端之間,尋找你的平衡點</h1>
+  <div class="subtitle">品質・客製化  ⇆  速度・標準化</div>
+
+  <div class="scene">
+    <svg viewBox="0 0 560 320" xmlns="http://www.w3.org/2000/svg">
+      <!-- 支點底座 -->
+      <polygon points="280,260 250,300 310,300" fill="#34495e"/>
+      <rect x="240" y="298" width="80" height="6" fill="#2c3e50" rx="2"/>
+
+      <!-- 翹翹板 (會旋轉) -->
+      <g id="seesaw" style="transform-origin: 280px 260px; transition: transform 1s cubic-bezier(.4,1.4,.5,1);">
+        <!-- 板子 -->
+        <rect x="60" y="252" width="440" height="14" fill="#7f8c8d" rx="3"/>
+        <rect x="60" y="252" width="440" height="4" fill="#95a5a6" rx="2"/>
+
+        <!-- 左秤盤 (品質) -->
+        <line x1="120" y1="252" x2="120" y2="200" stroke="#7f8c8d" stroke-width="2"/>
+        <ellipse cx="120" cy="200" rx="55" ry="10" fill="#e74c3c" opacity="0.85"/>
+        <text x="120" y="186" text-anchor="middle" class="label-left" font-size="15">品質・客製化</text>
+        <text x="120" y="172" text-anchor="middle" class="sublabel">深度・獨特・滿意</text>
+
+        <!-- 右秤盤 (速度) -->
+        <line x1="440" y1="252" x2="440" y2="200" stroke="#7f8c8d" stroke-width="2"/>
+        <ellipse cx="440" cy="200" rx="55" ry="10" fill="#3498db" opacity="0.85"/>
+        <text x="440" y="186" text-anchor="middle" class="label-right" font-size="15">速度・標準化</text>
+        <text x="440" y="172" text-anchor="middle" class="sublabel">效率・規模・成本</text>
+
+        <!-- 重量球 -->
+        <circle id="ballLeft" cx="120" cy="195" r="0" fill="#c0392b" style="transition: r 0.6s;"/>
+        <circle id="ballRight" cx="440" cy="195" r="0" fill="#2980b9" style="transition: r 0.6s;"/>
+      </g>
+
+      <!-- 平衡點標示 -->
+      <g id="balancePoint" opacity="0" style="transition: opacity 0.6s;">
+        <circle cx="280" cy="260" r="14" fill="none" stroke="#27ae60" stroke-width="3">
+          <animate attributeName="r" values="14;22;14" dur="1.6s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="1;0.3;1" dur="1.6s" repeatCount="indefinite"/>
+        </circle>
+        <text x="280" y="40" text-anchor="middle" fill="#27ae60" font-size="18" font-weight="700">⚖ 平衡點</text>
+        <text x="280" y="60" text-anchor="middle" class="sublabel" font-size="12">依情境動態調整</text>
+      </g>
+    </svg>
+
+    <div class="status" id="status">點下方按鈕,看看天平怎麼變化</div>
+
+    <div class="controls">
+      <button onclick="tilt('left')">偏品質</button>
+      <button onclick="tilt('balance')">求平衡</button>
+      <button onclick="tilt('right')">偏速度</button>
+      <button class="secondary" onclick="tilt('reset')">重置</button>
+    </div>
+  </div>
+
+<script>
+  const seesaw = document.getElementById('seesaw');
+  const ballL = document.getElementById('ballLeft');
+  const ballR = document.getElementById('ballRight');
+  const balancePoint = document.getElementById('balancePoint');
+  const status = document.getElementById('status');
+
+  function tilt(mode) {
+    balancePoint.setAttribute('opacity', '0');
+    if (mode === 'left') {
+      seesaw.style.transform = 'rotate(-12deg)';
+      ballL.setAttribute('r', '18'); ballR.setAttribute('r', '0');
+      status.textContent = '偏向品質:做得精緻,但慢、貴、難複製';
+      status.style.color = '#c0392b';
+    } else if (mode === 'right') {
+      seesaw.style.transform = 'rotate(12deg)';
+      ballL.setAttribute('r', '0'); ballR.setAttribute('r', '18');
+      status.textContent = '偏向速度:跑得快、可規模化,但失去獨特性';
+      status.style.color = '#2980b9';
+    } else if (mode === 'balance') {
+      seesaw.style.transform = 'rotate(0deg)';
+      ballL.setAttribute('r', '12'); ballR.setAttribute('r', '12');
+      balancePoint.setAttribute('opacity', '1');
+      status.textContent = '取得平衡:核心做精、周邊標準化';
+      status.style.color = '#27ae60';
+    } else {
+      seesaw.style.transform = 'rotate(0deg)';
+      ballL.setAttribute('r', '0'); ballR.setAttribute('r', '0');
+      status.textContent = '點下方按鈕,看看天平怎麼變化';
+      status.style.color = '#34495e';
+    }
+  }
+
+  // 自動播放一輪
+  setTimeout(() => tilt('left'), 600);
+  setTimeout(() => tilt('right'), 2200);
+  setTimeout(() => tilt('balance'), 3800);
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>B 增加了 300 萬</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf3 100%);
+    font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1 { color: #2c3e50; margin-bottom: 8px; font-size: 22px; }
+  .subtitle { color: #7f8c8d; margin-bottom: 30px; font-size: 14px; }
+  .scene {
+    background: white;
+    border-radius: 16px;
+    padding: 30px 20px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    max-width: 560px;
+    width: 100%;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .controls {
+    display: flex; justify-content: center; gap: 10px;
+    margin-top: 20px; flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 22px; border: none; border-radius: 8px;
+    background: #16a085; color: white; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+    transition: transform 0.1s, background 0.2s;
+  }
+  button:hover { background: #117a65; }
+  button:active { transform: scale(0.96); }
+  button.secondary { background: #95a5a6; }
+  button.secondary:hover { background: #7f8c8d; }
+  .status {
+    text-align: center; margin-top: 14px; font-size: 14px;
+    color: #34495e; min-height: 22px; font-weight: 500;
+  }
+  .coin {
+    transition: transform 1s cubic-bezier(.3,1.4,.5,1), opacity 0.4s;
+  }
+</style>
+</head>
+<body>
+  <h1>B 增加了 300 萬</h1>
+  <div class="subtitle">原本的 B + 新增的 300 萬</div>
+
+  <div class="scene">
+    <svg viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="coinGrad" cx="35%" cy="35%">
+          <stop offset="0%" stop-color="#f9e79f"/>
+          <stop offset="60%" stop-color="#f1c40f"/>
+          <stop offset="100%" stop-color="#b7950b"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 標題區 (原本 B) -->
+      <g>
+        <rect x="40" y="40" width="200" height="80" rx="10" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/>
+        <text x="140" y="68" text-anchor="middle" fill="#7f8c8d" font-size="13" font-weight="600">原本的 B</text>
+        <text x="140" y="100" text-anchor="middle" fill="#34495e" font-size="22" font-weight="700">500 萬</text>
+      </g>
+
+      <!-- + 符號 -->
+      <text x="280" y="90" text-anchor="middle" fill="#16a085" font-size="36" font-weight="800">+</text>
+
+      <!-- 增加的部分 -->
+      <g>
+        <rect id="addBox" x="320" y="40" width="200" height="80" rx="10"
+              fill="#a3e4d7" stroke="#16a085" stroke-width="2" opacity="0"
+              style="transition: opacity 0.6s;"/>
+        <text id="addLabel" x="420" y="68" text-anchor="middle" fill="#0e6655"
+              font-size="13" font-weight="600" opacity="0"
+              style="transition: opacity 0.6s;">新增</text>
+        <text id="addAmount" x="420" y="100" text-anchor="middle" fill="#0e6655"
+              font-size="22" font-weight="700" opacity="0"
+              style="transition: opacity 0.6s;">+ 300 萬</text>
+      </g>
+
+      <!-- 等號 -->
+      <text x="280" y="175" text-anchor="middle" fill="#34495e" font-size="22" font-weight="700">↓</text>
+
+      <!-- 結果區 -->
+      <g id="resultGroup" opacity="0" style="transition: opacity 0.6s;">
+        <rect x="140" y="195" width="280" height="90" rx="12"
+              fill="#16a085" stroke="#117a65" stroke-width="3"/>
+        <text x="280" y="223" text-anchor="middle" fill="#d1f2eb"
+              font-size="13" font-weight="600">現在的 B</text>
+        <text id="resultNumber" x="280" y="260" text-anchor="middle" fill="white"
+              font-size="30" font-weight="800">800 萬</text>
+      </g>
+
+      <!-- 飛入的金幣 -->
+      <g id="coins">
+        <circle class="coin" data-target-x="380" data-target-y="80" cx="600" cy="-30" r="14" fill="url(#coinGrad)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-target-x="420" data-target-y="75" cx="620" cy="-30" r="14" fill="url(#coinGrad)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-target-x="460" data-target-y="85" cx="640" cy="-30" r="14" fill="url(#coinGrad)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-target-x="400" data-target-y="100" cx="600" cy="-30" r="14" fill="url(#coinGrad)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-target-x="445" data-target-y="105" cx="640" cy="-30" r="14" fill="url(#coinGrad)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+      </g>
+
+      <!-- 大標 -->
+      <text id="bigLabel" x="280" y="320" text-anchor="middle" fill="#16a085"
+            font-size="20" font-weight="800" opacity="0"
+            style="transition: opacity 0.5s;">+ 300 萬</text>
+    </svg>
+
+    <div class="status" id="status">點「播放」看 B 怎麼增加 300 萬</div>
+
+    <div class="controls">
+      <button onclick="play()">▶ 播放</button>
+      <button class="secondary" onclick="reset()">重置</button>
+    </div>
+  </div>
+
+<script>
+  const addBox = document.getElementById('addBox');
+  const addLabel = document.getElementById('addLabel');
+  const addAmount = document.getElementById('addAmount');
+  const resultGroup = document.getElementById('resultGroup');
+  const resultNumber = document.getElementById('resultNumber');
+  const bigLabel = document.getElementById('bigLabel');
+  const status = document.getElementById('status');
+  const coins = document.querySelectorAll('.coin');
+
+  function play() {
+    reset();
+
+    // 金幣飛入
+    coins.forEach((coin, i) => {
+      setTimeout(() => {
+        const tx = coin.getAttribute('data-target-x');
+        const ty = coin.getAttribute('data-target-y');
+        coin.setAttribute('opacity', '1');
+        coin.style.transform = `translate(${tx - parseFloat(coin.getAttribute('cx'))}px, ${ty - parseFloat(coin.getAttribute('cy'))}px)`;
+      }, 300 + i * 150);
+    });
+
+    // 顯示新增框
+    setTimeout(() => {
+      addBox.setAttribute('opacity', '1');
+      addLabel.setAttribute('opacity', '1');
+      addAmount.setAttribute('opacity', '1');
+      status.textContent = '新增 300 萬⋯';
+      status.style.color = '#16a085';
+    }, 800);
+
+    // 顯示結果
+    setTimeout(() => {
+      resultGroup.setAttribute('opacity', '1');
+      bigLabel.setAttribute('opacity', '1');
+      animateNumber(500, 800, 1200);
+      status.textContent = 'B 從 500 萬 → 800 萬,增加 300 萬';
+      status.style.color = '#117a65';
+    }, 1800);
+  }
+
+  function animateNumber(from, to, duration) {
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const val = Math.round(from + (to - from) * p);
+      resultNumber.textContent = val + ' 萬';
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function reset() {
+    addBox.setAttribute('opacity', '0');
+    addLabel.setAttribute('opacity', '0');
+    addAmount.setAttribute('opacity', '0');
+    resultGroup.setAttribute('opacity', '0');
+    bigLabel.setAttribute('opacity', '0');
+    resultNumber.textContent = '500 萬';
+    coins.forEach(coin => {
+      coin.setAttribute('opacity', '0');
+      coin.style.transform = 'translate(0, 0)';
+    });
+    status.textContent = '點「播放」看 B 怎麼增加 300 萬';
+    status.style.color = '#34495e';
+  }
+
+  setTimeout(play, 500);
+</script>
+</body>
+</html>

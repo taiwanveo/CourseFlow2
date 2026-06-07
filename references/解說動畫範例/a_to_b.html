@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>從 A 到 B</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf3 100%);
+    font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1 { color: #2c3e50; margin-bottom: 8px; font-size: 22px; }
+  .subtitle { color: #7f8c8d; margin-bottom: 30px; font-size: 14px; }
+  .scene {
+    background: white;
+    border-radius: 16px;
+    padding: 40px 20px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    max-width: 600px;
+    width: 100%;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .controls {
+    display: flex; justify-content: center; gap: 10px;
+    margin-top: 20px; flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 22px; border: none; border-radius: 8px;
+    background: #3498db; color: white; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+    transition: transform 0.1s, background 0.2s;
+  }
+  button:hover { background: #2980b9; }
+  button:active { transform: scale(0.96); }
+  button.secondary { background: #95a5a6; }
+  button.secondary:hover { background: #7f8c8d; }
+  .status {
+    text-align: center; margin-top: 14px; font-size: 14px;
+    color: #34495e; min-height: 22px; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+  <h1>從 A 到 B</h1>
+  <div class="subtitle">起點 → 過程 → 終點</div>
+
+  <div class="scene">
+    <svg viewBox="0 0 600 260" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrowhead" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+          <polygon points="0 0, 12 6, 0 12" fill="#34495e"/>
+        </marker>
+        <linearGradient id="pathGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#e74c3c"/>
+          <stop offset="100%" stop-color="#27ae60"/>
+        </linearGradient>
+      </defs>
+
+      <!-- 虛線路徑(背景) -->
+      <line x1="120" y1="130" x2="480" y2="130"
+            stroke="#bdc3c7" stroke-width="3" stroke-dasharray="8,6"/>
+
+      <!-- 動態前進線 -->
+      <line id="progressLine" x1="120" y1="130" x2="120" y2="130"
+            stroke="url(#pathGrad)" stroke-width="5" stroke-linecap="round"
+            style="transition: x2 1.8s cubic-bezier(.5,.1,.3,1);"/>
+
+      <!-- 終點箭頭(到達時顯示) -->
+      <line id="finalArrow" x1="475" y1="130" x2="480" y2="130"
+            stroke="#27ae60" stroke-width="5" marker-end="url(#arrowhead)"
+            opacity="0" style="transition: opacity 0.3s;"/>
+
+      <!-- A 起點 -->
+      <circle cx="120" cy="130" r="38" fill="#e74c3c"/>
+      <circle cx="120" cy="130" r="38" fill="none" stroke="#c0392b" stroke-width="3"/>
+      <text x="120" y="138" text-anchor="middle" fill="white"
+            font-size="32" font-weight="700">A</text>
+      <text x="120" y="200" text-anchor="middle" fill="#c0392b"
+            font-size="14" font-weight="600">起點</text>
+      <text x="120" y="218" text-anchor="middle" fill="#7f8c8d" font-size="11">現況</text>
+
+      <!-- B 終點 -->
+      <circle cx="480" cy="130" r="38" fill="#27ae60"/>
+      <circle cx="480" cy="130" r="38" fill="none" stroke="#1e8449" stroke-width="3"/>
+      <text x="480" y="138" text-anchor="middle" fill="white"
+            font-size="32" font-weight="700">B</text>
+      <text x="480" y="200" text-anchor="middle" fill="#1e8449"
+            font-size="14" font-weight="600">終點</text>
+      <text x="480" y="218" text-anchor="middle" fill="#7f8c8d" font-size="11">目標</text>
+
+      <!-- 移動的小點 -->
+      <circle id="mover" cx="120" cy="130" r="10" fill="#f39c12"
+              stroke="white" stroke-width="3"
+              style="transition: cx 1.8s cubic-bezier(.5,.1,.3,1);"/>
+
+      <!-- 過程文字 -->
+      <text id="processLabel" x="300" y="100" text-anchor="middle"
+            fill="#34495e" font-size="15" font-weight="600" opacity="0"
+            style="transition: opacity 0.4s;">過程</text>
+      <text id="processSub" x="300" y="118" text-anchor="middle"
+            fill="#7f8c8d" font-size="11" opacity="0"
+            style="transition: opacity 0.4s;">行動・轉變</text>
+    </svg>
+
+    <div class="status" id="status">點「開始」看 A 如何走到 B</div>
+
+    <div class="controls">
+      <button onclick="play()">▶ 開始</button>
+      <button class="secondary" onclick="reset()">重置</button>
+    </div>
+  </div>
+
+<script>
+  const progressLine = document.getElementById('progressLine');
+  const mover = document.getElementById('mover');
+  const finalArrow = document.getElementById('finalArrow');
+  const processLabel = document.getElementById('processLabel');
+  const processSub = document.getElementById('processSub');
+  const status = document.getElementById('status');
+
+  function play() {
+    reset();
+    setTimeout(() => {
+      progressLine.setAttribute('x2', '480');
+      mover.setAttribute('cx', '480');
+      processLabel.setAttribute('opacity', '1');
+      processSub.setAttribute('opacity', '1');
+      status.textContent = '前進中⋯';
+      status.style.color = '#f39c12';
+    }, 100);
+    setTimeout(() => {
+      finalArrow.setAttribute('opacity', '1');
+      status.textContent = '已抵達 B!';
+      status.style.color = '#27ae60';
+    }, 1900);
+  }
+
+  function reset() {
+    progressLine.setAttribute('x2', '120');
+    mover.setAttribute('cx', '120');
+    finalArrow.setAttribute('opacity', '0');
+    processLabel.setAttribute('opacity', '0');
+    processSub.setAttribute('opacity', '0');
+    status.textContent = '點「開始」看 A 如何走到 B';
+    status.style.color = '#34495e';
+  }
+
+  setTimeout(play, 500);
+</script>
+</body>
+</html>

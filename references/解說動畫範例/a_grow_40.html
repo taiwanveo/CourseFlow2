@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>A 增長了 40%</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf3 100%);
+    font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1 { color: #2c3e50; margin-bottom: 8px; font-size: 22px; }
+  .subtitle { color: #7f8c8d; margin-bottom: 30px; font-size: 14px; }
+  .scene {
+    background: white;
+    border-radius: 16px;
+    padding: 30px 20px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    max-width: 560px;
+    width: 100%;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .controls {
+    display: flex; justify-content: center; gap: 10px;
+    margin-top: 20px; flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 22px; border: none; border-radius: 8px;
+    background: #27ae60; color: white; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+    transition: transform 0.1s, background 0.2s;
+  }
+  button:hover { background: #1e8449; }
+  button:active { transform: scale(0.96); }
+  button.secondary { background: #95a5a6; }
+  button.secondary:hover { background: #7f8c8d; }
+  .status {
+    text-align: center; margin-top: 14px; font-size: 14px;
+    color: #34495e; min-height: 22px; font-weight: 500;
+  }
+</style>
+</head>
+<body>
+  <h1>A 增長了 40%</h1>
+  <div class="subtitle">原始量 → 成長後</div>
+
+  <div class="scene">
+    <svg viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
+      <!-- 基準線 -->
+      <line x1="60" y1="290" x2="500" y2="290" stroke="#34495e" stroke-width="2"/>
+
+      <!-- 原始柱 (左, 灰色固定參考) -->
+      <rect x="120" y="170" width="100" height="120" fill="#bdc3c7" rx="4"/>
+      <text x="170" y="160" text-anchor="middle" fill="#7f8c8d" font-size="13" font-weight="600">原本</text>
+      <text x="170" y="230" text-anchor="middle" fill="white" font-size="20" font-weight="700">100</text>
+      <text x="170" y="310" text-anchor="middle" fill="#7f8c8d" font-size="12">基準</text>
+
+      <!-- 成長柱 (右, 會長高) -->
+      <rect id="growBar" x="340" y="290" width="100" height="0" fill="#27ae60" rx="4"
+            style="transition: y 1.8s cubic-bezier(.4,1.2,.5,1), height 1.8s cubic-bezier(.4,1.2,.5,1);"/>
+      <!-- 原始高度的虛線參考 -->
+      <line x1="340" y1="170" x2="440" y2="170" stroke="#95a5a6"
+            stroke-width="2" stroke-dasharray="5,4"/>
+      <text x="390" y="160" text-anchor="middle" fill="#1e8449" font-size="13" font-weight="600">現在</text>
+
+      <!-- 動態數字 -->
+      <text id="newNumber" x="390" y="270" text-anchor="middle" fill="white"
+            font-size="22" font-weight="700" opacity="0"
+            style="transition: opacity 0.4s;">140</text>
+      <text x="390" y="310" text-anchor="middle" fill="#7f8c8d" font-size="12">+40%</text>
+
+      <!-- 增長段標示 (右側括號 + 箭頭) -->
+      <g id="growthMark" opacity="0" style="transition: opacity 0.5s;">
+        <line x1="455" y1="122" x2="455" y2="170" stroke="#e67e22" stroke-width="2"/>
+        <line x1="450" y1="122" x2="460" y2="122" stroke="#e67e22" stroke-width="2"/>
+        <line x1="450" y1="170" x2="460" y2="170" stroke="#e67e22" stroke-width="2"/>
+        <text x="478" y="150" fill="#e67e22" font-size="18" font-weight="700">+40%</text>
+      </g>
+
+      <!-- 上升箭頭 -->
+      <g id="upArrow" opacity="0" style="transition: opacity 0.4s;">
+        <text x="280" y="100" text-anchor="middle" font-size="34">📈</text>
+      </g>
+
+      <!-- 大百分比顯示 -->
+      <text id="bigPct" x="280" y="50" text-anchor="middle" fill="#27ae60"
+            font-size="28" font-weight="800" opacity="0"
+            style="transition: opacity 0.5s;">↑ 40%</text>
+    </svg>
+
+    <div class="status" id="status">點「播放」看 A 如何成長 40%</div>
+
+    <div class="controls">
+      <button onclick="play()">▶ 播放</button>
+      <button class="secondary" onclick="reset()">重置</button>
+    </div>
+  </div>
+
+<script>
+  const growBar = document.getElementById('growBar');
+  const newNumber = document.getElementById('newNumber');
+  const growthMark = document.getElementById('growthMark');
+  const upArrow = document.getElementById('upArrow');
+  const bigPct = document.getElementById('bigPct');
+  const status = document.getElementById('status');
+
+  // 原始 100 對應高度 120, 增長後 140 對應高度 168
+  const baseHeight = 120;
+  const newHeight = 168;
+  const baseY = 290;
+
+  function play() {
+    reset();
+    // 先長到原始高度
+    setTimeout(() => {
+      growBar.setAttribute('y', baseY - baseHeight);
+      growBar.setAttribute('height', baseHeight);
+      status.textContent = '起始量:100';
+      status.style.color = '#7f8c8d';
+    }, 200);
+    // 再長到 140
+    setTimeout(() => {
+      growBar.setAttribute('y', baseY - newHeight);
+      growBar.setAttribute('height', newHeight);
+      newNumber.setAttribute('y', baseY - newHeight + 100);
+      newNumber.setAttribute('opacity', '1');
+      upArrow.setAttribute('opacity', '1');
+      bigPct.setAttribute('opacity', '1');
+      growthMark.setAttribute('opacity', '1');
+      status.textContent = '增長 40%,從 100 → 140';
+      status.style.color = '#27ae60';
+      // 數字跳動
+      animateNumber(100, 140, 1500);
+    }, 1400);
+  }
+
+  function animateNumber(from, to, duration) {
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const val = Math.round(from + (to - from) * p);
+      newNumber.textContent = val;
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function reset() {
+    growBar.setAttribute('y', baseY);
+    growBar.setAttribute('height', 0);
+    newNumber.setAttribute('opacity', '0');
+    newNumber.textContent = '100';
+    growthMark.setAttribute('opacity', '0');
+    upArrow.setAttribute('opacity', '0');
+    bigPct.setAttribute('opacity', '0');
+    status.textContent = '點「播放」看 A 如何成長 40%';
+    status.style.color = '#34495e';
+  }
+
+  setTimeout(play, 500);
+</script>
+</body>
+</html>

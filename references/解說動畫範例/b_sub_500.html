@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>B 減少了 500 萬</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf3 100%);
+    font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  h1 { color: #2c3e50; margin-bottom: 8px; font-size: 22px; }
+  .subtitle { color: #7f8c8d; margin-bottom: 30px; font-size: 14px; }
+  .scene {
+    background: white;
+    border-radius: 16px;
+    padding: 30px 20px 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    max-width: 560px;
+    width: 100%;
+  }
+  svg { width: 100%; height: auto; display: block; }
+  .controls {
+    display: flex; justify-content: center; gap: 10px;
+    margin-top: 20px; flex-wrap: wrap;
+  }
+  button {
+    padding: 10px 22px; border: none; border-radius: 8px;
+    background: #c0392b; color: white; font-size: 14px;
+    cursor: pointer; font-family: inherit;
+    transition: transform 0.1s, background 0.2s;
+  }
+  button:hover { background: #922b21; }
+  button:active { transform: scale(0.96); }
+  button.secondary { background: #95a5a6; }
+  button.secondary:hover { background: #7f8c8d; }
+  .status {
+    text-align: center; margin-top: 14px; font-size: 14px;
+    color: #34495e; min-height: 22px; font-weight: 500;
+  }
+  .coin {
+    transition: transform 1.2s cubic-bezier(.4,.1,.6,1), opacity 0.6s;
+  }
+</style>
+</head>
+<body>
+  <h1>B 減少了 500 萬</h1>
+  <div class="subtitle">原本的 B − 流失的 500 萬</div>
+
+  <div class="scene">
+    <svg viewBox="0 0 560 340" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="coinGrad2" cx="35%" cy="35%">
+          <stop offset="0%" stop-color="#f9e79f"/>
+          <stop offset="60%" stop-color="#f1c40f"/>
+          <stop offset="100%" stop-color="#b7950b"/>
+        </radialGradient>
+      </defs>
+
+      <!-- 原本 B -->
+      <g>
+        <rect x="40" y="40" width="200" height="80" rx="10" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2"/>
+        <text x="140" y="68" text-anchor="middle" fill="#7f8c8d" font-size="13" font-weight="600">原本的 B</text>
+        <text x="140" y="100" text-anchor="middle" fill="#34495e" font-size="22" font-weight="700">1200 萬</text>
+      </g>
+
+      <!-- − 符號 -->
+      <text x="280" y="90" text-anchor="middle" fill="#c0392b" font-size="40" font-weight="800">−</text>
+
+      <!-- 減少的部分 -->
+      <g>
+        <rect id="subBox" x="320" y="40" width="200" height="80" rx="10"
+              fill="#fadbd8" stroke="#c0392b" stroke-width="2" stroke-dasharray="6,4" opacity="0"
+              style="transition: opacity 0.6s;"/>
+        <text id="subLabel" x="420" y="68" text-anchor="middle" fill="#922b21"
+              font-size="13" font-weight="600" opacity="0"
+              style="transition: opacity 0.6s;">流失</text>
+        <text id="subAmount" x="420" y="100" text-anchor="middle" fill="#922b21"
+              font-size="22" font-weight="700" opacity="0"
+              style="transition: opacity 0.6s;">− 500 萬</text>
+      </g>
+
+      <!-- 箭頭 -->
+      <text x="280" y="175" text-anchor="middle" fill="#34495e" font-size="22" font-weight="700">↓</text>
+
+      <!-- 結果區 -->
+      <g id="resultGroup" opacity="0" style="transition: opacity 0.6s;">
+        <rect x="140" y="195" width="280" height="90" rx="12"
+              fill="#c0392b" stroke="#922b21" stroke-width="3"/>
+        <text x="280" y="223" text-anchor="middle" fill="#fadbd8"
+              font-size="13" font-weight="600">現在的 B</text>
+        <text id="resultNumber" x="280" y="260" text-anchor="middle" fill="white"
+              font-size="30" font-weight="800">700 萬</text>
+      </g>
+
+      <!-- 飛走的金幣 (從原本 B 飛走) -->
+      <g id="coins">
+        <circle class="coin" data-tx="300" data-ty="-100" cx="100" cy="80" r="14" fill="url(#coinGrad2)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-tx="380" data-ty="-120" cx="140" cy="70" r="14" fill="url(#coinGrad2)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-tx="250" data-ty="-130" cx="180" cy="90" r="14" fill="url(#coinGrad2)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-tx="350" data-ty="-110" cx="120" cy="100" r="14" fill="url(#coinGrad2)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+        <circle class="coin" data-tx="-280" data-ty="-100" cx="170" cy="110" r="14" fill="url(#coinGrad2)" stroke="#9a7d0a" stroke-width="2" opacity="0"/>
+      </g>
+
+      <!-- 大標 -->
+      <text id="bigLabel" x="280" y="320" text-anchor="middle" fill="#c0392b"
+            font-size="20" font-weight="800" opacity="0"
+            style="transition: opacity 0.5s;">− 500 萬</text>
+    </svg>
+
+    <div class="status" id="status">點「播放」看 B 怎麼減少 500 萬</div>
+
+    <div class="controls">
+      <button onclick="play()">▶ 播放</button>
+      <button class="secondary" onclick="reset()">重置</button>
+    </div>
+  </div>
+
+<script>
+  const subBox = document.getElementById('subBox');
+  const subLabel = document.getElementById('subLabel');
+  const subAmount = document.getElementById('subAmount');
+  const resultGroup = document.getElementById('resultGroup');
+  const resultNumber = document.getElementById('resultNumber');
+  const bigLabel = document.getElementById('bigLabel');
+  const status = document.getElementById('status');
+  const coins = document.querySelectorAll('.coin');
+
+  function play() {
+    reset();
+
+    // 金幣先顯示在原本 B 上
+    setTimeout(() => {
+      coins.forEach(coin => coin.setAttribute('opacity', '1'));
+    }, 200);
+
+    // 金幣飛走
+    coins.forEach((coin, i) => {
+      setTimeout(() => {
+        const tx = coin.getAttribute('data-tx');
+        const ty = coin.getAttribute('data-ty');
+        coin.style.transform = `translate(${tx}px, ${ty}px)`;
+        coin.style.opacity = '0';
+      }, 600 + i * 120);
+    });
+
+    // 顯示流失框
+    setTimeout(() => {
+      subBox.setAttribute('opacity', '1');
+      subLabel.setAttribute('opacity', '1');
+      subAmount.setAttribute('opacity', '1');
+      status.textContent = '流失 500 萬⋯';
+      status.style.color = '#c0392b';
+    }, 1100);
+
+    // 顯示結果
+    setTimeout(() => {
+      resultGroup.setAttribute('opacity', '1');
+      bigLabel.setAttribute('opacity', '1');
+      animateNumber(1200, 700, 1200);
+      status.textContent = 'B 從 1200 萬 → 700 萬,減少 500 萬';
+      status.style.color = '#922b21';
+    }, 2000);
+  }
+
+  function animateNumber(from, to, duration) {
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const val = Math.round(from + (to - from) * p);
+      resultNumber.textContent = val + ' 萬';
+      if (p < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function reset() {
+    subBox.setAttribute('opacity', '0');
+    subLabel.setAttribute('opacity', '0');
+    subAmount.setAttribute('opacity', '0');
+    resultGroup.setAttribute('opacity', '0');
+    bigLabel.setAttribute('opacity', '0');
+    resultNumber.textContent = '1200 萬';
+    coins.forEach(coin => {
+      coin.setAttribute('opacity', '0');
+      coin.style.transform = 'translate(0, 0)';
+    });
+    status.textContent = '點「播放」看 B 怎麼減少 500 萬';
+    status.style.color = '#34495e';
+  }
+
+  setTimeout(play, 500);
+</script>
+</body>
+</html>
