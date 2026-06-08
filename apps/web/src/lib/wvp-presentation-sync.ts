@@ -55,7 +55,8 @@ import {
 } from "@/lib/wvp-step-text-audit";
 import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
-import { parseWvpSettings, type WvpAssetRef } from "@/lib/wvp-settings";
+import { parseChapterMotionOrientation } from "@courseflow/explain-animation";
+import { parseWvpSettings, type EnterMotionStyle, type WvpAssetRef } from "@/lib/wvp-settings";
 import {
   resolveStepImageExtMapFromLocalDir,
   resolveStepImageExtMapLocal,
@@ -86,7 +87,12 @@ type CraftRow = {
       chapterDslTs?: string;
       source?: "llm" | "template";
       templateKind?: string;
+      motionOrientation?: string;
+      enterMotionStyle?: string;
+      motionPreferenceRevision?: number;
     };
+    motionOrientation?: string;
+    motionPreferenceRevision?: number;
   } | null;
 };
 
@@ -159,7 +165,11 @@ export async function materializeChapterFromCraft(
   craft: CraftRow,
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
-  opts?: { preserveApprovedAnchorChapter?: boolean; forceFreshChapterSource?: boolean },
+  opts?: {
+    preserveApprovedAnchorChapter?: boolean;
+    forceFreshChapterSource?: boolean;
+    enterMotionStyle?: EnterMotionStyle;
+  },
 ): Promise<RegistryChapterEntry> {
   const chapter = resolveCompositionChapterForCraft(composition, craft);
   const narrationsFromComposition = chapter
@@ -284,6 +294,18 @@ export async function materializeChapterFromCraft(
   const placeholderScreenTextInCachedTsx = Boolean(
     llmTsx && chapterUsesPlaceholderScreenText(llmTsx),
   );
+  const currentMotionOrientation = parseChapterMotionOrientation(
+    craft.checklist_result?.motionOrientation,
+  );
+  const cachedMotionOrientation = parseChapterMotionOrientation(
+    rawSource?.motionOrientation,
+  );
+  const currentEnterStyle = opts?.enterMotionStyle ?? "standard";
+  const cachedEnterStyle = rawSource?.enterMotionStyle ?? "standard";
+  const motionPreferenceStale = Boolean(
+    cachedMotionOrientation !== currentMotionOrientation ||
+    cachedEnterStyle !== currentEnterStyle,
+  );
   const templateKindStale = Boolean(
     tsxKindMismatch ||
     templateKindMismatch ||
@@ -291,6 +313,7 @@ export async function materializeChapterFromCraft(
     placeholderScreenTextInCachedTsx ||
     dataVisualNeedsVisualBlock ||
     dataVisualMissingStepVisuals ||
+    motionPreferenceStale ||
     (dataVisualChapter &&
       cachedTemplateKind &&
       cachedTemplateKind !== "visual-mix") ||
@@ -392,6 +415,8 @@ export async function materializeChapterFromCraft(
               narrations,
               screenContents: currentScreenContents,
               chapterKind: resolvedChapterKind,
+              enterMotionStyle: opts?.enterMotionStyle,
+              motionOrientation: currentMotionOrientation,
             });
           }
           return steps.map((s, stepIndex) => {
@@ -509,7 +534,11 @@ export async function rebuildRegistryForProject(
   crafts: CraftRow[],
   composition: CourseComposition,
   projectAssets?: WvpAssetRef[],
-  opts?: { preserveApprovedAnchorChapter?: boolean; forceFreshChapterSource?: boolean },
+  opts?: {
+    preserveApprovedAnchorChapter?: boolean;
+    forceFreshChapterSource?: boolean;
+    enterMotionStyle?: EnterMotionStyle;
+  },
 ): Promise<RegistryChapterEntry[]> {
   const entries: RegistryChapterEntry[] = [];
   const sorted = [...crafts].sort((a, b) => a.sort_order - b.sort_order);
@@ -813,7 +842,10 @@ export async function buildSingleChapterPreview(
     [target],
     composition,
     wvpSettings.assets,
-    { forceFreshChapterSource: Boolean(opts?.markAnchorTrial) },
+    {
+      forceFreshChapterSource: Boolean(opts?.markAnchorTrial),
+      enterMotionStyle: wvpSettings.enterMotionStyle,
+    },
   );
   if (entries.length === 0) {
     throw new Error(`「${target.title}」尚無可打包的步驟`);
@@ -968,7 +1000,10 @@ export async function syncFullWvpProject(
     (crafts ?? []) as CraftRow[],
     composition,
     wvpSettings.assets,
-    { preserveApprovedAnchorChapter },
+    {
+      preserveApprovedAnchorChapter,
+      enterMotionStyle: wvpSettings.enterMotionStyle,
+    },
   );
 
   let built = false;
@@ -1127,7 +1162,10 @@ export async function syncFullWvpProject(
         (crafts ?? []) as CraftRow[],
         composition,
         wvpSettings.assets,
-        { preserveApprovedAnchorChapter },
+        {
+          preserveApprovedAnchorChapter,
+          enterMotionStyle: wvpSettings.enterMotionStyle,
+        },
       );
     } else {
       await emitStage?.("animations", { chapterCount: entries.length });

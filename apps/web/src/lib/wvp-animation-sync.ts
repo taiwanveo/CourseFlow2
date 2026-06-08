@@ -17,6 +17,8 @@ type StepIllustrationRow = {
   /** Phase 3：DSL → Framer Motion（優先於 HTML） */
   animationConfig?: Record<string, unknown> | null;
   animationStoragePath?: string | null;
+  motionOverrideMode?: string;
+  motionOverridePattern?: string;
 };
 
 function readStepIllustrations(craft: CraftRow): StepIllustrationRow[] {
@@ -277,11 +279,22 @@ export async function syncHeuristicExplainAnimations(
     craft?: CraftRow;
   },
 ): Promise<HeuristicExplainAnimationSyncResult> {
-  const { inferExplainAnimation, isMotionRenderable, renderExplainAnimationHtml } = await import(
-    "@courseflow/explain-animation"
+  const {
+    isMotionRenderable,
+    parseChapterMotionOrientation,
+    readStepMotionOverrideFromEntry,
+    renderExplainAnimationHtml,
+    resolveExplainForStep,
+  } = await import("@courseflow/explain-animation");
+
+  const stepRows = readStepIllustrations(opts.craft ?? { wvp_chapter_id: opts.wvpChapterId });
+  const illusByStep = new Map(stepRows.map((s) => [s.stepIndex, s] as const));
+  const orientation = parseChapterMotionOrientation(
+    (opts.craft?.checklist_result as { motionOrientation?: unknown } | null)?.motionOrientation,
   );
+
   const craftAnimated = new Set(
-    readStepIllustrations(opts.craft ?? { wvp_chapter_id: opts.wvpChapterId })
+    stepRows
       .filter((s) => {
         if (s.imageSource !== "animation") return false;
         if (motionConfigFromUnknown(s.animationConfig)) return true;
@@ -302,8 +315,13 @@ export async function syncHeuristicExplainAnimations(
     const script = opts.narrations[step]?.trim() ?? "";
     const screen = opts.screenContents[step]?.trim() ?? "";
     if (!script && !screen) continue;
-    const inferred = inferExplainAnimation(script, screen);
-    if (!inferred) continue;
+
+    const entry = illusByStep.get(step);
+    const override = entry ? readStepMotionOverrideFromEntry(entry) : { mode: "auto" as const };
+    const resolved = resolveExplainForStep(script, screen, orientation, override);
+    if (resolved.kind === "none" || !resolved.result) continue;
+
+    const inferred = resolved.result;
 
     if (isMotionRenderable(inferred.config)) {
       const motionRecord = {

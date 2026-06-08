@@ -25,6 +25,9 @@ export interface WvpImageStyleSelection {
   source: "bananax-infographic-evaluation";
 }
 
+/** 全專案進場動效風格 */
+export type EnterMotionStyle = "conservative" | "standard" | "dramatic";
+
 export interface WvpSettings {
   themeId?: string | null;
   devMode?: WvpDevMode;
@@ -36,6 +39,8 @@ export interface WvpSettings {
   /** @deprecated 已由章節層級配圖（ChapterIllustration）取代 */
   assets?: WvpAssetRef[];
   imageStyle?: WvpImageStyleSelection | null;
+  /** 步驟進場／轉場整體風格（打包時套用） */
+  enterMotionStyle?: EnterMotionStyle;
 }
 
 export function parseWvpSettings(raw: unknown): WvpSettings {
@@ -65,6 +70,13 @@ export function parseWvpSettings(raw: unknown): WvpSettings {
       };
     }
   }
+  const enterMotionStyle =
+    o.enterMotionStyle === "conservative" ||
+    o.enterMotionStyle === "standard" ||
+    o.enterMotionStyle === "dramatic"
+      ? o.enterMotionStyle
+      : "standard";
+
   return {
     themeId: typeof o.themeId === "string" ? o.themeId : null,
     devMode:
@@ -79,6 +91,7 @@ export function parseWvpSettings(raw: unknown): WvpSettings {
     anchorProfile,
     assets,
     imageStyle,
+    enterMotionStyle,
   };
 }
 

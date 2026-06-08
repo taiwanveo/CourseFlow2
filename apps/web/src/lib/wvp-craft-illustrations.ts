@@ -94,6 +94,10 @@ export type StepIllustrationEntry = {
   /** 配圖副檔名（上傳 GIF/APNG 等時保留） */
   imageExt?: WvpStepImageExt;
   error?: string | null;
+  /** 步驟級解說動效覆寫：auto | none | pattern */
+  motionOverrideMode?: "auto" | "none" | "pattern";
+  /** 當 motionOverrideMode=pattern 時指定 pattern */
+  motionOverridePattern?: string | null;
 };
 
 export { craftIllustrationStoragePath } from "@/lib/wvp-step-image-resolve";
@@ -216,7 +220,7 @@ function directorHintsFromPlan(plan: VisualDirectorPlan): StepImageDirectorHints
   };
 }
 
-function readIllustrationsFromChecklist(craft: CraftRow): StepIllustrationEntry[] {
+export function readIllustrationsFromChecklist(craft: CraftRow): StepIllustrationEntry[] {
   const cr = craft.checklist_result as { stepIllustrations?: StepIllustrationEntry[] } | null;
   return cr?.stepIllustrations ?? [];
 }
@@ -674,6 +678,12 @@ export async function planChapterIllustrationPrompts(
   return getChapterIllustrationsState(supabase, userId, projectId, updatedCraft, composition);
 }
 
+export function bumpMotionPreferenceRevision<T extends Record<string, unknown>>(
+  checklist: T,
+): T & { motionPreferenceRevision: number } {
+  return { ...checklist, motionPreferenceRevision: Date.now() };
+}
+
 export async function patchChapterIllustrationPrompts(
   supabase: SupabaseClient,
   userId: string,
@@ -688,6 +698,8 @@ export async function patchChapterIllustrationPrompts(
     batchSelected?: boolean;
     animationHtml?: string | null;
     animationConfig?: Record<string, unknown> | null;
+    motionOverrideMode?: "auto" | "none" | "pattern";
+    motionOverridePattern?: string | null;
   }>,
 ): Promise<ChapterIllustrationsState> {
   const prev =
@@ -695,6 +707,7 @@ export async function patchChapterIllustrationPrompts(
       ? (craft.checklist_result as Record<string, unknown>)
       : {};
   const steps = readIllustrationsFromChecklist(craft).map((s) => ({ ...s }));
+  let motionTouched = false;
 
   for (const p of patches) {
     let idx = steps.findIndex((s) => s.stepIndex === p.stepIndex);
@@ -812,9 +825,24 @@ export async function patchChapterIllustrationPrompts(
       steps[idx]!.confirmedAt = new Date().toISOString();
       if (steps[idx]!.status !== "skip") steps[idx]!.status = "prompt-ready";
     }
+    if (p.motionOverrideMode !== undefined) {
+      steps[idx]!.motionOverrideMode = p.motionOverrideMode;
+      if (p.motionOverrideMode !== "pattern") {
+        steps[idx]!.motionOverridePattern = null;
+      }
+      motionTouched = true;
+    }
+    if (p.motionOverridePattern !== undefined) {
+      steps[idx]!.motionOverridePattern = p.motionOverridePattern;
+      if (p.motionOverridePattern) {
+        steps[idx]!.motionOverrideMode = "pattern";
+      }
+      motionTouched = true;
+    }
   }
 
-  const merged = mergeChecklistIllustrations(prev, steps);
+  const baseMerged = mergeChecklistIllustrations(prev, steps);
+  const merged = motionTouched ? bumpMotionPreferenceRevision(baseMerged) : baseMerged;
   await supabase
     .from("chapter_craft")
     .update({ checklist_result: merged })

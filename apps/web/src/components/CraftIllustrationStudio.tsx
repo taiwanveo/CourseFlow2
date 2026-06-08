@@ -8,6 +8,8 @@ import {
   TRANSIENT_HTTP_STATUS,
 } from "@/lib/read-response-payload";
 import { useToast } from "@/components/Toast";
+import { HOOK_OPENING_HINT, HOOK_SLIDE_STEP_INDICES } from "@/lib/wvp-hook-ui";
+import { STEP_MOTION_PATTERN_GROUPS } from "@courseflow/explain-animation";
 
 type ChapterState = {
   wvpChapterId: string;
@@ -21,6 +23,14 @@ function imageUrl(projectId: string, wvpChapterId: string, stepIndex: number, bu
 
 function isStepIllustrationDone(step: StepIllustrationEntry | undefined): boolean {
   return Boolean(step && (step.imageWritten || step.status === "done"));
+}
+
+function stepMotionSelectValue(step: StepIllustrationEntry): string {
+  if (step.motionOverrideMode === "none") return "__none__";
+  if (step.motionOverrideMode === "pattern" && step.motionOverridePattern) {
+    return step.motionOverridePattern;
+  }
+  return "__auto__";
 }
 
 function countCompletedSteps(steps: StepIllustrationEntry[], indices: number[]): number {
@@ -43,7 +53,9 @@ export function CraftIllustrationStudio({
   const { toast } = useToast();
   const [state, setState] = useState<ChapterState | null>(null);
   const [loading, setLoading] = useState(false);
-  const [busyStep, setBusyStep] = useState<number | "plan" | "batch" | null>(null);
+  const [busyStep, setBusyStep] = useState<number | "plan" | "batch" | "hook-upload" | null>(
+    null,
+  );
   const [planningStep, setPlanningStep] = useState<number | null>(null);
   const [imageBust, setImageBust] = useState(0);
   const regenQueue = useRef<number[]>([]);
@@ -288,6 +300,8 @@ export function CraftIllustrationStudio({
       imageSource: "ai" | "upload" | "animation";
       batchSelected: boolean;
       animationHtml: string | null;
+      motionOverrideMode: "auto" | "none" | "pattern";
+      motionOverridePattern: string | null;
     }>,
   ) => {
     const res = await fetch(
@@ -316,6 +330,32 @@ export function CraftIllustrationStudio({
     setImageBust(Date.now());
   };
 
+  const uploadHookBatch = async (files: FileList | File[]) => {
+    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!images.length) {
+      toast("請選擇圖片檔案", "error");
+      return;
+    }
+    const slice = images.slice(0, HOOK_SLIDE_STEP_INDICES.length);
+    setBusyStep("hook-upload");
+    try {
+      for (let i = 0; i < slice.length; i++) {
+        const stepIndex = HOOK_SLIDE_STEP_INDICES[i]!;
+        await uploadStepImage(stepIndex, slice[i]!);
+      }
+      const lastStep = HOOK_SLIDE_STEP_INDICES[slice.length - 1]! + 1;
+      toast(
+        `已上傳 ${slice.length} 張，對應步驟 2–${lastStep}`,
+        "success",
+      );
+      onMutate?.();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "批次上傳失敗", "error");
+    } finally {
+      setBusyStep(null);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -325,7 +365,7 @@ export function CraftIllustrationStudio({
           </p>
           {state?.templateKind === "hook" ? (
             <p className="mt-1 text-[11px] leading-relaxed text-amber-200/80">
-              Hook 多圖開場：請為步驟 2、3、4 各上傳或生成一張圖（對應預覽幽靈格 01–03）。
+              Hook 多圖開場：{HOOK_OPENING_HINT}
             </p>
           ) : null}
           {aiSteps.length > 0 ? (
@@ -335,6 +375,25 @@ export function CraftIllustrationStudio({
           ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
+          {state?.templateKind === "hook" ? (
+            <label className="cf-btn cf-btn-secondary cf-btn-sm">
+              {busyStep === "hook-upload" ? "上傳中…" : "一次上傳多檔（步驟 2–4）"}
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.bmp,.gif,image/jpeg,image/png,image/gif,image/bmp"
+                multiple
+                className="hidden"
+                disabled={disabled || loading || busyStep !== null || planningStep !== null}
+                onChange={(e) => {
+                  const picked = e.target.files;
+                  if (!picked?.length) return;
+                  void uploadHookBatch(picked).finally(() => {
+                    e.currentTarget.value = "";
+                  });
+                }}
+              />
+            </label>
+          ) : null}
           <button
             type="button"
             className="cf-btn cf-btn-secondary cf-btn-sm"
@@ -425,6 +484,39 @@ export function CraftIllustrationStudio({
                       <option value="ai">AI 生圖</option>
                       <option value="upload">自行上傳</option>
                       <option value="animation">AI 解說動畫</option>
+                    </select>
+                    <select
+                      className="cf-select min-w-[6.5rem] shrink-0 py-1.5 text-xs leading-normal"
+                      title="步驟級解說動效覆寫（優先於章節取向）"
+                      value={stepMotionSelectValue(step)}
+                      disabled={disabled || busyStep !== null || planningStep !== null}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const patch =
+                          raw === "__auto__"
+                            ? { motionOverrideMode: "auto" as const, motionOverridePattern: null }
+                            : raw === "__none__"
+                              ? { motionOverrideMode: "none" as const, motionOverridePattern: null }
+                              : {
+                                  motionOverrideMode: "pattern" as const,
+                                  motionOverridePattern: raw,
+                                };
+                        void patchStep(step.stepIndex, patch).catch((err) =>
+                          toast(err instanceof Error ? err.message : "動效設定失敗", "error"),
+                        );
+                      }}
+                    >
+                      <option value="__auto__">動效：自動</option>
+                      <option value="__none__">動效：無</option>
+                      {STEP_MOTION_PATTERN_GROUPS.map((group) => (
+                        <optgroup key={group.groupLabel} label={group.groupLabel}>
+                          {group.patterns.map((pattern) => (
+                            <option key={pattern} value={pattern}>
+                              {pattern}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
                     </select>
                     <label className="cf-chip text-[10px] text-zinc-300">
                       <input

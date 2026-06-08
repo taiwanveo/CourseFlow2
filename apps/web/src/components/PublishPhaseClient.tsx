@@ -63,6 +63,23 @@ type ExportReadiness = {
   }[];
 };
 
+type MotionPlanSummary = {
+  totalSteps: number;
+  explainStepCount: number;
+  fallbackStepCount: number;
+  noneStepCount: number;
+  craftAnimationStepCount: number;
+  warnings: string[];
+  chapters: Array<{
+    title: string;
+    totalSteps: number;
+    explainStepCount: number;
+    fallbackStepCount: number;
+    orientation: string;
+    warnings: string[];
+  }>;
+};
+
 export function PublishPhaseClient({
   projectId,
   initialLocks,
@@ -79,6 +96,7 @@ export function PublishPhaseClient({
   const [locks, setLocks] = useState(initialLocks);
   const [composition, setComposition] = useState(initialComposition);
   const [readiness, setReadiness] = useState<ExportReadiness | null>(null);
+  const [motionPlan, setMotionPlan] = useState<MotionPlanSummary | null>(null);
   const [previewBuilt, setPreviewBuilt] = useState(initialPreviewBuilt);
   const [building, setBuilding] = useState(false);
   const [buildProgress, setBuildProgress] = useState<WvpBuildProgress | null>(null);
@@ -91,15 +109,25 @@ export function PublishPhaseClient({
   const audioGate = useMemo(() => evaluateWvpAudioBuildGate(composition), [composition]);
 
   const refreshReadiness = useCallback(async () => {
-    const r = await fetch(
-      `/api/projects/${projectId}/wvp/export-readiness?_=${Date.now()}`,
-      { cache: "no-store" },
-    );
-    if (!r.ok) {
+    const [readinessRes, motionRes] = await Promise.all([
+      fetch(`/api/projects/${projectId}/wvp/export-readiness?_=${Date.now()}`, {
+        cache: "no-store",
+      }),
+      fetch(`/api/projects/${projectId}/wvp/motion-plan?_=${Date.now()}`, {
+        cache: "no-store",
+      }),
+    ]);
+    if (!readinessRes.ok) {
       setReadiness(null);
-      return;
+    } else {
+      setReadiness((await readinessRes.json()) as ExportReadiness);
     }
-    setReadiness((await r.json()) as ExportReadiness);
+    if (!motionRes.ok) {
+      setMotionPlan(null);
+    } else {
+      const data = (await motionRes.json()) as { plan?: MotionPlanSummary };
+      setMotionPlan(data.plan ?? null);
+    }
   }, [projectId]);
 
   useEffect(() => {
@@ -401,6 +429,31 @@ export function PublishPhaseClient({
           <p>預覽：打包完成後可手動播放預覽或自動播放預覽。</p>
           <p>匯出：匯出影片成品（可勾選）。</p>
         </div>
+        {motionPlan ? (
+          <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/40 p-3 text-xs">
+            <p className="font-medium text-zinc-300">打包前動效檢查</p>
+            <p className="mt-1 text-zinc-500">
+              全課 {motionPlan.totalSteps} 步 · 預計解說動效 {motionPlan.explainStepCount} 步 ·
+              僅進場 fallback {motionPlan.fallbackStepCount} 步 · 無解說 {motionPlan.noneStepCount}{" "}
+              步
+              {motionPlan.craftAnimationStepCount > 0
+                ? ` · 手動解說動畫 ${motionPlan.craftAnimationStepCount} 步`
+                : ""}
+            </p>
+            {motionPlan.warnings.length > 0 ? (
+              <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-amber-500/90">
+                {motionPlan.warnings.slice(0, 12).map((w) => (
+                  <li key={w}>• {w}</li>
+                ))}
+                {motionPlan.warnings.length > 12 ? (
+                  <li>…另有 {motionPlan.warnings.length - 12} 則提示</li>
+                ) : null}
+              </ul>
+            ) : (
+              <p className="mt-1 text-emerald-500/90">取向與內容大致吻合，無明顯衝突。</p>
+            )}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-start gap-2">
           <button
             type="button"

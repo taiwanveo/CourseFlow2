@@ -12,7 +12,12 @@ import { useConfiguredLlmProviders } from "@/hooks/useConfiguredLlmProviders";
 import { ImageStylePickerModal } from "@/components/ImageStylePickerModal";
 import type { ImageStyleCatalogEntry } from "@/data/image-style-catalog";
 import { catalogEntryToSelection } from "@/lib/image-style";
-import type { WvpAssetRef, WvpSettings } from "@/lib/wvp-settings";
+import type { EnterMotionStyle, WvpAssetRef, WvpSettings } from "@/lib/wvp-settings";
+import {
+  CHAPTER_MOTION_ORIENTATION_LABELS,
+  parseChapterMotionOrientation,
+  type ChapterMotionOrientation,
+} from "@courseflow/explain-animation";
 import { ChapterOutlineImages } from "@/components/ChapterOutlineImages";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
 import { CraftChapterIllustration } from "@/components/CraftChapterIllustration";
@@ -65,7 +70,30 @@ type CraftRow = {
     aiPlan?: unknown;
     chapterSource?: { source?: "llm" | "template"; templateKind?: string };
     appliedTemplate?: string;
+    motionOrientation?: ChapterMotionOrientation;
   };
+};
+
+const MOTION_ORIENTATION_SHORT: Record<ChapterMotionOrientation, string> = {
+  auto: "自動",
+  data: "數據",
+  flow: "流程",
+  contrast: "對比",
+  minimal: "極簡",
+};
+
+const MOTION_ORIENTATION_OPTIONS = (
+  Object.keys(MOTION_ORIENTATION_SHORT) as ChapterMotionOrientation[]
+).map((value) => ({
+  value,
+  label: MOTION_ORIENTATION_SHORT[value],
+  title: CHAPTER_MOTION_ORIENTATION_LABELS[value],
+}));
+
+const ENTER_MOTION_STYLE_LABELS: Record<EnterMotionStyle, string> = {
+  conservative: "保守（淡入為主）",
+  standard: "標準",
+  dramatic: "戲劇化（多變進場）",
 };
 
 type ThemeOption = {
@@ -476,6 +504,55 @@ export function CraftPhaseClient({
     autoScaffoldAttemptedForProject.add(projectId);
     void scaffold({ auto: true });
   }, [wvpHydrated, craftAccessible, locks.craft, chapters.length, projectId, scaffold]);
+
+  const saveChapterMotionOrientation = async (
+    wvpChapterId: string,
+    orientation: ChapterMotionOrientation,
+  ) => {
+    const res = await fetch(
+      `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/motion-orientation`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orientation }),
+      },
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "動效取向儲存失敗");
+    setChapters((prev) =>
+      prev.map((ch) =>
+        ch.wvp_chapter_id === wvpChapterId
+          ? {
+              ...ch,
+              checklist_result: {
+                ...ch.checklist_result,
+                motionOrientation: orientation,
+              },
+            }
+          : ch,
+      ),
+    );
+    return data as { label?: string };
+  };
+
+  const saveEnterMotionStyle = async (style: EnterMotionStyle) => {
+    const next: WvpSettings = { ...settings, enterMotionStyle: style };
+    setSettings(next);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/wvp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wvpSettings: { ...next, devMode: "sequential" as const },
+          themeId: next.themeId ?? initialThemeId,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "儲存失敗");
+      toast(`已設定進場風格：${ENTER_MOTION_STYLE_LABELS[style]}`, "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "進場風格儲存失敗", "error");
+    }
+  };
 
   const saveChapterTemplate = async (
     wvpChapterId: string,
@@ -1202,6 +1279,30 @@ export function CraftPhaseClient({
                       配圖請在下方「配圖工作室」各章確認提示詞後生圖；打包階段不再自動生圖。
                     </p>
                   ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <label className="text-[11px] text-zinc-500">
+                      全課進場風格
+                      <select
+                        className="cf-select ml-2 min-w-[9rem] py-1.5 text-xs"
+                        disabled={!!busy || locks.craft}
+                        value={settings.enterMotionStyle ?? "standard"}
+                        onChange={(e) =>
+                          void saveEnterMotionStyle(e.target.value as EnterMotionStyle)
+                        }
+                      >
+                        {(Object.entries(ENTER_MOTION_STYLE_LABELS) as [EnterMotionStyle, string][]).map(
+                          ([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                    <span className="text-[10px] text-zinc-600">
+                      打包時套用至各步進場／轉場；章節「極簡」取向會再弱化進場。
+                    </span>
+                  </div>
                 </div>
                 {!anchorOk ? (
                   <div className="mb-3 w-full space-y-2 rounded-lg border border-emerald-900/40 bg-emerald-950/20 px-3 py-3">
@@ -1382,6 +1483,7 @@ export function CraftPhaseClient({
                           : templateState.isAuto
                             ? `（推斷：${templateKindDisplayLabel(templateState.inferredDisplayKind)}）`
                             : `（指定：${templateKindDisplayLabel(templateState.selectValue)}）`}
+                        {` · 動效：${CHAPTER_MOTION_ORIENTATION_LABELS[parseChapterMotionOrientation(ch.checklist_result?.motionOrientation)]}`}
                         {i === 0 ? " · 第 1 章" : ""}
                       </span>
                     </button>
@@ -1419,6 +1521,40 @@ export function CraftPhaseClient({
                         >
                           {isPreviewing ? "…" : "預覽"}
                         </button>
+                        <select
+                          className="cf-select w-[5.5rem] shrink-0 py-1.5 text-[10px] leading-normal"
+                          disabled={!!busy}
+                          title="本章解說動效整體取向（打包時提高對應 pattern 優先權）"
+                          value={parseChapterMotionOrientation(ch.checklist_result?.motionOrientation)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={async (e) => {
+                            const next = e.target.value as ChapterMotionOrientation;
+                            setBusy(`motion-${ch.wvp_chapter_id}`);
+                            try {
+                              const saved = await saveChapterMotionOrientation(
+                                ch.wvp_chapter_id,
+                                next,
+                              );
+                              toast(
+                                `已設定動效取向：${saved.label ?? CHAPTER_MOTION_ORIENTATION_LABELS[next]}`,
+                                "success",
+                              );
+                            } catch (err) {
+                              toast(
+                                err instanceof Error ? err.message : "動效取向儲存失敗",
+                                "error",
+                              );
+                            } finally {
+                              setBusy(null);
+                            }
+                          }}
+                        >
+                          {MOTION_ORIENTATION_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value} title={opt.title}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                         <select
                           className="cf-select w-[6.25rem] shrink-0 py-1.5 text-[10px] leading-normal"
                           disabled={!!busy || !templateState.contentChapterId}

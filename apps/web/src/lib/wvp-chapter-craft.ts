@@ -479,6 +479,7 @@ export async function materializeAllChapters(
     {
       preserveApprovedAnchorChapter:
         opts?.preserveApprovedAnchorChapter ?? wvpSettings.anchorChapterApproved,
+      enterMotionStyle: wvpSettings.enterMotionStyle,
     },
   );
   return true;

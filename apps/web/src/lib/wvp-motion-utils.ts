@@ -9,6 +9,8 @@ import {
   type StepMotion,
 } from "@courseflow/presentation";
 import type { WvpChapterKind } from "@courseflow/core";
+import type { ChapterMotionOrientation } from "@courseflow/explain-animation";
+import type { EnterMotionStyle } from "@/lib/wvp-settings";
 
 export type { StepMotion };
 
@@ -55,6 +57,48 @@ export function pickEnterAnimation(stepIndex: number): string {
   return ENTER_ANIM_CYCLE[cycleIndex] ?? "fade-up";
 }
 
+const CONSERVATIVE_ENTERS = ["fade-up", "fade-in", "rise-soft"] as const;
+const DRAMATIC_ENTERS = [
+  "wipe-up",
+  "blur-in",
+  "drop-in",
+  "scale-in",
+  "overshoot",
+  "slide-left",
+  "slide-right",
+] as const;
+
+/** 全專案進場風格：調整 enterAnimationId／transitionId */
+export function applyEnterMotionStyle(
+  motions: StepMotion[],
+  style: EnterMotionStyle | undefined,
+): StepMotion[] {
+  if (!style || style === "standard") return motions;
+  if (style === "conservative") {
+    return motions.map((m, i) => ({
+      enterAnimationId: i === 0 ? INTRO_ANIM : (CONSERVATIVE_ENTERS[i % CONSERVATIVE_ENTERS.length] ?? "fade-up"),
+      transitionId: "crossfade",
+    }));
+  }
+  return motions.map((m, i) => ({
+    enterAnimationId:
+      i === 0 ? INTRO_ANIM : (DRAMATIC_ENTERS[i % DRAMATIC_ENTERS.length] ?? m.enterAnimationId),
+    transitionId: i % 3 === 0 ? "wipe-up" : (m.transitionId ?? "crossfade"),
+  }));
+}
+
+/** 章節極簡取向：弱化進場動效 */
+export function applyChapterMotionOrientationToEnters(
+  motions: StepMotion[],
+  orientation: ChapterMotionOrientation | undefined,
+): StepMotion[] {
+  if (orientation !== "minimal") return motions;
+  return motions.map((m, i) => ({
+    enterAnimationId: i === 0 ? INTRO_ANIM : "fade-up",
+    transitionId: "crossfade",
+  }));
+}
+
 /** 內容感知：依口播／畫面文字與 chapterKind 挑選動畫 */
 export function makeDefaultStepMotions(
   stepCount: number,
@@ -62,20 +106,26 @@ export function makeDefaultStepMotions(
     narrations?: string[];
     screenContents?: string[];
     chapterKind?: WvpChapterKind;
+    enterMotionStyle?: EnterMotionStyle;
+    motionOrientation?: ChapterMotionOrientation;
   },
 ): StepMotion[] {
+  let motions: StepMotion[];
   if (opts?.narrations?.length && opts.chapterKind) {
-    return makeContentAwareStepMotions(
+    motions = makeContentAwareStepMotions(
       opts.narrations,
       opts.screenContents ?? [],
       opts.chapterKind,
     );
+  } else {
+    motions = Array.from({ length: stepCount }, (_, i): StepMotion => {
+      const transitionCycleIndex = i % TRANSITION_CYCLE.length;
+      return {
+        enterAnimationId: pickEnterAnimation(i),
+        transitionId: TRANSITION_CYCLE[transitionCycleIndex] ?? "crossfade",
+      };
+    });
   }
-  return Array.from({ length: stepCount }, (_, i): StepMotion => {
-    const transitionCycleIndex = i % TRANSITION_CYCLE.length;
-    return {
-      enterAnimationId: pickEnterAnimation(i),
-      transitionId: TRANSITION_CYCLE[transitionCycleIndex] ?? "crossfade",
-    };
-  });
+  motions = applyChapterMotionOrientationToEnters(motions, opts?.motionOrientation);
+  return applyEnterMotionStyle(motions, opts?.enterMotionStyle);
 }
