@@ -46,12 +46,13 @@ export function mergeStepVisualConfigs(
   skipSteps: ReadonlySet<number> = new Set(),
 ): StepVisualEntry[] {
   const byStep = new Map<number, StepVisualEntry>();
+  // 明確提供的 stepVisualConfigs 一律保留（支援 visual + explain 複合版面）
   for (const entry of existing) {
-    if (skipSteps.has(entry.step)) continue;
     if (entry.config.kind === "chart" || entry.config.kind === "table") {
       byStep.set(entry.step, entry);
     }
   }
+  // 啟發式補圖跳過已有動畫的步驟，避免蓋掉 explain-focus
   for (const entry of buildHeuristicStepVisualConfigs(narrations, screenContents)) {
     if (skipSteps.has(entry.step)) continue;
     byStep.set(entry.step, entry);

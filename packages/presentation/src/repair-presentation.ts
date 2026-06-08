@@ -107,6 +107,7 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "UniversalStepChapter.tsx",
     "UniversalStepChapter.css",
     "StepTransitionFrame.tsx",
+    "StepEnterFrame.tsx",
     "step-dsl-runtime.ts",
   ]) {
     await cp(join(t, "src/components", name), join(componentsDir, name), { force: true });

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { ReactNode } from "react";
 import { usePresentationMotion } from "../hooks/usePresentationMotion";
-import { stepTransitionVariants } from "./motion-presets";
+import { stepTransitionTiming, stepTransitionVariants } from "./motion-presets";
 
 /**
  * 步進器消費 transitionId：相鄰步驟切換時套用進出場轉場。
@@ -16,8 +16,9 @@ export function StepTransitionFrame({
   transitionId?: string;
   children: ReactNode;
 }) {
-  const { reduce, springReveal } = usePresentationMotion();
+  const { reduce } = usePresentationMotion();
   const variants = stepTransitionVariants[transitionId] ?? stepTransitionVariants.crossfade;
+  const timing = stepTransitionTiming[transitionId] ?? stepTransitionTiming.crossfade;
 
   if (transitionId === "none" || reduce) {
     return <div className="step-transition-frame">{children}</div>;
@@ -33,7 +34,10 @@ export function StepTransitionFrame({
         initial="initial"
         animate="animate"
         exit="exit"
-        transition={springReveal}
+        transition={{
+          duration: timing?.duration ?? 0.42,
+          ease: timing?.ease ?? "easeOut",
+        }}
       >
         {children}
       </motion.div>

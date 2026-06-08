@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
+import { usePresentationMotion } from "../hooks/usePresentationMotion";
 import { MaskReveal } from "./MaskReveal";
+import { StepEnterFrame } from "./StepEnterFrame";
 import {
   hookGhostVariants,
   hookMiniVariants,
   hookSoloVariants,
-  hookStaggerContainer,
+  listStaggerContainerWith,
   springReveal,
 } from "./motion-presets";
 import "./HookImageStrip.css";
@@ -71,20 +73,19 @@ export function HookImageStrip({
   const takeoverStep = 1 + n;
   const closeStep = includeClose ? takeoverStep + 1 : -1;
   const takeoverText = takeoverTitle?.trim() ?? "";
+  const { stagger } = usePresentationMotion();
+  const hookStagger = listStaggerContainerWith(stagger, 0.12);
 
   if (step === 0) {
     return (
-      <div
-        className={`hk-scene scene-pad cf-enter-${enterAnimationId}`}
-        data-cf-transition={transitionId}
-      >
+      <StepEnterFrame enterAnimationId={enterAnimationId} className="hk-scene scene-pad">
         <div className="hk-kicker">
           <span className="hk-kicker-line" />
           <span className="hk-kicker-text">{introKicker || chapterTitle}</span>
         </div>
         <motion.div
           className="hk-grid"
-          variants={hookStaggerContainer}
+          variants={hookStagger}
           initial="hidden"
           animate="show"
         >
@@ -103,17 +104,14 @@ export function HookImageStrip({
             </motion.div>
           ))}
         </motion.div>
-      </div>
+      </StepEnterFrame>
     );
   }
 
   if (step >= 1 && step <= n) {
     const s = slides[step - 1]!;
     return (
-      <div
-        className={`hk-scene scene-pad cf-enter-${enterAnimationId}`}
-        data-cf-transition={transitionId}
-      >
+      <StepEnterFrame enterAnimationId={enterAnimationId} className="hk-scene scene-pad">
         <div className="hk-solo-frame">
           <motion.div
             className="hk-solo-img-wrap"
@@ -138,20 +136,20 @@ export function HookImageStrip({
             </div>
           </MaskReveal>
         </div>
-      </div>
+      </StepEnterFrame>
     );
   }
 
   if (step === takeoverStep && takeoverText) {
     const tone = hkTextTone(takeoverText);
     return (
-      <div
-        className={`hk-scene scene-pad hk-takeover cf-enter-${enterAnimationId}`}
-        data-cf-transition={transitionId}
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className="hk-scene scene-pad hk-takeover"
       >
         <motion.div
           className="hk-mini-row"
-          variants={hookStaggerContainer}
+          variants={hookStagger}
           initial="hidden"
           animate="show"
         >
@@ -181,17 +179,14 @@ export function HookImageStrip({
             <span className="serif-cn">{takeoverText}</span>
           </MaskReveal>
         </h1>
-      </div>
+      </StepEnterFrame>
     );
   }
 
   if (includeClose && step === closeStep && closeLine?.trim()) {
     const tone = hkTextTone(closeLine);
     return (
-      <div
-        className={`hk-scene scene-pad hk-close cf-enter-${enterAnimationId}`}
-        data-cf-transition={transitionId}
-      >
+      <StepEnterFrame enterAnimationId={enterAnimationId} className="hk-scene scene-pad hk-close">
         <div className="hk-quote-wrap">
           <h2 className={`hk-quote serif-cn hk-text--${tone}`}>{closeLine}</h2>
           <motion.span
@@ -203,7 +198,7 @@ export function HookImageStrip({
             style={{ transformOrigin: "left center" }}
           />
         </div>
-      </div>
+      </StepEnterFrame>
     );
   }
 

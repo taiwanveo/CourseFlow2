@@ -44,3 +44,45 @@
 .usd-visual .vf-block {
   width: 100%;
 }
+
+/* Phase 4：split-focus — 文案左、Visual 右 */
+.usd-split-row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+  gap: var(--space-6);
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  align-items: center;
+  min-height: min(var(--stage-safe-h), 100%);
+}
+
+.usd-split-copy {
+  text-align: left;
+}
+
+.usd-split-visual .vf-block {
+  width: 100%;
+}
+
+/* Phase 4：visual + explain 並列 */
+.usd-composite-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: var(--space-5);
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  align-items: stretch;
+}
+
+.usd-composite-visual .vf-block,
+.usd-composite-explain .usd-anim-frame {
+  width: 100%;
+  height: 100%;
+  min-height: min(62vh, 560px);
+}
+
+.usd-composite-explain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

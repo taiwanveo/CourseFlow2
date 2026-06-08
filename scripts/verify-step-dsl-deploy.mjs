@@ -50,7 +50,20 @@ const gen = generateChapterSources({
 if (!gen.tsx.includes('UniversalStepChapter')) throw new Error('missing UniversalStepChapter');
 if (!gen.dslTs.includes('venn_overlap')) throw new Error('missing venn_overlap in DSL');
 if (gen.tsx.includes('STEP_ANIMATION')) throw new Error('legacy STEP_ANIMATION block leaked');
-console.log('OK codegen StepDSL single-path');`,
+const composite = generateChapterSources({
+  folderName: 'ch98',
+  wvpChapterId: 'ch98',
+  title: '數據視覺複合',
+  narrations: ['圖表與動畫', '第二步'],
+  screenContents: ['並列', '結論'],
+  stepVisualConfigs: [{ step: 0, config: { version: 1, kind: 'chart', chartType: 'bar', title: 'T', data: [{ name: 'A', value: 1 }] } }],
+  stepAnimationConfigByStep: {
+    0: { version: 1, pattern: 'venn_overlap', params: { leftLabel: 'A', rightLabel: 'B', overlapLabel: '交集' } },
+  },
+  stepAnimationIndices: [0],
+});
+if (!composite.dslTs.includes('visual-explain-composite')) throw new Error('missing visual-explain-composite layout');
+console.log('OK codegen StepDSL single-path + composite layout');`,
     ],
     { cwd: root, encoding: "utf8" },
   );

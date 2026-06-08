@@ -22,6 +22,19 @@ export const flowConnectorTransition: Transition = {
   ease: easeQuart,
 };
 
+/** 步間轉場時長（transitionId → 秒） */
+export const stepTransitionTiming: Record<
+  string,
+  { duration: number; ease?: typeof easeQuart }
+> = {
+  crossfade: { duration: 0.42, ease: easeQuart },
+  fade: { duration: 0.38, ease: easeQuart },
+  wipe: { duration: 0.68, ease: easeQuart },
+  "slide-left": { duration: 0.52, ease: easeQuart },
+  "slide-right": { duration: 0.52, ease: easeQuart },
+  none: { duration: 0 },
+};
+
 /** ListRevealGrid：清單格 stagger 進場（章節引子 ghost 預覽） */
 export const listStaggerContainer: Variants = {
   hidden: {},
@@ -31,6 +44,34 @@ export const listStaggerContainer: Variants = {
       delayChildren: 0.32,
     },
   },
+};
+
+/** 依 usePresentationMotion.stagger 產生編排用 stagger 容器 */
+export function listStaggerContainerWith(stagger: number, delayChildren = 0.32): Variants {
+  return {
+    hidden: {},
+    show: {
+      transition: {
+        staggerChildren: stagger,
+        delayChildren: stagger > 0 ? delayChildren : 0,
+      },
+    },
+  };
+}
+
+/** 複合版面內文／圖表編排 */
+export const compositePanelVariants: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { ...springReveal, staggerChildren: 0.07 },
+  },
+};
+
+export const compositePanelChildVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: springReveal },
 };
 
 /** ListRevealGrid：引子頁 ghost 槽位初次登場 */

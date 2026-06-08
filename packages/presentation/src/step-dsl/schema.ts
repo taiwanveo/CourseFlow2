@@ -5,6 +5,10 @@ export const STEP_LAYOUT_IDS = [
   "center-title",
   "visual-focus",
   "explain-focus",
+  /** 螢幕文案左欄 + 圖表／視覺右欄（Visual-Mix 協同） */
+  "split-focus",
+  /** 圖表與解說動畫並列（複合版面） */
+  "visual-explain-composite",
 ] as const;
 
 export type StepLayoutId = (typeof STEP_LAYOUT_IDS)[number];

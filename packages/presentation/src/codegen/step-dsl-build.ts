@@ -124,11 +124,16 @@ function buildPerStepDsl(
   return input.narrations.map((_, step) => {
     const visual = visualForStep(step, merged);
     const { explain, animationHtml } = explainForStep(input, step);
-    const stepLayout: StepDslStep["layout"] = visual
-      ? "visual-focus"
-      : explain || animationHtml
-        ? "explain-focus"
-        : layout;
+    const hasVisual = Boolean(visual);
+    const hasExplain = Boolean(explain || animationHtml);
+    let stepLayout: StepDslStep["layout"] = layout;
+    if (hasVisual && hasExplain) {
+      stepLayout = "visual-explain-composite";
+    } else if (hasVisual) {
+      stepLayout = dslKind === "visual-mix" ? "split-focus" : "visual-focus";
+    } else if (hasExplain) {
+      stepLayout = "explain-focus";
+    }
     return {
       step,
       layout: stepLayout,

@@ -11,7 +11,11 @@ import { isMotionSceneConfig } from "./explain-motion-types";
 import type { StepDslChapterData, StepDslStepData } from "./step-dsl-types";
 import { parseStepDslChapterRuntime } from "./step-dsl-runtime";
 import { StepTransitionFrame } from "./StepTransitionFrame";
-import { enterMotionVariants } from "./motion-presets";
+import { StepEnterFrame } from "./StepEnterFrame";
+import {
+  compositePanelChildVariants,
+  compositePanelVariants,
+} from "./motion-presets";
 import "./UniversalStepChapter.css";
 
 function resolveAnimFromDsl(
@@ -46,20 +50,89 @@ function PerStepScene({
   stepImageUrl: (step: number) => string;
 }) {
   const { enterAnimationId } = stepDef.enter;
-  const variants = enterMotionVariants[enterAnimationId] ?? enterMotionVariants["fade-up"];
   const anim = resolveAnimFromDsl(
     stepDef.explain as Record<string, unknown> | undefined,
     stepDef.animationHtml,
   );
   const imageUrl = resolveImageUrl(stepDef.imageUrl, stepDef.imageStep, stepImageUrl);
+  const hasAnim = Boolean(anim.animationConfig || anim.animationHtml);
+
+  if (stepDef.layout === "visual-explain-composite" && stepDef.visual && hasAnim) {
+    return (
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className="usd-step usd-composite scene-pad"
+      >
+        {stepDef.screen.headline ? (
+          <header className="usd-headline masthead">
+            <span className="serif-cn">{stepDef.screen.headline}</span>
+          </header>
+        ) : null}
+        <motion.div
+          className="usd-composite-split"
+          variants={compositePanelVariants}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div className="usd-composite-visual" variants={compositePanelChildVariants}>
+            <VisualBlock
+              step={stepDef.step}
+              headline={stepDef.screen.sub}
+              config={stepDef.visual as VisualConfigProp}
+            />
+          </motion.div>
+          <motion.div className="usd-composite-explain" variants={compositePanelChildVariants}>
+            <ExplainAnimationSlot
+              className="usd-anim-frame"
+              animationConfig={anim.animationConfig}
+              animationHtml={anim.animationHtml}
+              title=""
+            />
+          </motion.div>
+        </motion.div>
+      </StepEnterFrame>
+    );
+  }
+
+  if (stepDef.layout === "split-focus" && stepDef.visual) {
+    return (
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className="usd-step usd-split scene-pad"
+      >
+        <motion.div
+          className="usd-split-row"
+          variants={compositePanelVariants}
+          initial="hidden"
+          animate="show"
+        >
+          <motion.div className="usd-split-copy" variants={compositePanelChildVariants}>
+            <MaskReveal show duration={1000}>
+              <h1 className="usd-screen serif-cn">{stepDef.screen.headline}</h1>
+            </MaskReveal>
+            {stepDef.screen.sub ? (
+              <MaskReveal show delay={220} duration={900}>
+                <p className="usd-sub muted">{stepDef.screen.sub}</p>
+              </MaskReveal>
+            ) : null}
+          </motion.div>
+          <motion.div className="usd-split-visual" variants={compositePanelChildVariants}>
+            <VisualBlock
+              step={stepDef.step}
+              headline={undefined}
+              config={stepDef.visual as VisualConfigProp}
+            />
+          </motion.div>
+        </motion.div>
+      </StepEnterFrame>
+    );
+  }
 
   if (stepDef.layout === "visual-focus" && stepDef.visual) {
     return (
-      <motion.div
-        className={`usd-step usd-visual cf-enter-${enterAnimationId}`}
-        variants={variants}
-        initial="hidden"
-        animate="show"
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className="usd-step usd-visual"
       >
         {stepDef.screen.headline ? (
           <header className="usd-headline masthead">
@@ -71,17 +144,15 @@ function PerStepScene({
           headline={stepDef.screen.sub}
           config={stepDef.visual as VisualConfigProp}
         />
-      </motion.div>
+      </StepEnterFrame>
     );
   }
 
-  if (stepDef.layout === "explain-focus" && (anim.animationConfig || anim.animationHtml)) {
+  if (stepDef.layout === "explain-focus" && hasAnim) {
     return (
-      <motion.div
-        className={`usd-step usd-explain scene-pad cf-enter-${enterAnimationId}`}
-        variants={variants}
-        initial="hidden"
-        animate="show"
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className="usd-step usd-explain scene-pad"
       >
         {stepDef.screen.headline ? (
           <h1 className="usd-screen serif-cn">{stepDef.screen.headline}</h1>
@@ -92,16 +163,14 @@ function PerStepScene({
           animationHtml={anim.animationHtml}
           title=""
         />
-      </motion.div>
+      </StepEnterFrame>
     );
   }
 
   return (
-    <motion.div
-      className={`usd-step usd-center scene-pad cf-enter-${enterAnimationId}`}
-      variants={variants}
-      initial="hidden"
-      animate="show"
+    <StepEnterFrame
+      enterAnimationId={enterAnimationId}
+      className="usd-step usd-center scene-pad"
     >
       <MaskReveal show duration={1100}>
         <h1 className="usd-screen serif-cn">{stepDef.screen.headline}</h1>
@@ -112,7 +181,7 @@ function PerStepScene({
       {imageUrl ? (
         <img src={imageUrl} alt="" className="usd-step-image" data-no-advance />
       ) : null}
-      {anim.animationConfig || anim.animationHtml ? (
+      {hasAnim ? (
         <ExplainAnimationSlot
           className="usd-anim-frame"
           animationConfig={anim.animationConfig}
@@ -120,7 +189,7 @@ function PerStepScene({
           title=""
         />
       ) : null}
-    </motion.div>
+    </StepEnterFrame>
   );
 }
 

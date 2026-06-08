@@ -1,6 +1,12 @@
 import type { StepDslChapterData } from "./step-dsl-types";
 
-const LAYOUTS = new Set(["center-title", "visual-focus", "explain-focus"]);
+const LAYOUTS = new Set([
+  "center-title",
+  "visual-focus",
+  "explain-focus",
+  "split-focus",
+  "visual-explain-composite",
+]);
 const CHAPTER_LAYOUTS = new Set(["per-step", "list-reveal", "flow", "hook"]);
 
 /** 執行期輕量驗證；失敗回傳 null（呼叫端可降級） */

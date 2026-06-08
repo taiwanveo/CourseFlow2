@@ -11,7 +11,12 @@ export type StepDslScreen = {
 
 export type StepDslStepData = {
   step: number;
-  layout: "center-title" | "visual-focus" | "explain-focus";
+  layout:
+    | "center-title"
+    | "visual-focus"
+    | "explain-focus"
+    | "split-focus"
+    | "visual-explain-composite";
   screen: StepDslScreen;
   enter: StepDslEnter;
   visual?: Record<string, unknown>;

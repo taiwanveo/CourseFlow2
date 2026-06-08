@@ -4,14 +4,16 @@ import { motion } from "framer-motion";
 import type { MotionSceneConfig } from "./explain-motion-types";
 import { ExplainAnimationSlot } from "./ExplainAnimationSlot";
 import { MaskReveal } from "./MaskReveal";
+import { usePresentationMotion } from "../hooks/usePresentationMotion";
 import {
   listSlotContentVariants,
   listSlotIntroVariants,
   listSlotLineVariants,
   listSlotVariants,
-  listStaggerContainer,
+  listStaggerContainerWith,
   springReveal,
 } from "./motion-presets";
+import { StepEnterFrame } from "./StepEnterFrame";
 import "./ListRevealGrid.css";
 
 export type ListRevealItem = {
@@ -59,6 +61,8 @@ export function ListRevealGrid({
   transitionId?: string;
 }) {
   const [introImgOk, setIntroImgOk] = useState(true);
+  const { stagger } = usePresentationMotion();
+  const introStagger = listStaggerContainerWith(stagger);
 
   if (step === 0) {
     const cols = Math.min(Math.max(items.length, 1), 4);
@@ -66,9 +70,9 @@ export function ListRevealGrid({
     const showIntroAnimLegacy = !showIntroAnim && Boolean(introAnimationUrl?.trim());
     const showIntroImg = !showIntroAnim && Boolean(introImageUrl?.trim()) && introImgOk;
     return (
-      <div
-        className={`lr-scene scene-pad lr-intro cf-enter-${enterAnimationId}${showIntroAnim || showIntroAnimLegacy || showIntroImg ? " lr-intro--has-figure" : ""}`}
-        data-cf-transition={transitionId}
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className={`lr-scene scene-pad lr-intro${showIntroAnim || showIntroAnimLegacy || showIntroImg ? " lr-intro--has-figure" : ""}`}
       >
         <header className="lr-masthead">
           <span className="lr-rule" />
@@ -113,7 +117,7 @@ export function ListRevealGrid({
         <motion.div
           className="lr-grid lr-grid-ghost"
           style={{ ["--lr-cols" as string]: String(cols) }}
-          variants={listStaggerContainer}
+          variants={introStagger}
           initial="hidden"
           animate="show"
         >
@@ -121,7 +125,7 @@ export function ListRevealGrid({
             <Slot key={it.num} state="ghost" item={it} index={i} intro />
           ))}
         </motion.div>
-      </div>
+      </StepEnterFrame>
     );
   }
 

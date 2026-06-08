@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import type { MotionSceneConfig } from "./explain-motion-types";
 import { ExplainAnimationSlot } from "./ExplainAnimationSlot";
 import { MaskReveal } from "./MaskReveal";
+import { StepEnterFrame } from "./StepEnterFrame";
 import {
   flowCardVariants,
   flowConnectorTransition,
@@ -175,9 +176,9 @@ export function FlowDiagram({
 
   if (step === 0) {
     return (
-      <div
-        className={`cf-flow-scene scene-pad cf-flow-split cf-enter-${enterAnimationId}`}
-        data-cf-transition={transitionId}
+      <StepEnterFrame
+        enterAnimationId={enterAnimationId}
+        className="cf-flow-scene scene-pad cf-flow-split"
       >
         <div className="cf-flow-main">
           <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
@@ -197,15 +198,12 @@ export function FlowDiagram({
           <FlowTrack nodes={nodes} active={-1} preview />
         </div>
         {figure}
-      </div>
+      </StepEnterFrame>
     );
   }
 
   return (
-    <div
-      className="cf-flow-scene scene-pad cf-flow-split cf-flow-scene--steps"
-      data-cf-transition="none"
-    >
+    <div className="cf-flow-scene scene-pad cf-flow-split cf-flow-scene--steps">
       <div className="cf-flow-main">
         <div className="cf-flow-kicker label-mono">{chapterTitle}</div>
         <FlowTrack nodes={nodes} active={active} />

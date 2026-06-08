@@ -154,6 +154,7 @@ export async function scaffoldPresentation(
     "UniversalStepChapter.tsx",
     "UniversalStepChapter.css",
     "StepTransitionFrame.tsx",
+    "StepEnterFrame.tsx",
     "step-dsl-runtime.ts",
     "ProgressBar.tsx",
     "ProgressBar.css",
