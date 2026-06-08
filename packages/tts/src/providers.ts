@@ -4,6 +4,7 @@ import type { TtsCredentials, TtsProvider, TtsVoice, TtsSynthesizeOptions } from
 import { OPENAI_TTS_VOICES, resolveTtsModel } from "./types.js";
 import {
   fetchOpenRouterTtsCatalog,
+  openRouterTtsRouteForModel,
   synthesizeOpenRouterSpeech,
 } from "./openrouter-tts.js";
 
@@ -64,7 +65,14 @@ export const openRouterTtsProvider: TtsProvider = {
     if (!model) {
       throw new Error("請選擇 OpenRouter TTS 模型（需支援 speech 輸出）");
     }
-    return synthesizeOpenRouterSpeech(credentials.apiKey, text, model, voiceId);
+    const route = options?.openRouterRoute ?? openRouterTtsRouteForModel(model);
+    return synthesizeOpenRouterSpeech(
+      credentials.apiKey,
+      text,
+      model,
+      voiceId,
+      route,
+    );
   },
 };
 

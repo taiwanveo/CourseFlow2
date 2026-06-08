@@ -160,6 +160,29 @@
   font-size: var(--t-caption);
 }
 
+/* 無配圖、僅螢幕文字：說明放在獨立列，避免塞進 overflow:hidden 的媒體區被裁切 */
+.cf-img-cell--text-only {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.cf-img-cell--text-only .cf-img-cell__media {
+  display: none;
+}
+
+.cf-img-cell--text-only .cf-img-cell__caption {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-height: 0;
+  padding: var(--space-4) var(--space-5);
+  overflow: visible;
+  text-align: center;
+  line-height: 1.45;
+  font-size: clamp(15px, 1.65cqw, 22px);
+}
+
 /* 有配圖的場景：標題區與圖片區強制分離 */
 .bs-scene--has-figure,
 .lr-intro--has-figure,

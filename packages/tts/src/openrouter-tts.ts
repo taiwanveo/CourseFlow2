@@ -4,12 +4,12 @@ import {
   filterChineseVoices,
   voiceIdSupportsChinese,
 } from "./chinese-tts.js";
-import type { TtsModel, TtsVoice } from "./types.js";
+import type { OpenRouterTtsRoute, TtsModel, TtsVoice } from "./types.js";
 import { getTtsVoicesForModel } from "./types.js";
 
-const OPENROUTER_MODELS_URL =
-  "https://openrouter.ai/api/v1/models?output_modalities=speech";
+const OPENROUTER_MODELS_BASE = "https://openrouter.ai/api/v1/models";
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech";
 
 const MUSIC_MODEL_PATTERN = /lyria|musicgen|music-gen|bark|audiogen|audiocraft|musiclm/i;
 
@@ -27,11 +27,42 @@ interface OpenRouterModelsResponse {
   data?: OpenRouterSpeechModelRow[];
 }
 
-function isSpeechModel(row: OpenRouterSpeechModelRow): boolean {
+/** 最近一次 catalog 拉取的模型列（供合成時選路由） */
+let cachedOpenRouterTtsRows: OpenRouterSpeechModelRow[] = [];
+
+const OPENROUTER_HEADERS = (apiKey: string): Record<string, string> => ({
+  Authorization: `Bearer ${apiKey}`,
+  "HTTP-Referer": "https://courseflow.app",
+  "X-Title": "CourseFlow",
+});
+
+function outputModalities(row: OpenRouterSpeechModelRow): string[] {
+  return row.architecture?.output_modalities ?? [];
+}
+
+function isOpenRouterTtsModel(row: OpenRouterSpeechModelRow): boolean {
   if (MUSIC_MODEL_PATTERN.test(row.id)) return false;
-  const modalities = row.architecture?.output_modalities ?? [];
-  if (modalities.includes("speech")) return true;
+  const modalities = outputModalities(row);
+  if (modalities.includes("speech") || modalities.includes("audio")) return true;
   return row.architecture?.modality === "text->speech";
+}
+
+/** speech 模型走 /audio/speech；audio 模型走 chat completions + modalities */
+export function openRouterTtsRouteForRow(row: OpenRouterSpeechModelRow): OpenRouterTtsRoute {
+  const modalities = outputModalities(row);
+  if (modalities.includes("speech")) return "speech-api";
+  if (modalities.includes("audio")) return "chat-audio";
+  if (row.architecture?.modality === "text->speech") return "speech-api";
+  if (/tts|voxtral|gemini.*tt/i.test(row.id)) return "speech-api";
+  if (/gpt-4o.*audio|audio.*preview|o1.*audio/i.test(row.id)) return "chat-audio";
+  return "speech-api";
+}
+
+export function openRouterTtsRouteForModel(modelId: string): OpenRouterTtsRoute {
+  const row = cachedOpenRouterTtsRows.find((item) => item.id === modelId);
+  if (row) return openRouterTtsRouteForRow(row);
+  if (/gpt-4o.*audio|audio.*preview|o1.*audio/i.test(modelId)) return "chat-audio";
+  return "speech-api";
 }
 
 export function openRouterVoicesForModel(
@@ -52,21 +83,19 @@ export function openRouterRowsToTtsModels(rows: OpenRouterSpeechModelRow[]): Tts
     name: row.name,
     provider: "openrouter" as const,
     voices: openRouterVoicesForModel(row.id, rows),
+    openRouterRoute: openRouterTtsRouteForRow(row),
   }));
   return filterChineseTtsModelsWithVoices(models, (modelId) =>
     filterChineseVoices(getTtsVoicesForModel(modelId, "openrouter")),
   );
 }
 
-export async function fetchOpenRouterSpeechModels(
+async function fetchOpenRouterModelsByModality(
   apiKey: string,
+  modality: "speech" | "audio",
 ): Promise<OpenRouterSpeechModelRow[]> {
-  const res = await fetch(OPENROUTER_MODELS_URL, {
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "HTTP-Referer": "https://courseflow.app",
-      "X-Title": "CourseFlow",
-    },
+  const res = await fetch(`${OPENROUTER_MODELS_BASE}?output_modalities=${modality}`, {
+    headers: OPENROUTER_HEADERS(apiKey),
   });
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
@@ -75,12 +104,80 @@ export async function fetchOpenRouterSpeechModels(
     );
   }
   const payload = (await res.json()) as OpenRouterModelsResponse;
-  return (payload.data ?? []).filter(isSpeechModel);
+  return (payload.data ?? []).filter(isOpenRouterTtsModel);
+}
+
+export async function fetchOpenRouterSpeechModels(
+  apiKey: string,
+): Promise<OpenRouterSpeechModelRow[]> {
+  const [speechRows, audioRows] = await Promise.all([
+    fetchOpenRouterModelsByModality(apiKey, "speech").catch(() => [] as OpenRouterSpeechModelRow[]),
+    fetchOpenRouterModelsByModality(apiKey, "audio").catch(() => [] as OpenRouterSpeechModelRow[]),
+  ]);
+  const byId = new Map<string, OpenRouterSpeechModelRow>();
+  for (const row of [...speechRows, ...audioRows]) {
+    byId.set(row.id, row);
+  }
+  const rows = [...byId.values()];
+  cachedOpenRouterTtsRows = rows;
+  return rows;
 }
 
 export async function fetchOpenRouterTtsCatalog(apiKey: string): Promise<TtsModel[]> {
   const rows = await fetchOpenRouterSpeechModels(apiKey);
   return openRouterRowsToTtsModels(rows);
+}
+
+function parseOpenRouterError(res: Response, errText: string, prefix: string): never {
+  if (errText.includes("<!DOCTYPE") || errText.includes("<html")) {
+    throw new Error(`${prefix}（收到 HTML 回應，請確認模型與 endpoint 是否正確）`);
+  }
+  let errMsg = `${prefix}（${res.status}）`;
+  try {
+    const errJson = JSON.parse(errText) as { error?: { message?: string } };
+    errMsg += `：${errJson.error?.message ?? errText.slice(0, 200)}`;
+  } catch {
+    errMsg += `：${errText.slice(0, 200)}`;
+  }
+  throw new Error(errMsg);
+}
+
+async function synthesizeOpenRouterSpeechApi(
+  apiKey: string,
+  text: string,
+  model: string,
+  voiceId: string,
+): Promise<Buffer> {
+  const res = await fetch(OPENROUTER_SPEECH_URL, {
+    method: "POST",
+    headers: {
+      ...OPENROUTER_HEADERS(apiKey),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: text,
+      voice: voiceId,
+      response_format: "mp3",
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗");
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const errText = await res.text().catch(() => "");
+    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗");
+  }
+
+  const bytes = await res.arrayBuffer();
+  if (bytes.byteLength === 0) {
+    throw new Error("OpenRouter TTS 回應無音訊資料");
+  }
+  return Buffer.from(bytes);
 }
 
 function parseSseAudioChunks(body: ReadableStream<Uint8Array>): Promise<Buffer> {
@@ -137,7 +234,7 @@ function parseSseAudioChunks(body: ReadableStream<Uint8Array>): Promise<Buffer> 
   });
 }
 
-export async function synthesizeOpenRouterSpeech(
+async function synthesizeOpenRouterChatAudio(
   apiKey: string,
   text: string,
   model: string,
@@ -146,10 +243,8 @@ export async function synthesizeOpenRouterSpeech(
   const res = await fetch(OPENROUTER_CHAT_URL, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      ...OPENROUTER_HEADERS(apiKey),
       "Content-Type": "application/json",
-      "HTTP-Referer": "https://courseflow.app",
-      "X-Title": "CourseFlow",
     },
     body: JSON.stringify({
       model,
@@ -162,17 +257,7 @@ export async function synthesizeOpenRouterSpeech(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    if (errText.includes("<!DOCTYPE") || errText.includes("<html")) {
-      throw new Error("OpenRouter TTS 請求失敗（收到 HTML 回應，請確認模型支援語音輸出）");
-    }
-    let errMsg = `OpenRouter TTS 失敗（${res.status}）`;
-    try {
-      const errJson = JSON.parse(errText) as { error?: { message?: string } };
-      errMsg += `：${errJson.error?.message ?? errText.slice(0, 200)}`;
-    } catch {
-      errMsg += `：${errText.slice(0, 200)}`;
-    }
-    throw new Error(errMsg);
+    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗");
   }
 
   if (!res.body) {
@@ -180,4 +265,18 @@ export async function synthesizeOpenRouterSpeech(
   }
 
   return parseSseAudioChunks(res.body);
+}
+
+export async function synthesizeOpenRouterSpeech(
+  apiKey: string,
+  text: string,
+  model: string,
+  voiceId: string,
+  route?: OpenRouterTtsRoute,
+): Promise<Buffer> {
+  const resolvedRoute = route ?? openRouterTtsRouteForModel(model);
+  if (resolvedRoute === "speech-api") {
+    return synthesizeOpenRouterSpeechApi(apiKey, text, model, voiceId);
+  }
+  return synthesizeOpenRouterChatAudio(apiKey, text, model, voiceId);
 }

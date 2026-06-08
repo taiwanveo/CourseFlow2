@@ -14,16 +14,21 @@ export interface TtsVoice {
   provider: TtsProviderId;
 }
 
+export type OpenRouterTtsRoute = "speech-api" | "chat-audio";
+
 export interface TtsModel {
   id: string;
   name: string;
   provider: TtsProviderId;
   /** OpenRouter 等提供者：各模型專屬語音清單 */
   voices?: TtsVoice[];
+  /** OpenRouter：speech 走 /audio/speech，audio 走 chat completions */
+  openRouterRoute?: OpenRouterTtsRoute;
 }
 
 export interface TtsSynthesizeOptions {
   model?: string;
+  openRouterRoute?: OpenRouterTtsRoute;
 }
 
 export interface TtsCredentials {

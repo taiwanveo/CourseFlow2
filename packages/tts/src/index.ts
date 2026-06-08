@@ -104,5 +104,7 @@ export { edgeTtsProvider } from "./edge-tts.js";
 export {
   fetchOpenRouterSpeechModels,
   fetchOpenRouterTtsCatalog,
+  openRouterTtsRouteForModel,
+  openRouterTtsRouteForRow,
   synthesizeOpenRouterSpeech,
 } from "./openrouter-tts.js";

@@ -99,31 +99,33 @@ export function HookImageStrip({
           initial="hidden"
           animate="show"
         >
-          {slides.map((s, idx) => (
-            <motion.div key={s.label} variants={hookGhostVariants} className="hk-grid-item">
-              <div className={`cf-img-cell hk-ghost${s.url ? " cf-img-cell--has-img" : ""}`}>
-                <span className="cf-img-cell__index hk-ghost-num">
-                  {s.label.split("/")[0]?.trim() || String(idx + 1)}
-                </span>
-                <div className="cf-img-cell__media hk-ghost-media">
-                  {s.url ? (
-                    <img className="hk-ghost-thumb" src={s.url} alt="" loading="eager" />
-                  ) : s.caption?.trim() ? (
-                    <span className="hk-ghost-caption serif-cn cf-img-cell__caption">
-                      {s.caption}
-                    </span>
-                  ) : (
-                    <span className="cf-img-cell__placeholder hk-ghost-label">待配圖</span>
-                  )}
-                </div>
-                {s.url && s.caption?.trim() ? (
-                  <span className="cf-img-cell__caption hk-ghost-caption serif-cn">
-                    {s.caption}
+          {slides.map((s, idx) => {
+            const caption = s.caption?.trim() ?? "";
+            const textOnly = !s.url && caption.length > 0;
+            return (
+              <motion.div key={s.label} variants={hookGhostVariants} className="hk-grid-item">
+                <div
+                  className={`cf-img-cell hk-ghost${s.url ? " cf-img-cell--has-img" : ""}${
+                    textOnly ? " cf-img-cell--text-only" : ""
+                  }`}
+                >
+                  <span className="cf-img-cell__index hk-ghost-num">
+                    {s.label.split("/")[0]?.trim() || String(idx + 1)}
                   </span>
-                ) : null}
-              </div>
-            </motion.div>
-          ))}
+                  <div className="cf-img-cell__media hk-ghost-media">
+                    {s.url ? (
+                      <img className="hk-ghost-thumb" src={s.url} alt="" loading="eager" />
+                    ) : textOnly ? null : (
+                      <span className="cf-img-cell__placeholder hk-ghost-label">待配圖</span>
+                    )}
+                  </div>
+                  {caption ? (
+                    <span className="cf-img-cell__caption hk-ghost-caption serif-cn">{caption}</span>
+                  ) : null}
+                </div>
+              </motion.div>
+            );
+          })}
         </motion.div>
       </StepEnterFrame>
     );
