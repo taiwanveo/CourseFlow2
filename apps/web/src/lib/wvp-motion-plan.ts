@@ -9,13 +9,25 @@ import {
   resolveCompositionChapterForCraft,
   screenContentsForChapter,
 } from "@/lib/wvp-chapter-meta";
-import { readIllustrationsFromChecklist } from "@/lib/wvp-craft-illustrations";
 
 type CraftRow = {
   wvp_chapter_id: string;
   title: string;
   checklist_result?: unknown;
 };
+
+/** 僅讀 checklist JSON，避免 client 匯入 wvp-craft-illustrations（含 node:fs） */
+function stepIllustrationsFromChecklist(craft: CraftRow) {
+  const cr = craft.checklist_result as {
+    stepIllustrations?: Array<{
+      stepIndex: number;
+      imageSource?: string;
+      animationHtml?: string | null;
+      animationStoragePath?: string | null;
+    }>;
+  } | null;
+  return cr?.stepIllustrations ?? [];
+}
 
 export type ProjectMotionPlan = {
   totalSteps: number;
@@ -57,7 +69,7 @@ export function evaluateProjectMotionPlan(
       orientation: parseChapterMotionOrientation(checklist?.motionOrientation),
       narrations,
       screenContents,
-      stepIllustrations: readIllustrationsFromChecklist(craft),
+      stepIllustrations: stepIllustrationsFromChecklist(craft),
     });
 
     chapters.push(plan);
