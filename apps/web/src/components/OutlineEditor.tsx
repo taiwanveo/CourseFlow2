@@ -6,7 +6,10 @@ import type { CourseComposition, CompositionChapter } from "@courseflow/core";
 import { ensureChapterDividerSteps, syncChapterDividerTitles } from "@courseflow/core";
 import { cn } from "@/lib/cn";
 
+import { ChapterOutlineImages } from "@/components/ChapterOutlineImages";
 import { stepCountForChapter } from "@/lib/wvp-chapters";
+import { HOOK_OPENING_HINT } from "@/lib/wvp-hook-ui";
+import type { WvpAssetRef } from "@/lib/wvp-settings";
 import {
   addChapter as addChapterMutation,
   addStep as addStepMutation,
@@ -34,6 +37,9 @@ export function OutlineEditor({
   fillHeight = false,
   projectId,
   chapterWvpIds,
+  wvpAssets = [],
+  onWvpAssetsChange,
+  locked = false,
 }: {
   composition: CourseComposition;
   onChange: (c: CourseComposition) => void;
@@ -43,6 +49,9 @@ export function OutlineEditor({
   fillHeight?: boolean;
   projectId?: string;
   chapterWvpIds?: Map<string, string>;
+  wvpAssets?: WvpAssetRef[];
+  onWvpAssetsChange?: (next: WvpAssetRef[]) => void;
+  locked?: boolean;
 }) {
   const [dragging, setDragging] = useState<DropHint>(null);
   const [dropHint, setDropHint] = useState<DropHint>(null);
@@ -226,6 +235,25 @@ export function OutlineEditor({
           </button>
         </div>
 
+        {chapter.chapterKind === "hook" &&
+        projectId &&
+        chapterWvpIds?.get(chapter.id) &&
+        onWvpAssetsChange ? (
+          <div
+            className="space-y-1 rounded border border-amber-800/35 bg-amber-950/20 px-2 py-1.5"
+            style={{ marginLeft: `${depth + 0.25}rem`, marginRight: "0.25rem" }}
+          >
+            <p className="text-[10px] leading-relaxed text-amber-200/85">{HOOK_OPENING_HINT}</p>
+            <ChapterOutlineImages
+              projectId={projectId}
+              wvpChapterId={chapterWvpIds.get(chapter.id)!}
+              assets={wvpAssets}
+              onAssetsChange={onWvpAssetsChange}
+              locked={locked}
+              variant="hook"
+            />
+          </div>
+        ) : null}
 
         {steps.length > 0 ? (
           <ul

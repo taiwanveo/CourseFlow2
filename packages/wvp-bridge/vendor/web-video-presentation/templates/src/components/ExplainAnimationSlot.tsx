@@ -11,12 +11,15 @@ export function ExplainAnimationSlot({
   animationUrl,
   className,
   title,
+  /** 步驟索引：每次進入該步時重播動畫（避免沿用上一輪的靜態終態） */
+  replayKey,
 }: {
   animationConfig?: MotionSceneConfig | null;
   animationHtml?: string;
   animationUrl?: string;
   className?: string;
   title?: string;
+  replayKey?: number | string;
 }) {
   const config =
     animationConfig && isMotionSceneConfig(animationConfig) ? animationConfig : null;
@@ -24,7 +27,7 @@ export function ExplainAnimationSlot({
   if (config) {
     return (
       <div className={className} data-no-advance>
-        <ExplainMotionScene config={config} />
+        <ExplainMotionScene key={replayKey ?? config.pattern} config={config} />
       </div>
     );
   }
@@ -34,6 +37,7 @@ export function ExplainAnimationSlot({
 
   return (
     <SafeAnimationFrame
+      key={replayKey}
       className={className}
       srcDoc={animationHtml}
       src={animationHtml ? undefined : animationUrl}

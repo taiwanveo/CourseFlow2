@@ -168,6 +168,9 @@ body {
   cursor: pointer;
   box-shadow: var(--shadow-stage);
   border: var(--stage-border, none);
+  /* 讓 cqw/cqh 相對 1920×1080 舞台，而非瀏覽器 viewport */
+  container-type: size;
+  container-name: stage;
   /* radius on the LIVE stage gives editorial / keynote softness;
      theme can disable with --r-stage: 0 */
   border-radius: var(--r-stage, 0);

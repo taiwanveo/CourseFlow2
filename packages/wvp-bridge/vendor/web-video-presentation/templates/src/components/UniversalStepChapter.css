@@ -14,13 +14,14 @@
 }
 
 .usd-screen {
-  font-size: clamp(36px, 5vmin, 64px);
+  font-size: clamp(44px, 4cqw, 72px);
   line-height: 1.2;
   margin: 0;
+  max-width: var(--stage-safe-w);
 }
 
 .usd-sub {
-  font-size: clamp(20px, 2.4vmin, 28px);
+  font-size: clamp(32px, 2.4cqw, 44px);
   margin: var(--space-3) 0 0;
 }
 

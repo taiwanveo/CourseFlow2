@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { usePresentationMotion } from "../hooks/usePresentationMotion";
 import { MaskReveal } from "./MaskReveal";
@@ -9,6 +10,7 @@ import {
   listStaggerContainerWith,
   springReveal,
 } from "./motion-presets";
+import { imageGridCountClass } from "../lib/imageLayout";
 import "./HookImageStrip.css";
 
 export type HookSlide = {
@@ -28,8 +30,16 @@ function hkTextTone(text: string): "hero" | "md" | "lg" | "compact" {
 }
 
 function SoloImage({ slide }: { slide: HookSlide }) {
-  if (slide.url) {
-    return <img className="hk-solo-img" src={slide.url} alt={slide.alt || slide.caption} />;
+  const [broken, setBroken] = useState(false);
+  if (slide.url && !broken) {
+    return (
+      <img
+        className="hk-solo-img"
+        src={slide.url}
+        alt={slide.alt || slide.caption}
+        onError={() => setBroken(true)}
+      />
+    );
   }
   const caption = slide.caption?.trim() || slide.alt?.trim();
   if (caption) {
@@ -84,22 +94,33 @@ export function HookImageStrip({
           <span className="hk-kicker-text">{introKicker || chapterTitle}</span>
         </div>
         <motion.div
-          className="hk-grid"
+          className={`hk-grid cf-img-grid ${imageGridCountClass(slides.length)}`}
           variants={hookStagger}
           initial="hidden"
           animate="show"
         >
           {slides.map((s, idx) => (
-            <motion.div key={s.label} variants={hookGhostVariants}>
-              <div className={`hk-ghost${s.url ? " hk-ghost--has-img" : ""}`}>
-                <span className="hk-ghost-num">{s.label.split("/")[0]?.trim() || String(idx + 1)}</span>
-                {s.url ? (
-                  <img className="hk-ghost-thumb" src={s.url} alt="" loading="eager" />
-                ) : s.caption?.trim() ? (
-                  <span className="hk-ghost-caption serif-cn">{s.caption}</span>
-                ) : (
-                  <span className="hk-ghost-label">待配圖</span>
-                )}
+            <motion.div key={s.label} variants={hookGhostVariants} className="hk-grid-item">
+              <div className={`cf-img-cell hk-ghost${s.url ? " cf-img-cell--has-img" : ""}`}>
+                <span className="cf-img-cell__index hk-ghost-num">
+                  {s.label.split("/")[0]?.trim() || String(idx + 1)}
+                </span>
+                <div className="cf-img-cell__media hk-ghost-media">
+                  {s.url ? (
+                    <img className="hk-ghost-thumb" src={s.url} alt="" loading="eager" />
+                  ) : s.caption?.trim() ? (
+                    <span className="hk-ghost-caption serif-cn cf-img-cell__caption">
+                      {s.caption}
+                    </span>
+                  ) : (
+                    <span className="cf-img-cell__placeholder hk-ghost-label">待配圖</span>
+                  )}
+                </div>
+                {s.url && s.caption?.trim() ? (
+                  <span className="cf-img-cell__caption hk-ghost-caption serif-cn">
+                    {s.caption}
+                  </span>
+                ) : null}
               </div>
             </motion.div>
           ))}
@@ -112,25 +133,27 @@ export function HookImageStrip({
     const s = slides[step - 1]!;
     return (
       <StepEnterFrame enterAnimationId={enterAnimationId} className="hk-scene scene-pad">
-        <div className="hk-solo-frame">
-          <motion.div
-            className="hk-solo-img-wrap"
-            variants={hookSoloVariants}
-            initial="hidden"
-            animate="show"
-          >
-            <SoloImage slide={s} />
+        <div className="hk-solo-frame cf-img-text-stack">
+          <div className="cf-img-text-stack__media cf-img-single">
             <motion.div
-              className="hk-stamp"
-              initial={{ opacity: 0, scale: 2.2, rotate: -8 }}
-              animate={{ opacity: 1, scale: 1, rotate: -8 }}
-              transition={{ ...springReveal, delay: 0.5 }}
+              className="hk-solo-img-wrap"
+              variants={hookSoloVariants}
+              initial="hidden"
+              animate="show"
             >
-              重點
+              <SoloImage slide={s} />
+              <motion.div
+                className="hk-stamp"
+                initial={{ opacity: 0, scale: 2.2, rotate: -8 }}
+                animate={{ opacity: 1, scale: 1, rotate: -8 }}
+                transition={{ ...springReveal, delay: 0.5 }}
+              >
+                重點
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </div>
           <MaskReveal show delay={400} duration={900}>
-            <div className="hk-solo-meta">
+            <div className="cf-img-text-stack__copy hk-solo-meta">
               <span className="hk-solo-label">{s.label}</span>
               <span className="hk-solo-caption serif-cn">{s.caption}</span>
             </div>
@@ -145,10 +168,10 @@ export function HookImageStrip({
     return (
       <StepEnterFrame
         enterAnimationId={enterAnimationId}
-        className="hk-scene scene-pad hk-takeover"
+        className="hk-scene scene-pad hk-takeover cf-img-text-stack"
       >
         <motion.div
-          className="hk-mini-row"
+          className={`hk-mini-row cf-img-grid ${imageGridCountClass(slides.length)} cf-img-text-stack__media`}
           variants={hookStagger}
           initial="hidden"
           animate="show"
@@ -174,7 +197,7 @@ export function HookImageStrip({
           transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1], delay: 0.2 }}
           style={{ transformOrigin: "center" }}
         />
-        <h1 className={`hk-hero hk-text--${tone}`}>
+        <h1 className={`hk-hero cf-img-text-stack__copy hk-text--${tone}`}>
           <MaskReveal show duration={1100}>
             <span className="serif-cn">{takeoverText}</span>
           </MaskReveal>

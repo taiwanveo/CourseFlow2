@@ -10,6 +10,7 @@ import {
   type TtsBatchProgress,
   type TtsSynthesizeJobResult,
 } from "@/lib/tts-batch-progress";
+import { narrationTextForStep } from "@/lib/wvp-step-text";
 
 const STEP_SYNTHESIS_TIMEOUT_MS = 180_000;
 const STEP_PROGRESS_HEARTBEAT_MS = 5_000;
@@ -190,7 +191,8 @@ export async function runSynthesizeAudio(payload: {
         progress.currentLabel = progress.steps[stepIdx]!.label;
       }
 
-      if (!step.script.trim()) {
+      const ttsText = narrationTextForStep(step);
+      if (!ttsText.trim()) {
         updateStepProgress(progress, step.id, { status: "skipped" });
         await emitProgress();
         continue;
@@ -209,7 +211,7 @@ export async function runSynthesizeAudio(payload: {
       try {
         const buffer = await synthesizeStepAudio(
           payload.provider,
-          step.script,
+          ttsText,
           payload.voiceId,
           apiKey,
           payload.model,

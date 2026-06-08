@@ -15,11 +15,9 @@ function renderProgressLabel(
   pipeline?: string,
 ): string {
   if (pipeline === "wvp") {
-    if (progress < 30) return "準備 WVP 簡報…";
-    if (progress < 45) return "啟動錄製環境…";
-    if (progress < 80) return "Playwright 錄製播放中（?auto=1）…";
-    if (progress < 88) return "轉檔 WebM → MP4…";
-    if (progress < 100) return "上傳 MP4…";
+    if (progress < 45) return "準備匯出…";
+    if (progress < 88) return "轉檔匯出中…";
+    if (progress < 100) return "上傳影片…";
     return "完成";
   }
   if (progress < 15) return "準備中…";
@@ -27,8 +25,8 @@ function renderProgressLabel(
   if (progress < 40) return "編譯場景…";
   if (progress < 85) {
     return quickDraft
-      ? "快速渲染中（draft，通常較快）…"
-      : "渲染影片中（HyperFrames，可能較久）…";
+      ? "快速渲染中（通常較快）…"
+      : "渲染影片中（可能較久）…";
   }
   if (progress < 100) return "上傳影片…";
   return "完成";
@@ -72,6 +70,22 @@ export function ExportMp4Button({
   }, []);
 
   useEffect(() => () => clearPoll(), [clearPoll]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/projects/${projectId}/export/latest`)
+      .then((r) => r.json())
+      .then((data: { downloadUrl?: string | null }) => {
+        if (cancelled || !data.downloadUrl) return;
+        setDownloadUrl(data.downloadUrl);
+        setStatus("completed");
+        setStatusMessage("MP4 已就緒");
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const poll = useCallback(
     async (jobId: string) => {
@@ -150,9 +164,9 @@ export function ExportMp4Button({
     setPipeline(data.pipeline as string | undefined);
     setStatusMessage(
       data.pipeline === "wvp"
-        ? "WVP 錄製已加入佇列…"
+        ? "匯出已加入佇列…"
         : data.inline
-          ? "WVP 內嵌錄製中…"
+          ? "轉檔匯出中…"
           : "已加入佇列…",
     );
     if (data.inline && data.renderJob?.id) {
@@ -181,7 +195,7 @@ export function ExportMp4Button({
             "flex cursor-pointer items-center gap-1.5 text-sm text-zinc-400",
             compact && "text-xs text-white/80",
           )}
-          title="使用 HyperFrames draft 品質，渲染較快、暫存占用較少，適合先確認流程"
+          title="以較低畫質快速匯出，適合先確認流程"
         >
           <input
             type="checkbox"
@@ -219,10 +233,7 @@ export function ExportMp4Button({
               compact ? "play-page-btn" : "cf-btn cf-btn-sm cf-btn-primary",
             )}
           >
-            <span className="inline-flex items-center gap-2">
-              <LottieMark variant="success" size={16} ariaLabel="完成" loop={false} />
-              <span>下載</span>
-            </span>
+            下載
           </a>
         ) : null}
       </div>

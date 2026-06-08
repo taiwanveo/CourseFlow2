@@ -9,6 +9,8 @@ export const STEP_LAYOUT_IDS = [
   "split-focus",
   /** 圖表與解說動畫並列（複合版面） */
   "visual-explain-composite",
+  /** Beat-Scene：全屏標題 + 內容感知裝飾（對比條／大數字／脈衝圓） */
+  "beat-scene",
 ] as const;
 
 export type StepLayoutId = (typeof STEP_LAYOUT_IDS)[number];
@@ -30,6 +32,8 @@ export const StepEnterSchema = z.object({
 export const StepScreenSchema = z.object({
   headline: z.string(),
   sub: z.string().optional(),
+  /** Beat-Scene 分隔頁小標（合併分隔＋單步時使用） */
+  kicker: z.string().optional(),
 });
 
 /** 執行期由 VisualBlock 消費；建置期由 visual-config 驗證 */
@@ -77,6 +81,10 @@ export const StepDslStepSchema = z.object({
   animationStep: z.number().int().min(0).optional(),
   imageUrl: z.string().optional(),
   imageStep: z.number().int().min(0).optional(),
+  /** 口播原文（僅供 Beat-Scene accent 偵測，不顯示於畫面） */
+  narration: z.string().optional(),
+  /** 螢幕原文（Beat-Scene accent 偵測） */
+  screenRaw: z.string().optional(),
 });
 
 export const ListBundleSchema = z.object({

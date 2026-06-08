@@ -72,14 +72,14 @@ export function ListRevealGrid({
     return (
       <StepEnterFrame
         enterAnimationId={enterAnimationId}
-        className={`lr-scene scene-pad lr-intro${showIntroAnim || showIntroAnimLegacy || showIntroImg ? " lr-intro--has-figure" : ""}`}
+        className={`lr-scene scene-pad lr-intro cf-img-text-stack${showIntroAnim || showIntroAnimLegacy || showIntroImg ? " lr-intro--has-figure" : ""}`}
       >
         <header className="lr-masthead">
           <span className="lr-rule" />
           <span className="lr-kicker">{kicker ?? chapterTitle}</span>
           <span className="lr-rule" />
         </header>
-        <div className="lr-intro-focus">
+        <div className="lr-intro-focus cf-img-text-stack__copy">
           <MaskReveal show duration={1100}>
             <h1 className="lr-intro-h serif-cn">{introTitle}</h1>
           </MaskReveal>
@@ -91,19 +91,20 @@ export function ListRevealGrid({
         </div>
         {showIntroAnim || showIntroAnimLegacy ? (
           <MaskReveal show delay={220} duration={900}>
-            <div className="lr-intro-visual" data-no-advance>
+            <div className="lr-intro-visual cf-img-text-stack__media cf-img-single" data-no-advance>
               <ExplainAnimationSlot
                 className="lr-item-anim"
                 animationConfig={introAnimationConfig}
                 animationHtml={introAnimationHtml}
                 animationUrl={introAnimationUrl}
+                replayKey={`intro-${step}`}
                 title={introTitle}
               />
             </div>
           </MaskReveal>
         ) : showIntroImg ? (
           <MaskReveal show delay={220} duration={900}>
-            <div className="lr-intro-visual" data-no-advance>
+            <div className="lr-intro-visual cf-img-text-stack__media cf-img-single" data-no-advance>
               <img
                 className="lr-intro-img"
                 src={introImageUrl}
@@ -122,7 +123,7 @@ export function ListRevealGrid({
           animate="show"
         >
           {items.map((it, i) => (
-            <Slot key={it.num} state="ghost" item={it} index={i} intro />
+            <Slot key={it.num} state="ghost" item={it} index={i} step={step} intro />
           ))}
         </motion.div>
       </StepEnterFrame>
@@ -148,6 +149,7 @@ export function ListRevealGrid({
             state={i < activeIdx ? "past" : i === activeIdx ? "active" : "ghost"}
             item={it}
             index={i}
+            step={step}
           />
         ))}
       </div>
@@ -159,11 +161,13 @@ function Slot({
   state,
   item,
   index = 0,
+  step = 0,
   intro = false,
 }: {
   state: "ghost" | "active" | "past";
   item: ListRevealItem;
   index?: number;
+  step?: number;
   /** 引子頁 ghost 預覽：使用 intro stagger variants */
   intro?: boolean;
 }) {
@@ -217,6 +221,7 @@ function Slot({
               animationConfig={item.animationConfig}
               animationHtml={item.animationHtml}
               animationUrl={item.animationUrl}
+              replayKey={`${step}-${index}`}
               title={item.title}
             />
           ) : (

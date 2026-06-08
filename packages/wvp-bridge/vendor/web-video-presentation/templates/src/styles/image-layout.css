@@ -1,0 +1,189 @@
+/**
+ * CourseFlow 配圖排列 — 全主題／全版型共用（見 lib/imageLayout.ts）
+ *
+ * 1. 單圖：置中
+ * 2. 單圖 + 文字：圖文上下分區，圖盡量置中且不蓋字
+ * 3. 雙圖：左右各半
+ * 4. 三圖：各佔 1/3，中欄為視覺中心
+ * 5. 四圖：田字形 2×2
+ * 6. 鐵律：圖片不得與文字重疊
+ */
+
+.cf-img-grid {
+  display: grid;
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  margin-inline: auto;
+  gap: var(--space-5);
+  align-items: stretch;
+  justify-items: stretch;
+  box-sizing: border-box;
+}
+
+/* 1 張：單欄置中 */
+.cf-img-grid--n1 {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  max-width: min(1040px, var(--stage-safe-w));
+}
+
+/* 2 張：左右各半 */
+.cf-img-grid--n2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* 3 張：三等分，整組置中（中欄即畫面中心對齊點） */
+.cf-img-grid--n3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  justify-content: center;
+}
+
+/* 4 張：田字形 */
+.cf-img-grid--n4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+/* 單圖容器（ChapterFigure、單格配圖） */
+.cf-img-single {
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: min(1040px, var(--stage-safe-w));
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cf-img-single img,
+.cf-img-cell__media img {
+  display: block;
+  max-width: 100%;
+  max-height: var(--stage-figure-h);
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  margin-inline: auto;
+}
+
+/* 圖文分區：文字在上、圖在下（或反之），絕不重疊 */
+.cf-img-text-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  max-height: var(--stage-safe-h);
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.cf-img-text-stack__copy {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  position: relative;
+  z-index: 2;
+}
+
+.cf-img-text-stack__media {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* 多圖格子：序號 / 圖 / 說明文字分三列，互不重疊 */
+.cf-img-cell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--r-card);
+  border: var(--rule-w) dashed var(--rule);
+  background: var(--surface);
+  box-sizing: border-box;
+}
+
+.cf-img-cell__index {
+  padding: var(--space-3) var(--space-4) 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-h2);
+  color: var(--text-mute);
+  line-height: 1;
+}
+
+.cf-img-cell__media {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 var(--space-2);
+}
+
+.cf-img-cell--has-img .cf-img-cell__media {
+  padding: 0;
+}
+
+.cf-img-cell__caption {
+  padding: 0 var(--space-4) var(--space-3);
+  font-size: var(--t-body);
+  color: var(--text-2);
+  line-height: 1.35;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.cf-img-cell__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--t-caption);
+}
+
+/* 有配圖的場景：標題區與圖片區強制分離 */
+.bs-scene--has-figure,
+.lr-intro--has-figure,
+.hk-solo-frame {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bs-scene--has-figure .bs-main,
+.lr-intro--has-figure .lr-intro-focus {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.bs-scene--has-figure .bs-figure-wrap,
+.lr-intro--has-figure .lr-intro-visual {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--stage-figure-h);
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+}

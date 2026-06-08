@@ -4,6 +4,7 @@ import {
   assetsForChapter,
   buildHookSlides,
   hookSlideCount,
+  padNarrationsForHook,
 } from "../hook-slots.js";
 import { screenTextOnly } from "../slots.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
@@ -19,9 +20,9 @@ export function generateHookSources(
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
   const assets = assetsForChapter(input.assets, input.wvpChapterId);
-  const narrations = input.narrations;
   const screens = input.screenContents ?? [];
-  const slideCount = hookSlideCount(narrations.length);
+  const slideCount = hookSlideCount(input.narrations.length, assets);
+  const narrations = padNarrationsForHook(input.narrations, slideCount);
   const slides = buildHookSlides(assets, narrations.length, screens);
   const takeoverStepIndex = slideCount + 1;
   const hasTakeoverStep = narrations.length > takeoverStepIndex;
@@ -62,20 +63,12 @@ function stepMotion(step: number) {
   return STEP_MOTIONS[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
 }
 
-function resolveSlideUrl(slideIndex: number, checkpointUrl: string | null): string | null {
-  if (checkpointUrl?.trim()) return checkpointUrl.trim();
-  const wvpStep = slideIndex + 1;
-  if (STEP_IMAGE_EXT[wvpStep]) return stepImageUrl(wvpStep);
-  if (slideIndex === 0 && STEP_IMAGE_EXT[0]) return stepImageUrl(0);
-  return null;
-}
-
 /** CourseFlow · Hook 多圖開場 */
 export default function ${componentName}({ step }: ChapterStepProps) {
   const motion = stepMotion(step);
   const slides = SLIDES.map((s, idx) => ({
     ...s,
-    url: resolveSlideUrl(idx, s.url),
+    url: resolveHookSlideUrl(idx, s.url),
   }));
   return (
     <HookImageStrip

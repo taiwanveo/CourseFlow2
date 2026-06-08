@@ -232,6 +232,8 @@ export async function buildPresentation(
   await access(indexHtml);
   report(96, "寫入清單");
   await writeDistManifest(distDir);
+  const { writeExportAudioManifest } = await import("./export-audio.js");
+  await writeExportAudioManifest(presentationDir, distDir);
   report(100, "編譯完成");
   return {
     distDir,

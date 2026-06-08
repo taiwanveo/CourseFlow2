@@ -72,7 +72,7 @@ function FlowTrack({ nodes, active, preview = false }: FlowTrackProps) {
 
   const normalized = nodes.map(normalizeFlowNode);
   const count = normalized.length;
-  /** 僅 3 節點用直向；4+ 改橫向緊湊，避免上下被舞台裁切 */
+  /** 僅 3 節點用直向；4+ 改橫向展開，撐滿舞台寬高 */
   const stacked = count === 3;
   const denseHorizontal = count >= 4;
 
@@ -158,6 +158,7 @@ export function FlowDiagram({
             animationConfig={stepAnimationConfig}
             animationHtml={stepAnimationHtml}
             animationUrl={stepAnimationUrl}
+            replayKey={step}
             title={current?.label ?? intro}
           />
         ) : (

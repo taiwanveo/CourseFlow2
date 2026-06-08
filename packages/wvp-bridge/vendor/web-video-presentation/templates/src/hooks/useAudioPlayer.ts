@@ -2,6 +2,26 @@ import { useEffect, useRef } from "react";
 
 export type PlaybackMode = "manual" | "audio" | "auto";
 
+/** 極短靜音 WAV：在父頁 postMessage 換頁時先解鎖 iframe 音訊（CourseFlow 預覽外殼） */
+const SILENT_WAV =
+  "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
+/** 由 usePlayControlBridge 在收到使用者換頁手勢時呼叫，延長手勢視窗避免開頭被吃掉 */
+export function unlockAudioPlayback(): void {
+  if (typeof window === "undefined") return;
+  const probe = new Audio(SILENT_WAV);
+  probe.volume = 0.001;
+  void probe
+    .play()
+    .then(() => {
+      probe.pause();
+      probe.removeAttribute("src");
+    })
+    .catch(() => {
+      /* 仍嘗試正式播放 */
+    });
+}
+
 interface Options {
   /** Audio file path. `null` = no audio for this step (silent). */
   src: string | null;
@@ -24,6 +44,85 @@ interface Options {
    *  `<audio>` element so both step duration and advance timing shrink
    *  proportionally. Default 1. */
   playbackRate?: number;
+}
+
+/**
+ * 等音訊緩衝就緒後再從 0 秒播放。
+ * 過早 play() 會讓瀏覽器略過開頭約 0.5–1 秒（聽起來像從第二個字開始）。
+ */
+function playFromStart(
+  audio: HTMLAudioElement,
+  playbackRate: number,
+  cancelled: () => boolean,
+  onFail: (err: unknown) => void,
+): () => void {
+  audio.playbackRate = playbackRate;
+  audio.preload = "auto";
+
+  let begun = false;
+  let canPlayDelayTimer: number | undefined;
+  let fallbackTimer: number | undefined;
+  const removers: Array<() => void> = [];
+
+  const addListener = (
+    type: keyof HTMLMediaElementEventMap,
+    listener: EventListener,
+    options?: boolean | AddEventListenerOptions,
+  ) => {
+    audio.addEventListener(type, listener, options);
+    removers.push(() => audio.removeEventListener(type, listener));
+  };
+
+  const begin = () => {
+    if (cancelled() || begun) return;
+    begun = true;
+    if (canPlayDelayTimer !== undefined) {
+      clearTimeout(canPlayDelayTimer);
+      canPlayDelayTimer = undefined;
+    }
+    if (fallbackTimer !== undefined) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = undefined;
+    }
+    try {
+      audio.currentTime = 0;
+    } catch {
+      /* metadata 尚未就緒 */
+    }
+    void audio.play().catch(onFail);
+  };
+
+  const onPlaying = () => {
+    if (audio.currentTime > 0.1) {
+      try {
+        audio.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+  addListener("playing", onPlaying as EventListener, { once: true });
+
+  if (audio.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+    begin();
+  } else {
+    addListener("canplaythrough", begin as EventListener, { once: true });
+    addListener("canplay", (() => {
+      if (begun || cancelled()) return;
+      canPlayDelayTimer = window.setTimeout(() => {
+        if (!begun && !cancelled()) begin();
+      }, 120);
+    }) as EventListener, { once: true });
+    fallbackTimer = window.setTimeout(() => {
+      if (!begun && !cancelled()) begin();
+    }, 12_000);
+  }
+
+  return () => {
+    if (canPlayDelayTimer !== undefined) clearTimeout(canPlayDelayTimer);
+    if (fallbackTimer !== undefined) clearTimeout(fallbackTimer);
+    for (const remove of removers) remove();
+  };
 }
 
 /**
@@ -52,7 +151,6 @@ export function useAudioPlayer({
   playbackRate = 1,
 }: Options) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  // Latest callback ref so timers don't capture stale closures.
   const onAdvanceRef = useRef(onAutoAdvance);
   onAdvanceRef.current = onAutoAdvance;
 
@@ -70,6 +168,9 @@ export function useAudioPlayer({
 
     let advanced = false;
     let timer: number | null = null;
+    let cancelPlayReady: (() => void) | undefined;
+
+    const cancelled = () => advanced;
 
     const advanceAfter = (ms: number) => {
       if (mode !== "auto" || advanced) return;
@@ -80,31 +181,28 @@ export function useAudioPlayer({
       }, Math.max(0, ms));
     };
 
+    const onPlayFail = (err: unknown) => {
+      console.warn("audio play failed:", err);
+      if (mode === "auto") advanceAfter(estimateFallbackMs);
+    };
+
     if (src) {
       const audio = new Audio(src);
       audioRef.current = audio;
-      audio.preload = "auto";
-      audio.playbackRate = playbackRate;
 
       audio.addEventListener("ended", () => advanceAfter(trailMs));
       audio.addEventListener("error", () => {
-        // Audio file missing or undecodable — fall back to estimate.
         if (mode === "auto") advanceAfter(estimateFallbackMs);
       });
 
-      audio.play().catch((err) => {
-        // Autoplay blocked (rare, AutoStartGate should prevent this) or
-        // file missing — fall back to estimate in auto mode.
-        console.warn("audio play failed:", err);
-        if (mode === "auto") advanceAfter(estimateFallbackMs);
-      });
+      cancelPlayReady = playFromStart(audio, playbackRate, cancelled, onPlayFail);
     } else if (mode === "auto") {
-      // No audio for this step (silent / empty narration) — use estimate.
       advanceAfter(estimateFallbackMs);
     }
 
     return () => {
       advanced = true;
+      cancelPlayReady?.();
       if (timer != null) clearTimeout(timer);
       const a = audioRef.current;
       if (a) {

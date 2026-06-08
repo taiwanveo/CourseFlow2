@@ -5,6 +5,7 @@ import { VisualBlock, type VisualConfigProp } from "./VisualBlock";
 import { ExplainAnimationSlot } from "./ExplainAnimationSlot";
 import { ListRevealGrid, type ListRevealItem } from "./ListRevealGrid";
 import { FlowDiagram } from "./FlowDiagram";
+import { BeatSceneStep } from "./BeatSceneStep";
 import { HookImageStrip } from "./HookImageStrip";
 import type { MotionSceneConfig } from "./explain-motion-types";
 import { isMotionSceneConfig } from "./explain-motion-types";
@@ -45,9 +46,11 @@ function resolveImageUrl(
 function PerStepScene({
   stepDef,
   stepImageUrl,
+  chapterKicker,
 }: {
   stepDef: StepDslStepData;
   stepImageUrl: (step: number) => string;
+  chapterKicker: string;
 }) {
   const { enterAnimationId } = stepDef.enter;
   const anim = resolveAnimFromDsl(
@@ -86,6 +89,7 @@ function PerStepScene({
               className="usd-anim-frame"
               animationConfig={anim.animationConfig}
               animationHtml={anim.animationHtml}
+              replayKey={stepDef.step}
               title=""
             />
           </motion.div>
@@ -148,6 +152,21 @@ function PerStepScene({
     );
   }
 
+  if (stepDef.layout === "beat-scene") {
+    return (
+      <StepEnterFrame enterAnimationId={enterAnimationId} className="usd-beat">
+        <BeatSceneStep
+          kicker={stepDef.screen.kicker ?? chapterKicker}
+          headline={stepDef.screen.headline}
+          headlineSub={stepDef.screen.sub}
+          screenText={stepDef.screenRaw ?? stepDef.screen.headline}
+          narration={stepDef.narration ?? ""}
+          imageUrl={imageUrl}
+        />
+      </StepEnterFrame>
+    );
+  }
+
   if (stepDef.layout === "explain-focus" && hasAnim) {
     return (
       <StepEnterFrame
@@ -161,6 +180,7 @@ function PerStepScene({
           className="usd-anim-frame"
           animationConfig={anim.animationConfig}
           animationHtml={anim.animationHtml}
+          replayKey={stepDef.step}
           title=""
         />
       </StepEnterFrame>
@@ -186,6 +206,7 @@ function PerStepScene({
           className="usd-anim-frame"
           animationConfig={anim.animationConfig}
           animationHtml={anim.animationHtml}
+          replayKey={stepDef.step}
           title=""
         />
       ) : null}
@@ -197,10 +218,13 @@ export function UniversalStepChapter({
   step,
   chapter: rawChapter,
   stepImageUrl,
+  resolveHookSlideUrl,
 }: {
   step: number;
   chapter: StepDslChapterData;
   stepImageUrl: (step: number) => string;
+  /** 由 codegen 注入；未傳時僅用 checkpoint URL，不猜測打包路徑 */
+  resolveHookSlideUrl?: (slideIndex: number, checkpointUrl: string | null) => string | null;
 }) {
   const chapter = parseStepDslChapterRuntime(rawChapter) ?? rawChapter;
   const stepDef = chapter.steps[step];
@@ -263,11 +287,9 @@ export function UniversalStepChapter({
     const hb = chapter.hookBundle;
     const slides = hb.slides.map((s, idx) => {
       const checkpoint = s.url?.trim() ?? null;
-      const wvpStep = idx + 1;
-      const fromPack = stepImageUrl(wvpStep);
-      const url =
-        checkpoint ??
-        (fromPack && !fromPack.endsWith("/00.jpg") ? fromPack : idx === 0 ? stepImageUrl(0) : null);
+      const url = resolveHookSlideUrl
+        ? resolveHookSlideUrl(idx, checkpoint)
+        : checkpoint;
       return { ...s, url };
     });
     body = (
@@ -284,7 +306,13 @@ export function UniversalStepChapter({
       />
     );
   } else if (stepDef) {
-    body = <PerStepScene stepDef={stepDef} stepImageUrl={stepImageUrl} />;
+    body = (
+      <PerStepScene
+        stepDef={stepDef}
+        stepImageUrl={stepImageUrl}
+        chapterKicker={chapter.kicker}
+      />
+    );
   }
 
   return (

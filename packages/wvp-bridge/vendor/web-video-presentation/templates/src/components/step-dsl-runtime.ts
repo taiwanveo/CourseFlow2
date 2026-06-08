@@ -6,6 +6,7 @@ const LAYOUTS = new Set([
   "explain-focus",
   "split-focus",
   "visual-explain-composite",
+  "beat-scene",
 ]);
 const CHAPTER_LAYOUTS = new Set(["per-step", "list-reveal", "flow", "hook"]);
 
@@ -25,7 +26,7 @@ export function parseStepDslChapterRuntime(raw: unknown): StepDslChapterData | n
     const step = typeof st.step === "number" ? st.step : i;
     const layout = String(st.layout ?? "center-title");
     if (!LAYOUTS.has(layout)) return null;
-    const screen = st.screen as { headline?: string; sub?: string } | undefined;
+    const screen = st.screen as { headline?: string; sub?: string; kicker?: string } | undefined;
     const headline = screen?.headline;
     if (typeof headline !== "string") return null;
     const enterRaw = st.enter as { enterAnimationId?: string; transitionId?: string } | undefined;
@@ -36,7 +37,11 @@ export function parseStepDslChapterRuntime(raw: unknown): StepDslChapterData | n
     return {
       step,
       layout: layout as StepDslChapterData["steps"][0]["layout"],
-      screen: { headline, ...(screen?.sub ? { sub: screen.sub } : {}) },
+      screen: {
+        headline,
+        ...(screen?.sub ? { sub: screen.sub } : {}),
+        ...(screen?.kicker ? { kicker: screen.kicker } : {}),
+      },
       enter,
       ...(st.visual && typeof st.visual === "object" ? { visual: st.visual as Record<string, unknown> } : {}),
       ...(st.explain && typeof st.explain === "object" ? { explain: st.explain as StepDslChapterData["steps"][0]["explain"] } : {}),
@@ -44,6 +49,8 @@ export function parseStepDslChapterRuntime(raw: unknown): StepDslChapterData | n
       ...(typeof st.animationStep === "number" ? { animationStep: st.animationStep } : {}),
       ...(typeof st.imageUrl === "string" ? { imageUrl: st.imageUrl } : {}),
       ...(typeof st.imageStep === "number" ? { imageStep: st.imageStep } : {}),
+      ...(typeof st.narration === "string" ? { narration: st.narration } : {}),
+      ...(typeof st.screenRaw === "string" ? { screenRaw: st.screenRaw } : {}),
     };
   });
   if (steps.some((s) => s === null)) return null;

@@ -12,6 +12,10 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 import { chromium } from "playwright";
+import {
+  buildCombinedExportAudio,
+  muxAudioIntoVideo,
+} from "./export-audio.js";
 import { detectWvpEmbedPrefix, startStaticServer } from "./static-server.js";
 
 /**
@@ -49,6 +53,7 @@ async function convertWebmToMp4(webmPath: string, mp4Path: string): Promise<bool
       "libx264",
       "-pix_fmt",
       "yuv420p",
+      "-an",
       "-movflags",
       "+faststart",
       mp4Path,
@@ -86,12 +91,15 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
   const { port, close: closeServer } = await startStaticServer(opts.distDir, 0, {
     pathPrefix: embedPrefix,
   });
-  const url = `http://127.0.0.1:${port}/?auto=1`;
+  const url = `http://127.0.0.1:${port}/?auto=1&recording=1&export=1`;
 
   opts.onProgress?.(45);
 
   // 固定輸出 1920x1080，確保預覽與最終影片尺寸一致，避免播放器自動縮放造成畫面差異。
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--autoplay-policy=no-user-gesture-required"],
+  });
   const context = await browser.newContext({
     viewport: { width: 1920, height: 1080 },
     recordVideo: { dir: videosDir, size: { width: 1920, height: 1080 } },
@@ -107,12 +115,12 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
     await page.waitForSelector("#root", { state: "attached", timeout: 30_000 });
     await page.waitForTimeout(500);
 
-    // 前端可能用自訂 gate 控制自動播放；若 gate 不存在，就回退到送出 Space 觸發播放。
+    // export=1 應跳過 overlay；舊版 dist 仍可能顯示 gate，需先解除再錄製。
     const gate = page.locator(".auto-gate");
     if (await gate.isVisible().catch(() => false)) {
       await gate.click();
-    } else {
-      await page.keyboard.press("Space");
+      await page.waitForSelector(".auto-gate", { state: "hidden", timeout: 10_000 }).catch(() => undefined);
+      await page.waitForTimeout(400);
     }
     opts.onProgress?.(55);
 
@@ -176,7 +184,8 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
     if (!webmPath) throw new Error("Playwright 未產生錄屏檔");
 
     opts.onProgress?.(82);
-    const converted = await convertWebmToMp4(webmPath, opts.outputPath);
+    const videoOnlyPath = join(dirname(opts.outputPath), "video-only.mp4");
+    const converted = await convertWebmToMp4(webmPath, videoOnlyPath);
     if (!converted) {
       const buf = await readFile(webmPath);
       if (webmPath.endsWith(".webm")) {
@@ -184,7 +193,20 @@ export async function recordWvpPresentation(opts: RecordWvpOptions): Promise<voi
           "錄屏完成但無法轉成 MP4：請安裝 ffmpeg 並加入 PATH，或手動轉檔 webm。",
         );
       }
-      await writeFile(opts.outputPath, buf);
+      await writeFile(videoOnlyPath, buf);
+    }
+
+    opts.onProgress?.(84);
+    const audioWorkDir = join(dirname(opts.outputPath), "export-audio");
+    const combinedAudio = await buildCombinedExportAudio(opts.distDir, audioWorkDir);
+    if (combinedAudio) {
+      opts.onProgress?.(86);
+      await muxAudioIntoVideo(videoOnlyPath, combinedAudio, opts.outputPath);
+      await rm(audioWorkDir, { recursive: true, force: true }).catch(() => undefined);
+      await rm(videoOnlyPath, { force: true }).catch(() => undefined);
+    } else {
+      await writeFile(opts.outputPath, await readFile(videoOnlyPath));
+      await rm(videoOnlyPath, { force: true }).catch(() => undefined);
     }
 
     await rm(videosDir, { recursive: true, force: true });

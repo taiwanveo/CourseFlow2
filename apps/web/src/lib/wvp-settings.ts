@@ -41,6 +41,8 @@ export interface WvpSettings {
   imageStyle?: WvpImageStyleSelection | null;
   /** 步驟進場／轉場整體風格（打包時套用） */
   enterMotionStyle?: EnterMotionStyle;
+  /** 章與章之間轉場；長度 = 章節數 − 1，索引 i = 第 i 章 → 第 i+1 章 */
+  chapterTransitions?: string[];
 }
 
 export function parseWvpSettings(raw: unknown): WvpSettings {
@@ -77,6 +79,10 @@ export function parseWvpSettings(raw: unknown): WvpSettings {
       ? o.enterMotionStyle
       : "standard";
 
+  const chapterTransitions = Array.isArray(o.chapterTransitions)
+    ? o.chapterTransitions.filter((t): t is string => typeof t === "string")
+    : undefined;
+
   return {
     themeId: typeof o.themeId === "string" ? o.themeId : null,
     devMode:
@@ -92,6 +98,7 @@ export function parseWvpSettings(raw: unknown): WvpSettings {
     assets,
     imageStyle,
     enterMotionStyle,
+    chapterTransitions,
   };
 }
 

@@ -15,9 +15,10 @@ import type { LlmProviderId } from "@courseflow/llm";
 import { useToast } from "@/components/Toast";
 import { LottieMark } from "@/components/lottie/LottieMark";
 import { useConfiguredLlmProviders } from "@/hooks/useConfiguredLlmProviders";
-import type { WvpSettings } from "@/lib/wvp-settings";
+import type { WvpAssetRef, WvpSettings } from "@/lib/wvp-settings";
 import { wvpChapterIdMap } from "@/lib/wvp-chapter-id-map";
 import { parseWvpPhaseLocksResponse } from "@/lib/wvp-locks";
+import { HOOK_OPENING_HINT } from "@/lib/wvp-hook-ui";
 
 export function ContentPhaseClient({
   projectId,
@@ -132,7 +133,7 @@ export function ContentPhaseClient({
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [composition, locked]);
+  }, [composition, wvpSettings.assets, locked]);
 
   const uploadFile = async (file: File) => {
     setUploading(true);
@@ -338,6 +339,11 @@ export function ContentPhaseClient({
             fillHeight
             projectId={projectId}
             chapterWvpIds={chapterWvpIds}
+            wvpAssets={wvpSettings.assets ?? []}
+            locked={locked}
+            onWvpAssetsChange={(next: WvpAssetRef[]) =>
+              setWvpSettings((prev) => ({ ...prev, assets: next }))
+            }
           />
         </aside>
         <section className="sticky top-4 flex min-w-0 flex-col">
@@ -363,6 +369,9 @@ export function ContentPhaseClient({
                             : c,
                         ),
                       });
+                      if (kind === "hook") {
+                        toast(HOOK_OPENING_HINT, "info");
+                      }
                     }}
                     className="cf-select w-[16.67%] py-0 text-[11px]"
                   >

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { filterChineseVoices } from "./chinese-tts.js";
 import type { TtsCredentials, TtsProvider, TtsVoice, TtsSynthesizeOptions } from "./types.js";
 import { OPENAI_TTS_VOICES, resolveTtsModel } from "./types.js";
 import {
@@ -12,7 +13,7 @@ export const openAiTtsProvider: TtsProvider = {
 
   async listVoices(credentials?: TtsCredentials): Promise<TtsVoice[]> {
     if (!credentials?.apiKey) return [];
-    return OPENAI_TTS_VOICES;
+    return filterChineseVoices(OPENAI_TTS_VOICES);
   },
 
   async synthesize(
@@ -49,7 +50,7 @@ export const openRouterTtsProvider: TtsProvider = {
         voices.push(voice);
       }
     }
-    return voices;
+    return filterChineseVoices(voices);
   },
 
   async synthesize(
@@ -73,11 +74,11 @@ export const geminiTtsProvider: TtsProvider = {
 
   async listVoices(credentials?: TtsCredentials): Promise<TtsVoice[]> {
     if (!credentials?.apiKey) return [];
-    return [
+    return filterChineseVoices([
       { id: "Kore", name: "Kore", language: "multi", gender: "female", provider: "gemini" },
       { id: "Puck", name: "Puck", language: "multi", gender: "male", provider: "gemini" },
       { id: "Charon", name: "Charon", language: "multi", gender: "male", provider: "gemini" },
-    ];
+    ]);
   },
 
   async synthesize(

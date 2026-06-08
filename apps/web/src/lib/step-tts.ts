@@ -49,5 +49,5 @@ export const TTS_PROVIDER_LABELS: Record<string, string> = {
   openai: "OpenAI",
   gemini: "Gemini",
   openrouter: "OpenRouter",
-  "edge-tts": "Edge-TTS（繁中）",
+  "edge-tts": "Edge-TTS（中文）",
 };

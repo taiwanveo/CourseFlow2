@@ -13,6 +13,7 @@ import {
   writeChapterSourcesRaw,
   writeChapterToPresentation,
   writeChaptersRegistry,
+  writeChapterTransitionsRegistry,
   type RegistryChapterEntry,
   type StepVisualEntry,
 } from "@courseflow/presentation";
@@ -57,6 +58,7 @@ import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { parseChapterMotionOrientation } from "@courseflow/explain-animation";
 import { parseWvpSettings, type EnterMotionStyle, type WvpAssetRef } from "@/lib/wvp-settings";
+import { resolveChapterTransitions } from "@/lib/wvp-motion-utils";
 import {
   resolveStepImageExtMapFromLocalDir,
   resolveStepImageExtMapLocal,
@@ -538,6 +540,7 @@ export async function rebuildRegistryForProject(
     preserveApprovedAnchorChapter?: boolean;
     forceFreshChapterSource?: boolean;
     enterMotionStyle?: EnterMotionStyle;
+    chapterTransitions?: string[] | null;
   },
 ): Promise<RegistryChapterEntry[]> {
   const entries: RegistryChapterEntry[] = [];
@@ -560,6 +563,11 @@ export async function rebuildRegistryForProject(
   }
 
   await writeChaptersRegistry(presentationDir, entries, { removeExample: entries.length > 0 });
+  const chapterBoundaryTransitions = resolveChapterTransitions(
+    entries.length,
+    opts?.chapterTransitions,
+  );
+  await writeChapterTransitionsRegistry(presentationDir, chapterBoundaryTransitions);
   return entries;
 }
 
@@ -845,6 +853,7 @@ export async function buildSingleChapterPreview(
     {
       forceFreshChapterSource: Boolean(opts?.markAnchorTrial),
       enterMotionStyle: wvpSettings.enterMotionStyle,
+      chapterTransitions: wvpSettings.chapterTransitions,
     },
   );
   if (entries.length === 0) {
@@ -1003,6 +1012,7 @@ export async function syncFullWvpProject(
     {
       preserveApprovedAnchorChapter,
       enterMotionStyle: wvpSettings.enterMotionStyle,
+      chapterTransitions: wvpSettings.chapterTransitions,
     },
   );
 
@@ -1165,6 +1175,7 @@ export async function syncFullWvpProject(
         {
           preserveApprovedAnchorChapter,
           enterMotionStyle: wvpSettings.enterMotionStyle,
+          chapterTransitions: wvpSettings.chapterTransitions,
         },
       );
     } else {

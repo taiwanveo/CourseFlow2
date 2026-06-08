@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { CompactBatchProgressPanel } from "@/components/CompactBatchProgressPanel";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
 import { canAccessWvpPhase, type WvpPhaseLocks } from "@courseflow/core";
@@ -62,6 +70,12 @@ import {
   isThemePreviewCached,
   markThemePreviewCached,
 } from "@/lib/theme-preview-cache";
+import {
+  resolveChapterTransitions,
+  STEP_TRANSITION_IDS,
+  STEP_TRANSITION_LABELS,
+  type StepTransitionId,
+} from "@/lib/wvp-motion-utils";
 
 type CraftRow = {
   id: string;
@@ -556,6 +570,38 @@ export function CraftPhaseClient({
       toast(`已設定進場風格：${ENTER_MOTION_STYLE_LABELS[style]}`, "success");
     } catch (e) {
       toast(e instanceof Error ? e.message : "進場風格儲存失敗", "error");
+    }
+  };
+
+  const chapterBoundaryTransitions = useMemo(
+    () => resolveChapterTransitions(chapters.length, settings.chapterTransitions),
+    [chapters.length, settings.chapterTransitions],
+  );
+
+  const saveChapterTransition = async (gapIndex: number, transitionId: StepTransitionId) => {
+    const nextTransitions = [...chapterBoundaryTransitions];
+    nextTransitions[gapIndex] = transitionId;
+    const next: WvpSettings = { ...settings, chapterTransitions: nextTransitions };
+    setSettings(next);
+    setBusy(`chapter-tx-${gapIndex}`);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/wvp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wvpSettings: { ...next, devMode: "sequential" as const },
+          themeId: next.themeId ?? initialThemeId,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "儲存失敗");
+      toast(
+        `已設定第 ${gapIndex + 1} → ${gapIndex + 2} 章轉場：${STEP_TRANSITION_LABELS[transitionId]}`,
+        "success",
+      );
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "章節轉場儲存失敗", "error");
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -1430,6 +1476,7 @@ export function CraftPhaseClient({
                 <p className="mt-0.5 text-[11px] text-zinc-500">
                   正常使用上方「開始執行」即可，無需手動逐章操作。
                   若修改了某章文稿，可調整版型、用「匯入口播」重新同步口播，再用「AI 畫面」重新產生視覺。
+                  章與章之間的短連線可選轉場特效，變更後請重新打包預覽才會生效。
                 </p>
               ) : null}
             </div>
@@ -1446,6 +1493,7 @@ export function CraftPhaseClient({
           ) : (
             <div className="space-y-2">
               {chapters.map((ch, i) => {
+                const gapIndex = i - 1;
                 const isSelected = selectedWvpId === ch.wvp_chapter_id;
                 const isSyncing = busy === `sync-${ch.wvp_chapter_id}`;
                 const isGenerating = busy === `gen-${ch.wvp_chapter_id}`;
@@ -1470,7 +1518,39 @@ export function CraftPhaseClient({
                 ).length;
 
                 return (
-                  <div key={ch.id} className="space-y-1">
+                  <Fragment key={ch.wvp_chapter_id}>
+                  {i > 0 ? (
+                    <div className="flex items-center gap-2 py-0.5 pl-3">
+                      <div
+                        className="h-5 w-px shrink-0 bg-gradient-to-b from-zinc-700/30 via-zinc-600 to-zinc-700/30"
+                        aria-hidden
+                      />
+                      <label className="flex min-w-0 flex-1 items-center gap-2 text-[10px] text-zinc-500">
+                        <span className="shrink-0 tabular-nums text-zinc-600">
+                          {i}→{i + 1}
+                        </span>
+                        <select
+                          className="cf-select min-w-0 flex-1 py-1 text-[10px]"
+                          disabled={!!busy || locks.craft}
+                          title={`第 ${i} 章結束後進入第 ${i + 1} 章的轉場`}
+                          value={chapterBoundaryTransitions[gapIndex] ?? "crossfade"}
+                          onChange={(e) =>
+                            void saveChapterTransition(
+                              gapIndex,
+                              e.target.value as StepTransitionId,
+                            )
+                          }
+                        >
+                          {STEP_TRANSITION_IDS.map((id) => (
+                            <option key={id} value={id}>
+                              {STEP_TRANSITION_LABELS[id]}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  ) : null}
+                  <div className="space-y-1">
                   <div
                     className={`flex items-start gap-1.5 rounded border px-2 py-1.5 ${
                       isSelected
@@ -1673,6 +1753,7 @@ export function CraftPhaseClient({
                     </div>
                   ) : null}
                   </div>
+                  </Fragment>
                 );
               })}
             </div>

@@ -1,4 +1,11 @@
+import {
+  enrichChineseVoice,
+  filterChineseTtsModelsWithVoices,
+  filterChineseVoices,
+  voiceIdSupportsChinese,
+} from "./chinese-tts.js";
 import type { TtsModel, TtsVoice } from "./types.js";
+import { getTtsVoicesForModel } from "./types.js";
 
 const OPENROUTER_MODELS_URL =
   "https://openrouter.ai/api/v1/models?output_modalities=speech";
@@ -27,32 +34,28 @@ function isSpeechModel(row: OpenRouterSpeechModelRow): boolean {
   return row.architecture?.modality === "text->speech";
 }
 
-function voiceLabel(voiceId: string): string {
-  const base = voiceId.includes(":") ? voiceId.split(":")[0]! : voiceId;
-  return base.replace(/[_-]+/g, " ").trim();
-}
-
 export function openRouterVoicesForModel(
   modelId: string,
   rows: OpenRouterSpeechModelRow[],
 ): TtsVoice[] {
   const row = rows.find((item) => item.id === modelId);
-  const voices = row?.supported_voices ?? [];
-  return voices.map((id) => ({
-    id,
-    name: voiceLabel(id),
-    language: "multi",
-    provider: "openrouter",
-  }));
+  const voices = (row?.supported_voices ?? [])
+    .filter((id) => voiceIdSupportsChinese(id))
+    .map((id) => enrichChineseVoice({ id, name: id, language: "multi", provider: "openrouter" }));
+  if (voices.length > 0) return voices;
+  return filterChineseVoices(getTtsVoicesForModel(modelId, "openrouter"));
 }
 
 export function openRouterRowsToTtsModels(rows: OpenRouterSpeechModelRow[]): TtsModel[] {
-  return rows.map((row) => ({
+  const models = rows.map((row) => ({
     id: row.id,
     name: row.name,
     provider: "openrouter" as const,
     voices: openRouterVoicesForModel(row.id, rows),
   }));
+  return filterChineseTtsModelsWithVoices(models, (modelId) =>
+    filterChineseVoices(getTtsVoicesForModel(modelId, "openrouter")),
+  );
 }
 
 export async function fetchOpenRouterSpeechModels(

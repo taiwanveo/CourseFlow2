@@ -11,9 +11,20 @@ export function buildCodegenStepImageBlock(
   }
   return `const WVP_ID = ${JSON.stringify(wvpChapterId)};
 const STEP_IMAGE_EXT = ${JSON.stringify(normalized)} as Record<number, string>;
+function hasStepImage(step: number) {
+  return step in STEP_IMAGE_EXT;
+}
 function stepImageUrl(step: number) {
   const ext = STEP_IMAGE_EXT[step] ?? "jpg";
   return \`\${import.meta.env.BASE_URL}images/\${WVP_ID}/\${String(step + 1).padStart(2, "0")}.\${ext}\`;
+}
+/** Hook 多圖：僅在打包目錄確實有圖時才回傳 URL，避免預設 jpg 造成破圖 */
+function resolveHookSlideUrl(slideIndex: number, checkpointUrl: string | null): string | null {
+  if (checkpointUrl?.trim()) return checkpointUrl.trim();
+  const wvpStep = slideIndex + 1;
+  if (hasStepImage(wvpStep)) return stepImageUrl(wvpStep);
+  if (slideIndex === 0 && hasStepImage(0)) return stepImageUrl(0);
+  return null;
 }
 `;
 }

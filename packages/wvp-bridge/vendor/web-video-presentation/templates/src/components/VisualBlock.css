@@ -23,10 +23,10 @@
 /* ══ 標題文字 ══ */
 .vf-headline-text {
   display: block;
-  max-width: 100%;
-  font-size: 80px;
+  max-width: var(--stage-safe-w);
+  font-size: clamp(56px, 5cqw, 88px);
   line-height: 1.1;
-  overflow: visible;
+  overflow: hidden;
   overflow-wrap: anywhere;
   word-break: keep-all;
   white-space: normal;

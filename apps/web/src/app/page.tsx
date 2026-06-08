@@ -17,7 +17,7 @@ export default async function HomePage() {
         <BrandMark size="lg" className="mx-auto mb-6" />
         <h1 className="text-4xl font-bold tracking-tight md:text-5xl">CourseFlow</h1>
         <p className="mt-5 text-lg leading-relaxed text-zinc-400">
-        整合「Web Video Presentation」方法論與「HyperFrames」技術，從教學文件開始，一條龍製作出16:9教學影片。
+        整合「Web Video Presentation」方法論，從教學文件開始，一條龍製作出 16:9 教學影片。
         </p>
       </div>
       <Link href="/login" className="cf-btn cf-btn-primary px-8 py-3 text-base">

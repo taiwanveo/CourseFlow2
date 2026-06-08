@@ -1,6 +1,7 @@
 import type { StepDslChapter } from "../../step-dsl/schema.js";
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
+import { codegenNarrationsForChapter } from "../step-dsl-build.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
@@ -12,6 +13,7 @@ export function generateUniversalStepDslSources(
   chapterDsl: StepDslChapter,
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
+  const narrations = codegenNarrationsForChapter(input, chapterDsl);
   const stepImageBlock = buildCodegenStepImageBlock(
     input.wvpChapterId,
     input.stepImageExtensions ?? {},
@@ -37,6 +39,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       step={step}
       chapter={STEP_DSL_CHAPTER}
       stepImageUrl={stepImageUrl}
+      resolveHookSlideUrl={resolveHookSlideUrl}
     />
   );
 }
@@ -51,8 +54,8 @@ export default function ${componentName}({ step }: ChapterStepProps) {
     css,
     dslFileName: "step-dsl-data.ts",
     dslTs,
-    narrationsTs: buildNarrationsTs(input),
-    narrations: input.narrations,
+    narrationsTs: buildNarrationsTs({ ...input, narrations }),
+    narrations,
     templateKind: chapterDsl.templateKind,
   };
 }

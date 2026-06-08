@@ -617,18 +617,25 @@ function VennOverlapScene({ params }: { params: Record<string, unknown> }) {
 function BeforeAfterSliderScene({ params }: { params: Record<string, unknown> }) {
   const beforeLabel = String(params.beforeLabel ?? "改造前").slice(0, 6);
   const afterLabel = String(params.afterLabel ?? "改造後").slice(0, 6);
-  const { reduce, springReveal } = usePresentationMotion();
+  const { reduce } = usePresentationMotion();
   const [pos, setPos] = useState(reduce ? 0.5 : 0.82);
 
   useEffect(() => {
-    if (reduce) return;
-    const t1 = window.setTimeout(() => setPos(0.28), 700);
-    const t2 = window.setTimeout(() => setPos(0.5), 2200);
+    if (reduce) {
+      setPos(0.5);
+      return;
+    }
+    setPos(0.82);
+    const t1 = window.setTimeout(() => setPos(0.28), 500);
+    const t2 = window.setTimeout(() => setPos(0.5), 1900);
     return () => {
       window.clearTimeout(t1);
       window.clearTimeout(t2);
     };
   }, [reduce]);
+
+  const clipInset = `${(1 - pos) * 100}%`;
+  const slideTransition = { duration: 0.85, ease: [0.25, 1, 0.5, 1] as const };
 
   return (
     <div className="exm-scene exm-before-after" data-no-advance>
@@ -638,15 +645,17 @@ function BeforeAfterSliderScene({ params }: { params: Record<string, unknown> })
         </div>
         <motion.div
           className="exm-ba-pane exm-ba-after"
-          style={{ clipPath: `inset(0 ${(1 - pos) * 100}% 0 0)` }}
-          transition={springReveal}
+          initial={false}
+          animate={{ clipPath: `inset(0 ${clipInset} 0 0)` }}
+          transition={slideTransition}
         >
           <span>{afterLabel}</span>
         </motion.div>
         <motion.div
           className="exm-ba-handle"
-          style={{ left: `${pos * 100}%` }}
-          transition={springReveal}
+          initial={false}
+          animate={{ left: `${pos * 100}%` }}
+          transition={slideTransition}
         />
       </div>
     </div>

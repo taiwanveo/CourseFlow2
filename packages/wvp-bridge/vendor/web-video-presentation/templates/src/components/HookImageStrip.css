@@ -28,21 +28,20 @@
 /* ══ 圖片格 3 欄網格 ══ 各格為 16:9 號位圖框
   想改成 2 欄 / 4 欄或改格距，從這裡下手。 */
 .hk-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-5);
-  align-items: center;
+  flex: 1;
+  min-height: 0;
+  align-content: center;
+}
+
+.hk-grid-item {
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
 }
 /* ══ 16:9 號位圖框 ══ 號線邊框，願示序號 + 說明文字 */
 .hk-ghost {
   aspect-ratio: 16 / 9;
-  border: var(--rule-w) dashed var(--rule);
-  border-radius: var(--r-card);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: var(--space-4);
-  background: var(--surface);
+  min-height: 160px;
 }
 .hk-ghost-num {
   font-family: var(--font-mono);
@@ -55,25 +54,23 @@
   color: var(--text-faint);
   align-self: end;
 }
-.hk-ghost--has-img {
-  padding: 0;
-  overflow: hidden;
+.hk-ghost-media {
+  aspect-ratio: 16 / 9;
 }
+
 .hk-ghost-thumb {
-  flex: 1;
   width: 100%;
-  object-fit: cover;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
   border-radius: calc(var(--r-card) - 2px);
 }
 
 /* ══ 單圖全寬展示區 ══ 單圖場景預設寬 78%
   想讓主圖更滿版或更保守，改 `.hk-solo-frame` 的 `width`。 */
 .hk-solo-frame {
-  width: 78%;
+  width: min(78%, var(--stage-safe-w));
   margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
 }
 .hk-solo-img-wrap {
   position: relative;
@@ -123,19 +120,19 @@
 }
 /* 自適應字級：短標題用大展示字，長文收斂避免溢出 */
 .hk-text--hero {
-  font-size: var(--t-display-1);
+  font-size: clamp(72px, 6.5cqw, 112px);
   line-height: 0.95;
 }
 .hk-text--md {
-  font-size: clamp(64px, 6vw, 96px);
+  font-size: clamp(56px, 5cqw, 88px);
   line-height: 1.05;
 }
 .hk-text--lg {
-  font-size: clamp(48px, 4.5vw, 72px);
+  font-size: clamp(44px, 4cqw, 72px);
   line-height: 1.12;
 }
 .hk-text--compact {
-  font-size: clamp(32px, 3.2vw, 48px);
+  font-size: clamp(36px, 3.2cqw, 52px);
   line-height: 1.25;
   max-width: 22ch;
 }
@@ -181,15 +178,17 @@
   gap: var(--space-6);
 }
 .hk-mini-row {
-  display: flex;
-  gap: var(--space-3);
+  width: 100%;
+  max-width: var(--stage-safe-w);
 }
+
 .hk-mini {
-  width: 140px;
+  width: 100%;
   aspect-ratio: 16 / 9;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: calc(var(--r-card) * 0.5);
   box-shadow: var(--shadow-card);
+  background: var(--surface-2);
 }
 .hk-mini-ph {
   background: var(--surface-2);

@@ -46,7 +46,9 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
   const hooksDir = join(presentationDir, "src", "hooks");
   const componentsDir = join(presentationDir, "src", "components");
 
+  const libDir = join(presentationDir, "src", "lib");
   await mkdir(hooksDir, { recursive: true });
+  await mkdir(libDir, { recursive: true });
   await mkdir(componentsDir, { recursive: true });
   await ensurePresentationPackageDeps(presentationDir);
 
@@ -59,11 +61,22 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "usePlayControlBridge.ts",
     "useAudioPlayer.ts",
     "usePresentationMotion.ts",
+    "usePauseControl.ts",
+    "fitStageText.ts",
   ]) {
     await cp(join(t, "src/hooks", hook), join(hooksDir, hook), { force: true });
   }
   await cp(join(t, "src/App.tsx"), join(presentationDir, "src/App.tsx"), { force: true });
-  for (const css of ["base.css", "animations.css", "asian-slide-design.css"]) {
+  await cp(join(t, "src/lib/imageLayout.ts"), join(libDir, "imageLayout.ts"), {
+    force: true,
+  });
+  for (const css of [
+    "base.css",
+    "animations.css",
+    "asian-slide-design.css",
+    "stage-text-fit.css",
+    "image-layout.css",
+  ]) {
     await cp(join(t, "src/styles", css), join(presentationDir, "src/styles", css), {
       force: true,
     });
@@ -101,6 +114,8 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "ChapterFigure.css",
     "HookImageStrip.tsx",
     "HookImageStrip.css",
+    "BeatSceneStep.tsx",
+    "BeatSceneStep.css",
     "VisualBlock.tsx",
     "VisualBlock.css",
     "step-dsl-types.ts",

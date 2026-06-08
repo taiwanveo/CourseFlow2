@@ -1,7 +1,9 @@
 import type { TtsCredentials, TtsProvider, TtsProviderId, TtsVoice, TtsModel, ProjectLanguage, TtsSynthesizeOptions } from "./types.js";
+import { filterChineseTtsModelsWithVoices, filterChineseVoices } from "./chinese-tts.js";
 import {
   edgeTtsVisibleForLanguage,
-  EDGE_TTS_ZH_TW_VOICES,
+  edgeTtsVoicesForLanguage,
+  getTtsVoicesForModel,
   OPENAI_TTS_MODELS,
 } from "./types.js";
 import { fetchOpenRouterTtsCatalog } from "./openrouter-tts.js";
@@ -48,10 +50,10 @@ export async function listAllVoices(
   }
 
   if (edgeTtsVisibleForLanguage(language)) {
-    voices.push(...EDGE_TTS_ZH_TW_VOICES);
+    voices.push(...edgeTtsVoicesForLanguage(language));
   }
 
-  return voices;
+  return filterChineseVoices(voices);
 }
 
 export async function listTtsModels(
@@ -59,7 +61,9 @@ export async function listTtsModels(
 ): Promise<Partial<Record<TtsProviderId, TtsModel[]>>> {
   const models: Partial<Record<TtsProviderId, TtsModel[]>> = {};
   if (credentialsByProvider.openai?.apiKey) {
-    models.openai = OPENAI_TTS_MODELS;
+    models.openai = filterChineseTtsModelsWithVoices(OPENAI_TTS_MODELS, (modelId, provider) =>
+      filterChineseVoices(getTtsVoicesForModel(modelId, provider)),
+    );
   }
   if (credentialsByProvider.openrouter?.apiKey) {
     try {
@@ -90,6 +94,12 @@ export async function synthesizeSpeech(
 }
 
 export * from "./types.js";
+export {
+  filterChineseVoices,
+  filterChineseTtsModelsWithVoices,
+  formatVoiceLabel,
+  voiceIdSupportsChinese,
+} from "./chinese-tts.js";
 export { edgeTtsProvider } from "./edge-tts.js";
 export {
   fetchOpenRouterSpeechModels,

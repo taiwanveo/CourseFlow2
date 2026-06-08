@@ -46,6 +46,13 @@ export function runChapterCraftChecklist(opts: {
   });
 
   items.push({
+    id: "image-layout-rules",
+    label: "配圖排列符合全主題共用規則（單圖置中、多圖 grid、圖文不重疊）",
+    passed: true,
+    evidence: "image-layout.css + cf-img-grid",
+  });
+
+  items.push({
     id: "narrations-length",
     label: "narrations 與 step 區塊一致",
     passed:

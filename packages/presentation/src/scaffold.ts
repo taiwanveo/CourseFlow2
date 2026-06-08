@@ -91,6 +91,7 @@ export async function scaffoldPresentation(
   const dirs = [
     "src/styles",
     "src/hooks",
+    "src/lib",
     "src/components",
     "src/registry",
     "src/chapters/01-example",
@@ -108,7 +109,15 @@ export async function scaffoldPresentation(
   await copyFile(join(t, "src/App.tsx"), join(targetDir, "src/App.tsx"));
 
   await copyFile(tokensSrc, join(targetDir, "src/styles/tokens.css"));
-  for (const css of ["base.css", "asian-slide-design.css", "animations.css", "fonts.css", "print.css"]) {
+  for (const css of [
+    "base.css",
+    "asian-slide-design.css",
+    "stage-text-fit.css",
+    "image-layout.css",
+    "animations.css",
+    "fonts.css",
+    "print.css",
+  ]) {
     await copyFile(join(t, "src/styles", css), join(targetDir, "src/styles", css));
   }
 
@@ -124,9 +133,14 @@ export async function scaffoldPresentation(
     "useSubtitleSettings.ts",
     "useViewportFit.ts",
     "usePresentationMotion.ts",
+    "fitStageText.ts",
   ]) {
     await copyFile(join(t, "src/hooks", hook), join(targetDir, "src/hooks", hook));
   }
+  await copyFile(
+    join(t, "src/lib/imageLayout.ts"),
+    join(targetDir, "src/lib/imageLayout.ts"),
+  );
 
   // 這批 component / css 檔是 CourseFlow 各種版型真正會引用的模板素材。
   // 之後若你要調整標題大小、卡片留白、圖片框位置，通常會改這裡被複製出去的 CSS。
@@ -148,6 +162,8 @@ export async function scaffoldPresentation(
     "FlowDiagram.css",
     "HookImageStrip.tsx",
     "HookImageStrip.css",
+    "BeatSceneStep.tsx",
+    "BeatSceneStep.css",
     "VisualBlock.tsx",
     "VisualBlock.css",
     "step-dsl-types.ts",
@@ -197,6 +213,10 @@ export async function scaffoldPresentation(
 
   await copyFile(join(t, "src/registry/types.ts"), join(targetDir, "src/registry/types.ts"));
   await copyFile(join(t, "src/registry/chapters.ts"), join(targetDir, "src/registry/chapters.ts"));
+  await copyFile(
+    join(t, "src/registry/chapter-transitions.ts"),
+    join(targetDir, "src/registry/chapter-transitions.ts"),
+  );
 
   for (const ex of ["Example.tsx", "Example.css", "narrations.ts"]) {
     await copyFile(

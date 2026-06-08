@@ -43,26 +43,54 @@ export interface TtsProvider {
   ): Promise<Buffer>;
 }
 
-/** Edge-TTS 繁體中文固定語音（下拉選單末端） */
+/** Edge-TTS 繁體中文語音 */
 export const EDGE_TTS_ZH_TW_VOICES: TtsVoice[] = [
   {
     id: "zh-TW-HsiaoChenNeural",
-    name: "曉臻（女聲）",
+    name: "曉臻",
     language: "zh-TW",
     gender: "female",
     provider: "edge-tts",
   },
   {
     id: "zh-TW-YunJheNeural",
-    name: "雲哲（男聲）",
+    name: "雲哲",
     language: "zh-TW",
     gender: "male",
     provider: "edge-tts",
   },
 ];
 
+/** Edge-TTS 簡體中文語音 */
+export const EDGE_TTS_ZH_CN_VOICES: TtsVoice[] = [
+  {
+    id: "zh-CN-XiaoxiaoNeural",
+    name: "晓晓",
+    language: "zh-CN",
+    gender: "female",
+    provider: "edge-tts",
+  },
+  {
+    id: "zh-CN-YunxiNeural",
+    name: "云希",
+    language: "zh-CN",
+    gender: "male",
+    provider: "edge-tts",
+  },
+];
+
 export function edgeTtsVisibleForLanguage(language: string): boolean {
-  return language === "zh-TW" || language.startsWith("zh-TW");
+  return language.startsWith("zh");
+}
+
+export function edgeTtsVoicesForLanguage(language: string): TtsVoice[] {
+  if (language === "zh-CN" || language.startsWith("zh-CN")) {
+    return EDGE_TTS_ZH_CN_VOICES;
+  }
+  if (language.startsWith("zh")) {
+    return EDGE_TTS_ZH_TW_VOICES;
+  }
+  return [];
 }
 
 /** OpenAI / OpenRouter 共用語音（含性別標示） */
@@ -122,12 +150,11 @@ export function getTtsVoicesForModel(modelId: string, provider: TtsProviderId): 
     return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));
   }
 
-  // OpenRouter 上其他含 tts 的未知模型 — 預設擴展語音集
-  if (id.includes("tts")) {
+  // OpenRouter 上其他含 tts / audio / speech 的模型 — 預設擴展語音集
+  if (id.includes("tts") || id.includes("audio") || id.includes("speech")) {
     return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));
   }
 
-  // 預設：provider 本身的舊語音集
   return OPENAI_TTS_VOICES.map((v) => ({ ...v, provider }));
 }
 
@@ -158,14 +185,4 @@ export function resolveTtsModel(provider: TtsProviderId, model?: string): string
   return model;
 }
 
-export function formatVoiceLabel(voice: TtsVoice): string {
-  const genderLabel =
-    voice.gender === "male"
-      ? "男聲"
-      : voice.gender === "female"
-        ? "女聲"
-        : voice.gender === "neutral"
-          ? "中性"
-          : null;
-  return genderLabel ? `${voice.name}（${genderLabel}）` : voice.name;
-}
+export { formatVoiceLabel } from "./chinese-tts.js";

@@ -77,7 +77,7 @@ export async function POST(
 
     if (!allowInlineFallback) {
       const message =
-        "MP4 錄製需要 background worker（Playwright + Chromium）。請確認 courseflow-worker 已部署且在線。";
+        "MP4 匯出需要背景服務。請確認 courseflow-worker 已部署且在線。";
       await supabase
         .from("render_jobs")
         .update({ status: "failed", error_message: message })
@@ -139,7 +139,7 @@ export async function POST(
     return NextResponse.json(
       {
         error:
-          "舊版 HyperFrames 匯出需要 worker。v2 專案請先「建置 WVP 預覽」後再匯出（可走 Playwright 內嵌）。",
+          "請先於「4. 預覽匯出」完成打包課程，再匯出 MP4。",
       },
       { status: 503 },
     );

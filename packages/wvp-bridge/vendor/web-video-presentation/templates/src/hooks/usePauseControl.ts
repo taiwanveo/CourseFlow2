@@ -65,3 +65,11 @@ export function isRecordingMode(): boolean {
   if (typeof window === "undefined") return false;
   return new URLSearchParams(window.location.search).get("recording") === "1";
 }
+
+/**
+ * MP4 匯出錄製模式：跳過「按空白鍵開始」overlay，並允許自動播放音訊。
+ */
+export function isExportMode(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("export") === "1";
+}

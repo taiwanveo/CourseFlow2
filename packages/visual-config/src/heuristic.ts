@@ -14,12 +14,21 @@ function slugLabel(s: string): string {
   return t.slice(0, 12) || "項目";
 }
 
-function percentSeriesLabel(prefix: string): string {
-  const week = prefix.match(/第([一二三四\d]+)[週周]/);
-  if (week) return `第${week[1]}週`;
-  const season = prefix.match(/第([一二三四\d]+)季/);
+function percentSeriesLabel(prefix: string, contextText = ""): string {
+  const p = prefix
+    .replace(/為|为|達到|达到/g, "")
+    .replace(/成長到|成长到|增至|上升至|下降到/g, "")
+    .trim();
+  const week = p.match(/第([一二三四\d]+)[週周]/);
+  if (week) {
+    if (/完成率/.test(p) || /完成率/.test(contextText)) {
+      return `第${week[1]}週完成率`;
+    }
+    return `第${week[1]}週`;
+  }
+  const season = p.match(/第([一二三四\d]+)季/);
   if (season) return `第${season[1]}季`;
-  const labeled = slugLabel(prefix);
+  const labeled = slugLabel(p);
   return labeled || "項目";
 }
 
@@ -253,7 +262,7 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     const prefix = (m[1] ?? "").replace(/為|为|達到|达到/g, "").trim();
     if (isPercentDeltaPhrase(prefix)) continue;
     if (prefix && !/週|周|月|季|年|第|完成率|率/.test(prefix)) continue;
-    const label = percentSeriesLabel(prefix);
+    const label = percentSeriesLabel(prefix, t);
     if (!label) continue;
     cnPercentPairs.push({ label, value: val });
   }

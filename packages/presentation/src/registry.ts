@@ -53,3 +53,24 @@ ${entries}
   await writeFile(join(presentationDir, "src", "registry", "chapters.ts"), content, "utf8");
   await bumpPresentationStepperKey(presentationDir);
 }
+
+/** 寫入章節間轉場設定（長度須為 chapterCount − 1） */
+export async function writeChapterTransitionsRegistry(
+  presentationDir: string,
+  transitions: string[],
+): Promise<void> {
+  const lines = transitions.map((t) => `  ${JSON.stringify(t)},`).join("\n");
+  const content = `/**
+ * 章與章之間的轉場（由 CourseFlow Studio 打包時寫入）。
+ * 長度 = 章節數 − 1；索引 i 表示第 i 章結束 → 第 i+1 章開始的轉場。
+ */
+export const CHAPTER_TRANSITIONS: string[] = [
+${lines}
+];
+`;
+  await writeFile(
+    join(presentationDir, "src", "registry", "chapter-transitions.ts"),
+    content,
+    "utf8",
+  );
+}

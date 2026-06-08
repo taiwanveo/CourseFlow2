@@ -6,7 +6,12 @@ import { useRouter } from "next/navigation";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import { getOrderedSteps } from "@courseflow/core";
 import type { TtsModel, TtsVoice } from "@courseflow/tts/types";
-import { edgeTtsVisibleForLanguage, formatVoiceLabel, getTtsVoicesForModel } from "@courseflow/tts/types";
+import { filterChineseVoices } from "@courseflow/tts";
+import {
+  edgeTtsVisibleForLanguage,
+  formatVoiceLabel,
+  getTtsVoicesForModel,
+} from "@courseflow/tts/types";
 import { PhaseBottomActions, ProjectPhaseNav } from "@/components/ProjectPhaseNav";
 import { useToast } from "@/components/Toast";
 import {
@@ -50,9 +55,11 @@ function pickDefaultTtsSelection(
     if (modelEntry?.voices?.length) {
       preferredVoices = modelEntry.voices;
     } else {
-      preferredVoices = getTtsVoicesForModel(
-        preferredModel,
-        preferred as Parameters<typeof getTtsVoicesForModel>[1],
+      preferredVoices = filterChineseVoices(
+        getTtsVoicesForModel(
+          preferredModel,
+          preferred as Parameters<typeof getTtsVoicesForModel>[1],
+        ),
       );
     }
   }
@@ -202,7 +209,8 @@ export function AudioPhaseClient({
   }, [configuredProviders, voices, models, language]);
 
   const voicesForProvider = useCallback(
-    (provider: string) => voices.filter((voice) => voice.provider === provider),
+    (provider: string) =>
+      filterChineseVoices(voices.filter((voice) => voice.provider === provider)),
     [voices],
   );
 
@@ -221,7 +229,9 @@ export function AudioPhaseClient({
       if (modelEntry?.voices?.length) {
         return modelEntry.voices;
       }
-      const perModel = getTtsVoicesForModel(modelId, provider as Parameters<typeof getTtsVoicesForModel>[1]);
+      const perModel = filterChineseVoices(
+        getTtsVoicesForModel(modelId, provider as Parameters<typeof getTtsVoicesForModel>[1]),
+      );
       if (perModel.length > 0) return perModel;
       return voicesForProvider(provider);
     },
@@ -241,7 +251,10 @@ export function AudioPhaseClient({
           return;
         }
         const fetched = (data.models ?? []) as TtsModel[];
-        setModels((prev) => ({ ...prev, [provider]: fetched }));
+        setModels((prev) => ({
+          ...prev,
+          [provider]: fetched.filter((model) => (model.voices?.length ?? 0) > 0),
+        }));
         if (fetched.length === 0) {
           toast("此提供者目前沒有可用的 TTS 模型", "warning");
         }

@@ -480,6 +480,7 @@ export async function materializeAllChapters(
       preserveApprovedAnchorChapter:
         opts?.preserveApprovedAnchorChapter ?? wvpSettings.anchorChapterApproved,
       enterMotionStyle: wvpSettings.enterMotionStyle,
+      chapterTransitions: wvpSettings.chapterTransitions,
     },
   );
   return true;

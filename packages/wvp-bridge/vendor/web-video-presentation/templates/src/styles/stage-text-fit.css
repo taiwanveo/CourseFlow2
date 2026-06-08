@@ -1,0 +1,17 @@
+/**
+ * 舞台文字自適應輔助樣式 — 與 fitStageText.ts 搭配。
+ */
+
+.stage-text-fit,
+[data-stage-text-fit] {
+  display: block;
+  max-width: var(--stage-safe-w);
+  overflow: hidden;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.scene :is(h1, h2, .lr-intro-h, .lr-featured-title, .bs-headline, .hk-hero, .hk-quote) {
+  max-width: min(var(--stage-safe-w), 100%);
+}

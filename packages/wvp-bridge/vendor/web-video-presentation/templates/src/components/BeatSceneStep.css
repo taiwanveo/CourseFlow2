@@ -1,0 +1,192 @@
+/* Beat-Scene 全屏節拍（對齊 beat-scene.ts codegen 舞台 token） */
+.bs-scene {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  max-height: var(--stage-safe-h);
+  gap: var(--space-5);
+  overflow: hidden;
+}
+
+.bs-scene--has-figure {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(240px, 1fr);
+  justify-items: center;
+  align-content: center;
+}
+
+.bs-scene--has-figure .bs-main {
+  align-items: center;
+  text-align: center;
+  width: 100%;
+}
+
+.bs-scene--has-figure .bs-headline {
+  max-width: none;
+  text-align: center;
+}
+
+.bs-scene--has-figure .bs-contrast {
+  margin-inline: auto;
+}
+
+.bs-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4, 1.25rem);
+  width: 100%;
+  max-width: var(--stage-viz-max-w);
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.bs-kicker {
+  opacity: 0.72;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.bs-headline {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2em;
+  font-size: var(--t-h1);
+  line-height: 1.08;
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  max-height: calc(var(--stage-safe-h) * 0.62);
+  text-align: center;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.bs-headline--hero {
+  font-size: clamp(72px, 6cqw, 104px);
+}
+
+.bs-headline--md {
+  font-size: clamp(60px, 5cqw, 92px);
+  line-height: 1.1;
+}
+
+.bs-headline--lg {
+  font-size: clamp(52px, 4.4cqw, 80px);
+  line-height: 1.12;
+}
+
+.bs-headline--xl {
+  font-size: clamp(44px, 3.8cqw, 68px);
+  line-height: 1.14;
+}
+
+.bs-headline--compact {
+  font-size: clamp(36px, 3.2cqw, 56px);
+  line-height: 1.16;
+}
+
+.bs-headline .mask-reveal {
+  max-width: 100%;
+  overflow: visible;
+}
+
+.bs-headline span {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.bs-headline-sub {
+  display: block;
+  font-size: 0.72em;
+  line-height: 1.15;
+  font-style: italic;
+  color: var(--accent, var(--text));
+  max-width: 100%;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+
+.bs-accent-metric {
+  color: var(--accent, var(--text));
+}
+
+.bs-contrast {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  max-width: 28rem;
+  width: min(100%, 28rem);
+}
+
+.bs-contrast-left,
+.bs-contrast-right {
+  display: block;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent, currentColor);
+}
+
+.bs-contrast-right {
+  opacity: 0.55;
+}
+
+.bs-metric-num {
+  font-size: clamp(72px, 8cqw, 120px);
+  line-height: 1;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--accent, var(--text));
+}
+
+.bs-pulse-ring {
+  display: block;
+  width: 4rem;
+  height: 4rem;
+  border: 2px solid var(--accent, currentColor);
+  border-radius: 50%;
+  animation: bs-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes bs-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+.bs-figure-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline: auto;
+  width: min(100%, var(--stage-viz-max-w));
+}
+
+.bs-scene--has-figure .bs-figure-wrap {
+  width: 100%;
+  max-width: var(--stage-viz-max-w);
+  min-height: 0;
+  max-height: var(--stage-figure-h);
+  flex: 1;
+}
+
+.bs-figure {
+  max-width: 100%;
+  max-height: var(--stage-figure-h);
+  object-fit: contain;
+  border-radius: var(--r-md);
+}

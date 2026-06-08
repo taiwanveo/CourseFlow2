@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { unlockAudioPlayback } from "./useAudioPlayer";
 
 /** 通知父頁（WvpPlayShell）目前游標位置，用於啟用/停用翻頁按鈕 */
 export function notifyCursorToParent(globalIndex: number, totalGlobal: number) {
@@ -25,6 +26,8 @@ export function usePlayControlBridge(opts: BridgeOpts) {
     const onMessage = (e: MessageEvent) => {
       const data = e.data as { type?: string; action?: string };
       if (data?.type !== "cf-play-control") return;
+      // 父頁按鈕／鍵盤仍在同一個 user-gesture 堆疊內；先解鎖再換頁，避免口播開頭被吃掉
+      unlockAudioPlayback();
       switch (data.action) {
         case "first":
           opts.onFirst();

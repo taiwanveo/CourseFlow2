@@ -358,14 +358,29 @@ ${stepBlocks.join("\n")}
   width: 100%;
   max-width: var(--stage-viz-max-w);
   margin-inline: auto;
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-5);
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-items: center;
+  justify-content: center;
+  gap: var(--space-5);
   padding-top: var(--space-4);
   min-height: 0;
   max-height: var(--stage-safe-h);
+  overflow: hidden;
+}
+.${prefix}-cover-body > .${prefix}-cover-num,
+.${prefix}-cover-body > .${prefix}-cover-h {
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 2;
+}
+.${prefix}-cover-aside,
+.${prefix}-cover-body .cf-chapter-figure {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: var(--stage-figure-h);
+  position: relative;
+  z-index: 1;
 }
 .${prefix}-scene:not(:has(.cf-chapter-figure img)) {
   justify-content: center;
@@ -440,22 +455,23 @@ ${stepBlocks.join("\n")}
 }
 /* cover / split / quote 共用主標：這裡是 magazine 版型最常調的標題大小入口。 */
 .${prefix}-cover-h, .${prefix}-split-h, .${prefix}-quote {
-  font-size: 96px;
+  font-size: clamp(64px, 5.5cqw, 92px);
   line-height: 1.08;
   text-align: center;
   margin: 0;
+  max-width: var(--stage-safe-w);
 }
 .${prefix}-headline-short {
-  font-size: 112px;
+  font-size: clamp(72px, 6cqw, 100px);
   letter-spacing: 0.01em;
 }
 .${prefix}-headline-mid {
-  font-size: 96px;
+  font-size: clamp(64px, 5.5cqw, 88px);
 }
 .${prefix}-headline-long {
-  font-size: 80px;
+  font-size: clamp(56px, 4.8cqw, 76px);
 }
-.${prefix}-cover-num { font-size: 128px; margin-bottom: var(--space-4); }
+.${prefix}-cover-num { font-size: clamp(80px, 6.5cqw, 112px); margin-bottom: var(--space-4); }
 .${prefix}-cover-aside {
   align-self: center;
   width: 100%;
@@ -467,7 +483,7 @@ ${stepBlocks.join("\n")}
 /* 內文段落：調這裡可改 body 字級、行高、單欄最長寬度。 */
 .${prefix}-body {
   text-align: left;
-  font-size: 36px;
+  font-size: var(--t-body);
   line-height: 1.55;
   max-width: 40ch;
 }
@@ -515,7 +531,7 @@ ${stepBlocks.join("\n")}
   max-height: var(--stage-safe-h);
 }
 .${prefix}-close-copy { display: flex; flex-direction: column; gap: var(--space-4); align-items: center; text-align: center; width: 100%; }
-.${prefix}-quote { text-align: center; font-size: 80px; }
+.${prefix}-quote { text-align: center; font-size: clamp(56px, 4.8cqw, 76px); }
 .${prefix}-figure {
   align-self: stretch;
   width: 100%;

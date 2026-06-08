@@ -16,8 +16,9 @@ export type StepDslStepData = {
     | "visual-focus"
     | "explain-focus"
     | "split-focus"
-    | "visual-explain-composite";
-  screen: StepDslScreen;
+    | "visual-explain-composite"
+    | "beat-scene";
+  screen: StepDslScreen & { kicker?: string };
   enter: StepDslEnter;
   visual?: Record<string, unknown>;
   explain?: { pattern: string; params: Record<string, unknown> };
@@ -25,6 +26,8 @@ export type StepDslStepData = {
   animationStep?: number;
   imageUrl?: string;
   imageStep?: number;
+  narration?: string;
+  screenRaw?: string;
 };
 
 export type StepDslChapterData = {

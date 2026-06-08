@@ -19,7 +19,7 @@ export function ChapterFigure({
   if (optional && broken) return null;
   return (
     <figure
-      className={["cf-chapter-figure", className].filter(Boolean).join(" ")}
+      className={["cf-chapter-figure", "cf-img-single", className].filter(Boolean).join(" ")}
       data-no-advance
     >
       {broken && !optional ? (
