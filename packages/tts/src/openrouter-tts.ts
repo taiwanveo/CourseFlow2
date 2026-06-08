@@ -2,6 +2,8 @@ import {
   enrichChineseVoice,
   filterChineseTtsModelsWithVoices,
   filterChineseVoices,
+  GEMINI_OR_TTS_VOICES,
+  KOKORO_ZH_TTS_VOICES,
   voiceIdSupportsChinese,
 } from "./chinese-tts.js";
 import {
@@ -16,6 +18,20 @@ const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SPEECH_URL = "https://openrouter.ai/api/v1/audio/speech";
 
 const MUSIC_MODEL_PATTERN = /lyria|musicgen|music-gen|bark|audiogen|audiocraft|musiclm/i;
+
+const OPENAI_STYLE_VOICE_IDS = new Set([
+  "alloy",
+  "ash",
+  "ballad",
+  "coral",
+  "echo",
+  "fable",
+  "nova",
+  "onyx",
+  "sage",
+  "shimmer",
+  "verse",
+]);
 
 export interface OpenRouterSpeechModelRow {
   id: string;
@@ -69,16 +85,78 @@ export function openRouterTtsRouteForModel(modelId: string): OpenRouterTtsRoute 
   return "speech-api";
 }
 
+function staticVoicesForOpenRouterModel(modelId: string): TtsVoice[] {
+  const id = modelId.toLowerCase();
+  if (/kokoro/i.test(id)) {
+    return KOKORO_ZH_TTS_VOICES;
+  }
+  if (/gemini.*tts|tts.*gemini/i.test(id)) {
+    return GEMINI_OR_TTS_VOICES;
+  }
+  return [];
+}
+
 export function openRouterVoicesForModel(
   modelId: string,
   rows: OpenRouterSpeechModelRow[],
 ): TtsVoice[] {
   const row = rows.find((item) => item.id === modelId);
-  const voices = (row?.supported_voices ?? [])
-    .filter((id) => voiceIdSupportsChinese(id))
-    .map((id) => enrichChineseVoice({ id, name: id, language: "multi", provider: "openrouter" }));
-  if (voices.length > 0) return voices;
+  const apiVoices = row?.supported_voices ?? [];
+  if (apiVoices.length > 0) {
+    const voices = apiVoices
+      .filter((id) => voiceIdSupportsChinese(id))
+      .map((id) =>
+        enrichChineseVoice({ id, name: id, language: "multi", provider: "openrouter" }),
+      );
+    if (voices.length > 0) return voices;
+    // 模型自帶語音清單時，禁止回退 OpenAI alloy/nova（上游會 400）
+    return staticVoicesForOpenRouterModel(modelId);
+  }
+  const staticVoices = staticVoicesForOpenRouterModel(modelId);
+  if (staticVoices.length > 0) return staticVoices;
   return filterChineseVoices(getTtsVoicesForModel(modelId, "openrouter"));
+}
+
+/** 合成前將語音 ID 對齊模型 supported_voices（修正幽靈 OpenAI 語音） */
+export function resolveOpenRouterVoiceForModel(model: string, voiceId: string): string {
+  const row = cachedOpenRouterTtsRows.find((item) => item.id === model);
+  const supported =
+    row?.supported_voices ??
+    staticVoicesForOpenRouterModel(model).map((voice) => voice.id);
+
+  if (supported.length > 0) {
+    const exact = supported.find((v) => v === voiceId);
+    if (exact) return exact;
+    const ci = supported.find((v) => v.toLowerCase() === voiceId.toLowerCase());
+    if (ci) return ci;
+
+    const chineseCapable = supported.filter((v) => voiceIdSupportsChinese(v));
+    if (
+      OPENAI_STYLE_VOICE_IDS.has(voiceId.toLowerCase()) ||
+      !supported.some((v) => v.toLowerCase() === voiceId.toLowerCase())
+    ) {
+      const pick = chineseCapable[0] ?? supported[0];
+      if (pick) return pick;
+    }
+  }
+
+  if (/gemini.*tts|tts.*gemini/i.test(model)) {
+    const normalized =
+      voiceId.charAt(0).toUpperCase() + voiceId.slice(1).toLowerCase();
+    if (GEMINI_OR_TTS_VOICES.some((v) => v.id === normalized)) return normalized;
+    if (OPENAI_STYLE_VOICE_IDS.has(voiceId.toLowerCase())) {
+      return GEMINI_OR_TTS_VOICES[0]!.id;
+    }
+  }
+
+  if (/kokoro/i.test(model)) {
+    if (/^z[fm]_/i.test(voiceId)) return voiceId.toLowerCase();
+    if (OPENAI_STYLE_VOICE_IDS.has(voiceId.toLowerCase())) {
+      return KOKORO_ZH_TTS_VOICES[0]!.id;
+    }
+  }
+
+  return voiceId;
 }
 
 export function openRouterRowsToTtsModels(rows: OpenRouterSpeechModelRow[]): TtsModel[] {
@@ -132,16 +210,32 @@ export async function fetchOpenRouterTtsCatalog(apiKey: string): Promise<TtsMode
   return openRouterRowsToTtsModels(rows);
 }
 
-function parseOpenRouterError(res: Response, errText: string, prefix: string): never {
+function parseOpenRouterError(
+  res: Response,
+  errText: string,
+  prefix: string,
+  context?: { model?: string; voice?: string },
+): never {
   if (errText.includes("<!DOCTYPE") || errText.includes("<html")) {
     throw new Error(`${prefix}（收到 HTML 回應，請確認模型與 endpoint 是否正確）`);
   }
   let errMsg = `${prefix}（${res.status}）`;
   try {
-    const errJson = JSON.parse(errText) as { error?: { message?: string } };
-    errMsg += `：${errJson.error?.message ?? errText.slice(0, 200)}`;
+    const errJson = JSON.parse(errText) as {
+      error?: { message?: string; metadata?: { raw?: string } };
+    };
+    const detail =
+      errJson.error?.metadata?.raw ??
+      errJson.error?.message ??
+      errText.slice(0, 200);
+    errMsg += `：${detail}`;
   } catch {
     errMsg += `：${errText.slice(0, 200)}`;
+  }
+  if (context?.model) {
+    errMsg += ` [模型 ${context.model}`;
+    if (context.voice) errMsg += `，語音 ${context.voice}`;
+    errMsg += "]";
   }
   throw new Error(errMsg);
 }
@@ -169,13 +263,13 @@ async function synthesizeOpenRouterSpeechApi(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗");
+    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗", { model, voice: voiceId });
   }
 
   const contentType = res.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     const errText = await res.text().catch(() => "");
-    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗");
+    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗", { model, voice: voiceId });
   }
 
   const bytes = await res.arrayBuffer();
@@ -283,9 +377,15 @@ export async function synthesizeOpenRouterSpeech(
   voiceId: string,
   route?: OpenRouterTtsRoute,
 ): Promise<Buffer> {
+  if (cachedOpenRouterTtsRows.length === 0) {
+    await fetchOpenRouterSpeechModels(apiKey).catch(() => {
+      /* Worker 程序可能未先載入 catalog */
+    });
+  }
+  const resolvedVoice = resolveOpenRouterVoiceForModel(model, voiceId);
   const resolvedRoute = route ?? openRouterTtsRouteForModel(model);
   if (resolvedRoute === "speech-api") {
-    return synthesizeOpenRouterSpeechApi(apiKey, text, model, voiceId);
+    return synthesizeOpenRouterSpeechApi(apiKey, text, model, resolvedVoice);
   }
-  return synthesizeOpenRouterChatAudio(apiKey, text, model, voiceId);
+  return synthesizeOpenRouterChatAudio(apiKey, text, model, resolvedVoice);
 }

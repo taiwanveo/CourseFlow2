@@ -106,5 +106,6 @@ export {
   fetchOpenRouterTtsCatalog,
   openRouterTtsRouteForModel,
   openRouterTtsRouteForRow,
+  resolveOpenRouterVoiceForModel,
   synthesizeOpenRouterSpeech,
 } from "./openrouter-tts.js";

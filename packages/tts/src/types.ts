@@ -155,6 +155,14 @@ export function getTtsVoicesForModel(modelId: string, provider: TtsProviderId): 
     return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));
   }
 
+  // OpenRouter Kokoro / Gemini TTS — 勿回退 OpenAI 語音（會導致上游 400）
+  if (/kokoro/i.test(id)) {
+    return [];
+  }
+  if (/gemini.*tts|tts.*gemini/i.test(id)) {
+    return [];
+  }
+
   // OpenRouter 上其他含 tts / audio / speech 的模型 — 預設擴展語音集
   if (id.includes("tts") || id.includes("audio") || id.includes("speech")) {
     return OPENAI_TTS_VOICES_EXTENDED.map((v) => ({ ...v, provider }));

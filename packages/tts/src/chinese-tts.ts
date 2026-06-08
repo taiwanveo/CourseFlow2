@@ -52,6 +52,38 @@ const GEMINI_VOICE_ZH: Record<string, { name: string; gender: TtsVoice["gender"]
   orus: { name: "渾厚", gender: "male" },
 };
 
+/** Kokoro（OpenRouter hexgrad/kokoro-82m）中文語音 */
+const KOKORO_VOICE_ZH: Record<string, { name: string; gender: TtsVoice["gender"] }> = {
+  zf_xiaobei: { name: "曉北", gender: "female" },
+  zf_xiaoni: { name: "曉妮", gender: "female" },
+  zf_xiaoxiao: { name: "曉曉", gender: "female" },
+  zf_xiaoyi: { name: "曉依", gender: "female" },
+  zm_yunjian: { name: "雲健", gender: "male" },
+  zm_yunxi: { name: "雲希", gender: "male" },
+  zm_yunxia: { name: "雲霞", gender: "female" },
+  zm_yunyang: { name: "雲揚", gender: "male" },
+};
+
+export const KOKORO_ZH_TTS_VOICES: TtsVoice[] = Object.entries(KOKORO_VOICE_ZH).map(
+  ([id, meta]) => ({
+    id,
+    name: meta.name,
+    language: "zh-CN",
+    gender: meta.gender,
+    provider: "openrouter" as const,
+  }),
+);
+
+export const GEMINI_OR_TTS_VOICES: TtsVoice[] = Object.entries(GEMINI_VOICE_ZH).map(
+  ([id, meta]) => ({
+    id: id.charAt(0).toUpperCase() + id.slice(1),
+    name: meta.name,
+    language: "multi",
+    gender: meta.gender,
+    provider: "openrouter" as const,
+  }),
+);
+
 /** Microsoft Neural 常見中文語音 ID → 顯示名稱 */
 const MS_NEURAL_VOICE_ZH: Record<string, { name: string; gender: TtsVoice["gender"] }> = {
   "zh-tw-hsiaochenneural": { name: "曉臻", gender: "female" },
@@ -83,6 +115,9 @@ export function voiceIdSupportsChinese(voiceId: string): boolean {
 
   if (OPENAI_MULTILINGUAL_VOICE_IDS.has(base)) return true;
   if (GEMINI_MULTILINGUAL_VOICE_IDS.has(base)) return true;
+
+  // Kokoro 中文語音（zf_* 女聲、zm_* 男聲）
+  if (/^z[fm]_/i.test(base)) return true;
 
   if (/^zh[-_](cn|tw|hk|hans|hant)\b/i.test(voiceId)) return true;
   if (/^cmn[-_]/i.test(voiceId)) return true;
@@ -117,6 +152,11 @@ export function friendlyChineseVoiceMeta(
   const geminiMeta = GEMINI_VOICE_ZH[base];
   if (geminiMeta) {
     return { ...geminiMeta, language: "multi" };
+  }
+
+  const kokoroMeta = KOKORO_VOICE_ZH[base];
+  if (kokoroMeta) {
+    return { ...kokoroMeta, language: "zh-CN" };
   }
 
   const msKey = base.replace(/:.*$/, "");
