@@ -71,11 +71,13 @@ import {
   markThemePreviewCached,
 } from "@/lib/theme-preview-cache";
 import {
+  defaultChapterTransitionsForKinds,
   resolveChapterTransitions,
   STEP_TRANSITION_IDS,
   STEP_TRANSITION_LABELS,
   type StepTransitionId,
 } from "@/lib/wvp-chapter-transitions";
+import { evaluateProjectMotionPlan } from "@/lib/wvp-motion-plan";
 
 type CraftRow = {
   id: string;
@@ -573,10 +575,39 @@ export function CraftPhaseClient({
     }
   };
 
-  const chapterBoundaryTransitions = useMemo(
-    () => resolveChapterTransitions(chapters.length, settings.chapterTransitions),
-    [chapters.length, settings.chapterTransitions],
+  const chapterKinds = useMemo(
+    () =>
+      chapters.map((ch) => {
+        const state = resolveChapterTemplateSelectState(composition, ch);
+        return chapterEffectiveTemplateKind(state);
+      }),
+    [chapters, composition],
   );
+
+  const suggestedChapterBoundaryTransitions = useMemo(
+    () => defaultChapterTransitionsForKinds(chapterKinds),
+    [chapterKinds],
+  );
+
+  const chapterBoundaryTransitions = useMemo(
+    () =>
+      resolveChapterTransitions(
+        chapters.length,
+        settings.chapterTransitions,
+        chapterKinds,
+      ),
+    [chapters.length, settings.chapterTransitions, chapterKinds],
+  );
+
+  const explainTransitionHintsByChapter = useMemo(() => {
+    const plan = evaluateProjectMotionPlan(composition, chapters);
+    const map = new Map<string, string[]>();
+    for (const chPlan of plan.chapters) {
+      const hints = chPlan.warnings.filter((w) => w.includes("解說動畫"));
+      if (hints.length > 0) map.set(chPlan.wvpChapterId, hints);
+    }
+    return map;
+  }, [composition, chapters]);
 
   const saveChapterTransition = async (gapIndex: number, transitionId: StepTransitionId) => {
     const nextTransitions = [...chapterBoundaryTransitions];
@@ -779,7 +810,11 @@ export function CraftPhaseClient({
           const result = job?.result;
           const progress = parseBatchProgress(result);
           if (progress) setFailedBatchProgress(progress);
-          throw new Error(job?.error_message ?? "背景任務失敗");
+          const failedCh = progress?.chapters.find((ch) => ch.status === "failed" && ch.error);
+          const detail = failedCh
+            ? `章節「${failedCh.title}」：${failedCh.error}`
+            : (job?.error_message ?? "背景任務失敗");
+          throw new Error(detail);
         }
 
         if (status === "pending") {
@@ -1547,6 +1582,32 @@ export function CraftPhaseClient({
                             </option>
                           ))}
                         </select>
+                        {suggestedChapterBoundaryTransitions[gapIndex] &&
+                        chapterBoundaryTransitions[gapIndex] !==
+                          suggestedChapterBoundaryTransitions[gapIndex] ? (
+                          <span className="shrink-0 text-[9px] text-amber-600/90">
+                            建議：
+                            {
+                              STEP_TRANSITION_LABELS[
+                                suggestedChapterBoundaryTransitions[gapIndex]!
+                              ]
+                            }
+                            {!locks.craft && !busy ? (
+                              <button
+                                type="button"
+                                className="ml-1 underline hover:text-amber-400"
+                                onClick={() =>
+                                  void saveChapterTransition(
+                                    gapIndex,
+                                    suggestedChapterBoundaryTransitions[gapIndex]!,
+                                  )
+                                }
+                              >
+                                套用
+                              </button>
+                            ) : null}
+                          </span>
+                        ) : null}
                       </label>
                     </div>
                   ) : null}
@@ -1583,6 +1644,22 @@ export function CraftPhaseClient({
                         {` · 動效：${CHAPTER_MOTION_ORIENTATION_LABELS[parseChapterMotionOrientation(ch.checklist_result?.motionOrientation)]}`}
                         {i === 0 ? " · 第 1 章" : ""}
                       </span>
+                      {previewReady &&
+                      (explainTransitionHintsByChapter.get(ch.wvp_chapter_id)?.length ?? 0) >
+                        0 ? (
+                        <span className="mt-1 block space-y-0.5">
+                          {explainTransitionHintsByChapter
+                            .get(ch.wvp_chapter_id)!
+                            .map((hint) => (
+                              <span
+                                key={hint}
+                                className="block text-[10px] leading-snug text-amber-500/90"
+                              >
+                                {hint}
+                              </span>
+                            ))}
+                        </span>
+                      ) : null}
                     </button>
                     {isHookChapter && !locks.craft ? (
                       <div

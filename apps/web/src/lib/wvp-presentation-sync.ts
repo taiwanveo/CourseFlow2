@@ -58,7 +58,11 @@ import { chapterAssetsForCodegen } from "@/lib/wvp-assets";
 import { resolveImageStyleFragment } from "@/lib/image-style.server";
 import { parseChapterMotionOrientation } from "@courseflow/explain-animation";
 import { parseWvpSettings, type EnterMotionStyle, type WvpAssetRef } from "@/lib/wvp-settings";
-import { resolveChapterTransitions } from "@/lib/wvp-motion-utils";
+import { resolveChapterTransitions } from "@/lib/wvp-chapter-transitions";
+import {
+  chapterEffectiveTemplateKind,
+  resolveChapterTemplateSelectState,
+} from "@/lib/wvp-chapter-template";
 import {
   resolveStepImageExtMapFromLocalDir,
   resolveStepImageExtMapLocal,
@@ -453,10 +457,6 @@ export async function materializeChapterFromCraft(
       htmlByStep: stepAnimationHtmlByStep,
       configByStep: stepAnimationConfigByStep,
     } = await loadStepAnimationBundle(presentationDir, craft.wvp_chapter_id);
-    if (stepVisualConfigs && stepAnimationIndices.length > 0) {
-      const animatedSteps = new Set(stepAnimationIndices);
-      stepVisualConfigs = stepVisualConfigs.filter((e) => !animatedSteps.has(e.step));
-    }
     wvpDebugScreenAudit({
       hypothesisId: "F",
       location: "wvp-presentation-sync.ts:materializeChapterFromCraft",
@@ -478,7 +478,7 @@ export async function materializeChapterFromCraft(
       !dataVisualChapter &&
       (hasPackagedStepImagesForCraft(craft) ||
         Object.keys(stepImageExtensions).length > 0);
-    if (!preferImageTemplate && dataVisualChapter) {
+    if (!preferImageTemplate) {
       const animatedSteps = new Set(stepAnimationIndices);
       stepVisualConfigs = mergeStepVisualConfigs(
         narrations,
@@ -544,6 +544,7 @@ export async function rebuildRegistryForProject(
   },
 ): Promise<RegistryChapterEntry[]> {
   const entries: RegistryChapterEntry[] = [];
+  const chapterKindsForEntries: WvpChapterKind[] = [];
   const sorted = [...crafts].sort((a, b) => a.sort_order - b.sort_order);
 
   for (const craft of sorted) {
@@ -551,6 +552,13 @@ export async function rebuildRegistryForProject(
       (craft.checklist_result?.narrations?.length ?? 0) > 0 ||
       !!resolveCompositionChapterForCraft(composition, craft);
     if (!hasNarrations) continue;
+    const templateState = resolveChapterTemplateSelectState(composition, {
+      title: craft.title,
+      wvp_chapter_id: craft.wvp_chapter_id,
+      sort_order: craft.sort_order,
+      checklist_result: craft.checklist_result ?? undefined,
+    });
+    chapterKindsForEntries.push(chapterEffectiveTemplateKind(templateState));
     entries.push(
       await materializeChapterFromCraft(
         presentationDir,
@@ -566,6 +574,7 @@ export async function rebuildRegistryForProject(
   const chapterBoundaryTransitions = resolveChapterTransitions(
     entries.length,
     opts?.chapterTransitions,
+    chapterKindsForEntries,
   );
   await writeChapterTransitionsRegistry(presentationDir, chapterBoundaryTransitions);
   return entries;

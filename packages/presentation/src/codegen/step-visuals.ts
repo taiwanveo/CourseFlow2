@@ -52,9 +52,15 @@ export function mergeStepVisualConfigs(
       byStep.set(entry.step, entry);
     }
   }
-  // 啟發式補圖跳過已有動畫的步驟，避免蓋掉 explain-focus
+  // 啟發式 chart/table 可與同步解說動畫並存（visual-explain-composite）
   for (const entry of buildHeuristicStepVisualConfigs(narrations, screenContents)) {
-    if (skipSteps.has(entry.step)) continue;
+    if (
+      skipSteps.has(entry.step) &&
+      entry.config.kind !== "chart" &&
+      entry.config.kind !== "table"
+    ) {
+      continue;
+    }
     byStep.set(entry.step, entry);
   }
   return [...byStep.values()].sort((a, b) => a.step - b.step);

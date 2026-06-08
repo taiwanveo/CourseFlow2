@@ -1,3 +1,4 @@
+import { logStructured } from "@courseflow/shared";
 import { createServiceClient } from "@/lib/supabase/admin";
 import { syncFullWvpProject } from "@/lib/wvp-presentation-sync";
 import { wvpEmbedBasePath, wvpPlayPagePath } from "@/lib/wvp-workdir";
@@ -166,7 +167,15 @@ export async function runWvpBuild(payload: {
     return jobResult;
   } catch (e) {
     const message = e instanceof Error ? e.message : "建置失敗";
-    console.error("[wvp-build] 背景建置失敗:", message);
+    progress = { ...progress, lastError: message.slice(0, 2000) };
+    logStructured("error", {
+      pipeline: "wvp-build",
+      jobRunId: payload.jobRunId,
+      projectId: payload.projectId,
+      phase: progress.phase,
+      message: "背景建置失敗",
+      error: message,
+    });
     await patchJob({
       status: "failed",
       error_message: message.slice(0, 2000),

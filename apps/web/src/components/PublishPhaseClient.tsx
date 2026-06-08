@@ -6,6 +6,11 @@ import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import { WvpPhaseBottomActions, WvpPhaseNav } from "@/components/ProjectPhaseNav";
 import { ExportMp4Button } from "@/components/ExportMp4Button";
 import { useToast } from "@/components/Toast";
+import {
+  isBrowserNotifyEnabled,
+  requestBrowserNotifyPermission,
+  setBrowserNotifyEnabled,
+} from "@/lib/browser-notify";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { FullWidthProgressPanel } from "@/components/FullWidthProgressPanel";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
@@ -102,6 +107,10 @@ export function PublishPhaseClient({
   const [buildProgress, setBuildProgress] = useState<WvpBuildProgress | null>(null);
   const [buildQueueHint, setBuildQueueHint] = useState<string | null>(null);
   const [skippingChapterId, setSkippingChapterId] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [browserNotifyOn, setBrowserNotifyOn] = useState(false);
+  const [buildLastError, setBuildLastError] = useState<string | null>(null);
   const buildElapsedMs = useElapsedMs(building);
   const { toast } = useToast();
   const locked = locks.publish;
@@ -133,6 +142,16 @@ export function PublishPhaseClient({
   useEffect(() => {
     refreshReadiness().catch(() => setReadiness(null));
   }, [refreshReadiness]);
+
+  useEffect(() => {
+    setBrowserNotifyOn(isBrowserNotifyEnabled());
+    fetch(`/api/projects/${projectId}/share`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.shareUrl) setShareUrl(d.shareUrl as string);
+      })
+      .catch(() => undefined);
+  }, [projectId]);
 
   useEffect(() => {
     fetch(`/api/projects/${projectId}`)
@@ -211,7 +230,12 @@ export function PublishPhaseClient({
     if (status === "failed") {
       const failedProgress = parseWvpBuildProgress(result);
       if (failedProgress) setBuildProgress(failedProgress);
-      throw new Error(data.job?.error_message ?? "打包失敗");
+      const err =
+        failedProgress?.lastError ??
+        data.job?.error_message ??
+        "打包失敗";
+      setBuildLastError(err);
+      throw new Error(err);
     }
 
     if (attempt >= POLL_MAX_ATTEMPTS) {
@@ -230,6 +254,7 @@ export function PublishPhaseClient({
       return;
     }
     setBuilding(true);
+    setBuildLastError(null);
     setBuildQueueHint("正在啟動打包任務…");
     const rootChapterCount = composition.chapters.filter((ch) => !ch.parentId).length;
     setBuildProgress(createInitialWvpBuildProgress(rootChapterCount));
@@ -381,6 +406,40 @@ export function PublishPhaseClient({
     }
   };
 
+  const createShareLink = async () => {
+    setShareBusy(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/share`, { method: "POST" });
+      const data = (await res.json()) as { error?: string; shareUrl?: string };
+      if (!res.ok) throw new Error(data.error ?? "產生分享連結失敗");
+      if (!data.shareUrl) throw new Error("未取得分享網址");
+      setShareUrl(data.shareUrl);
+      await navigator.clipboard.writeText(data.shareUrl);
+      toast("已複製學員觀看連結（含自動播放）", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "產生分享連結失敗", "error");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const toggleBrowserNotify = async () => {
+    if (!browserNotifyOn) {
+      const perm = await requestBrowserNotifyPermission();
+      if (perm !== "granted") {
+        toast("瀏覽器未允許桌面通知", "warning");
+        return;
+      }
+      setBrowserNotifyEnabled(true);
+      setBrowserNotifyOn(true);
+      toast("已啟用桌面通知（分頁在背景時也會提醒）", "success");
+      return;
+    }
+    setBrowserNotifyEnabled(false);
+    setBrowserNotifyOn(false);
+    toast("已關閉桌面通知", "info");
+  };
+
   const skipAllFailedChecklists = async () => {
     if (failedChapterCount <= 0) {
       toast("目前沒有需要略過的章節", "info");
@@ -499,7 +558,47 @@ export function PublishPhaseClient({
             </span>
           )}
           <ExportMp4Button projectId={projectId} />
+          {previewBuilt ? (
+            <button
+              type="button"
+              className="cf-btn cf-btn-secondary"
+              disabled={locked || shareBusy}
+              onClick={() => void createShareLink()}
+              title="產生免登入觀看連結，學員開啟後自動播放"
+            >
+              {shareBusy ? "產生中…" : "一鍵產生分享連結"}
+            </button>
+          ) : null}
         </div>
+        {shareUrl ? (
+          <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-xs">
+            <p className="text-zinc-400">學員觀看連結（免登入 · 自動播放）</p>
+            <p className="mt-1 break-all font-mono text-[11px] text-emerald-500/90">{shareUrl}</p>
+            <button
+              type="button"
+              className="mt-2 text-[11px] text-zinc-500 underline hover:text-zinc-300"
+              onClick={() => {
+                void navigator.clipboard.writeText(shareUrl);
+                toast("已複製分享連結", "success");
+              }}
+            >
+              複製連結
+            </button>
+          </div>
+        ) : null}
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-zinc-500">
+          <input
+            type="checkbox"
+            checked={browserNotifyOn}
+            onChange={() => void toggleBrowserNotify()}
+          />
+          長任務完成或失敗時發送瀏覽器通知（分頁在背景也會提醒）
+        </label>
+        {buildLastError ? (
+          <p className="rounded border border-red-900/40 bg-red-950/20 px-3 py-2 text-xs text-red-300/90">
+            打包失敗：{buildLastError}
+          </p>
+        ) : null}
         <FullWidthProgressPanel
           busy={building}
           label={buildProgressLabel}

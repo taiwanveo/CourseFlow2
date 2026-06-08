@@ -18,8 +18,10 @@ export {
   STEP_TRANSITION_IDS,
   STEP_TRANSITION_LABELS,
   defaultChapterTransitions,
+  defaultChapterTransitionsForKinds,
   isStepTransitionId,
   resolveChapterTransitions,
+  suggestChapterBoundaryTransition,
   type StepTransitionId,
 } from "@/lib/wvp-chapter-transitions";
 /**

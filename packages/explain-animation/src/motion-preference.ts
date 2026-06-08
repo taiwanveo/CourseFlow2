@@ -555,6 +555,9 @@ export function planChapterMotionCoverage(input: {
     }
 
     if (hasCraftAnimation) {
+      if (step > 0) {
+        warnings.push(`步驟 ${step + 1}：此步有解說動畫，建議步間轉場設為無`);
+      }
       steps.push({
         stepIndex: step,
         scriptPreview: script.slice(0, 48),
@@ -597,6 +600,8 @@ export function planChapterMotionCoverage(input: {
       warning = "已選對比取向，但此步缺少對照語意";
     } else if (input.orientation === "minimal" && resolved.kind === "none" && inferExplainAnimation(script, screen)) {
       warning = "極簡模式下略過中等信心度的解說動效";
+    } else if (resolved.kind === "explain" && step > 0) {
+      warning = "此步有解說動畫，建議步間轉場設為無";
     }
 
     if (warning) warnings.push(`步驟 ${step + 1}：${warning}`);

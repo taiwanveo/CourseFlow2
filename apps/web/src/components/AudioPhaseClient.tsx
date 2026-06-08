@@ -505,8 +505,11 @@ export function AudioPhaseClient({
         const progress = parseTtsBatchProgress(result);
         if (progress) setBatchProgress(progress);
         await refreshComposition();
-        const stepError = progress?.steps.find((s) => s.error)?.error;
-        toast(stepError ?? data.job?.error_message ?? "語音合成失敗", "error");
+        const failedStep = progress?.steps.find((s) => s.error);
+        const detail = failedStep
+          ? `步驟 ${(failedStep.sortOrder ?? 0) + 1}（${failedStep.label}）：${failedStep.error}`
+          : (data.job?.error_message ?? "語音合成失敗");
+        toast(detail, "error");
         onDone();
         return;
       }
@@ -638,6 +641,7 @@ export function AudioPhaseClient({
         id: step.stepId,
         label: step.label,
         status: mapStatus(step.status),
+        error: step.error,
       })),
     };
   }, []);

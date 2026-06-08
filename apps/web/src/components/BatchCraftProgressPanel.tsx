@@ -107,6 +107,7 @@ export function BatchCraftProgressPanel({
                   id: ch.wvpChapterId,
                   label: ch.title,
                   status: mapChapterStatus(ch.status),
+                  error: ch.error,
                 })),
               }
             : null

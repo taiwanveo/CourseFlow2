@@ -13,7 +13,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test dist/golden-cases.test.js"
   },
   "dependencies": {
     "@courseflow/core": "workspace:*",

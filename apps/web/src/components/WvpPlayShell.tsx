@@ -109,6 +109,8 @@ export function WvpPlayShell({
   anchorPreview,
   anchorWvpChapterId,
   chapterPreview,
+  publicView,
+  hideBackLink,
 }: {
   projectId: string;
   projectTitle: string;
@@ -118,6 +120,10 @@ export function WvpPlayShell({
   anchorWvpChapterId?: string;
   /** 視覺動效章節列表的單章試跑預覽 */
   chapterPreview?: boolean;
+  /** 學員免登入分享觀看 */
+  publicView?: boolean;
+  /** 隱藏返回工作室連結（分享頁） */
+  hideBackLink?: boolean;
 }) {
   const craftPreview = anchorPreview || chapterPreview;
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -205,10 +211,18 @@ export function WvpPlayShell({
     <>
       <span className="text-xs text-zinc-500">
         {projectTitle} —{" "}
-        {anchorPreview ? "第1章試跑預覽" : chapterPreview ? "單章試跑預覽" : "預覽"}
+        {publicView
+          ? "學員觀看"
+          : anchorPreview
+            ? "第1章試跑預覽"
+            : chapterPreview
+              ? "單章試跑預覽"
+              : "預覽"}
       </span>
       <div className="flex gap-2">
-        {craftPreview ? (
+        {publicView ? (
+          <span className="text-[10px] text-zinc-600">自動播放 · 免登入</span>
+        ) : craftPreview ? (
           <Link
             href={`/projects/${projectId}/craft`}
             className="cf-btn cf-btn-sm cf-btn-secondary"
@@ -253,12 +267,14 @@ export function WvpPlayShell({
             >
               自動播放
             </Link>
-            <Link
-              href={`/projects/${projectId}/publish`}
-              className="cf-btn cf-btn-sm cf-btn-secondary"
-            >
-              返回「預覽匯出」階段
-            </Link>
+            {hideBackLink ? null : (
+              <Link
+                href={`/projects/${projectId}/publish`}
+                className="cf-btn cf-btn-sm cf-btn-secondary"
+              >
+                返回「預覽匯出」階段
+              </Link>
+            )}
           </>
         )}
       </div>

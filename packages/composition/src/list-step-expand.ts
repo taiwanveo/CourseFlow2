@@ -13,7 +13,7 @@ function cleanItem(s: string): string {
 /** 從單一步驟文字拆出清單項（至少 2 項才視為清單） */
 export function detectListItems(text: string): string[] | null {
   const t = text.trim();
-  if (t.length < 12) return null;
+  if (t.length < 10) return null;
 
   const byNumber: string[] = [];
   const numSplit = t.split(/(?=\d+[.)．、]\s+)/).map(cleanItem).filter((s) => s.length >= 4);

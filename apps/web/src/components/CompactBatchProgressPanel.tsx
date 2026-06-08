@@ -15,6 +15,8 @@ export type CompactBatchProgress = {
     id: string;
     label: string;
     status: CompactBatchItemStatus;
+    /** 失敗時的 API 錯誤原文或步驟 context */
+    error?: string;
   }>;
 };
 
@@ -57,6 +59,9 @@ export function CompactBatchProgressPanel({
   const eta =
     progress && estimateRemainingMs ? estimateRemainingMs(progress) : null;
 
+  const failedItem = progress?.items.find((i) => i.status === "failed" && i.error?.trim());
+  const failedDetail = failedItem?.error?.trim() ?? null;
+
   const statusLine = busy
     ? queueHint ??
       (progress
@@ -81,6 +86,14 @@ export function CompactBatchProgressPanel({
       </div>
       {busy && eta !== null ? (
         <p className="mt-1 text-[10px] text-zinc-600">預估剩餘 {formatEtaMs(eta)}</p>
+      ) : null}
+      {failedDetail ? (
+        <p
+          className="mt-1 line-clamp-3 text-[10px] leading-snug text-red-400/90"
+          title={failedDetail}
+        >
+          失敗：{failedDetail}
+        </p>
       ) : null}
       {busy && onCancel ? (
         <button

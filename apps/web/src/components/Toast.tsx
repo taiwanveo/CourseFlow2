@@ -1,5 +1,6 @@
 "use client";
 
+import { maybeBrowserNotify } from "@/lib/browser-notify";
 import { playFinishedSound, playWarningSound } from "@/lib/ui-sounds";
 import {
   createContext,
@@ -48,8 +49,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       setToasts((prev) => [...prev, { id, message, type }]);
       if (type === "error") {
         playWarningSound();
+        maybeBrowserNotify("CourseFlow 任務失敗", message);
       } else if (type === "success" && options?.taskComplete) {
         playFinishedSound();
+        maybeBrowserNotify("CourseFlow 任務完成", message);
       }
       window.setTimeout(() => dismiss(id), TOAST_DURATIONS[type] ?? TOAST_DURATION_MS);
     },

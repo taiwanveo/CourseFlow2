@@ -24,6 +24,8 @@ export type WvpBuildProgress = {
   subTotal?: number;
   /** 子進度說明，例如「配圖 3/12」 */
   subLabel?: string;
+  /** 最近失敗的 API 錯誤原文（供 UI 顯示） */
+  lastError?: string;
 };
 
 export type WvpBuildStageUpdate = {

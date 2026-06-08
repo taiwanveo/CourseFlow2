@@ -232,11 +232,14 @@ function buildPerStepDsl(
       stepLayout === "beat-scene"
         ? beatScreenForStep(input, step, opts?.dividerKicker)
         : null;
+    const baseMotion = motions[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
+    const enter =
+      hasExplain && step > 0 ? { ...baseMotion, transitionId: "none" } : baseMotion;
     return {
       step,
       layout: stepLayout,
       screen: beatPack?.screen ?? screenForStep(input, step),
-      enter: motions[step] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" },
+      enter,
       ...(visual ? { visual: visual as Record<string, unknown> } : {}),
       ...(explain ? { explain } : {}),
       ...(animationHtml ? { animationHtml } : {}),
