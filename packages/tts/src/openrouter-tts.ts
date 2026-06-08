@@ -4,6 +4,10 @@ import {
   filterChineseVoices,
   voiceIdSupportsChinese,
 } from "./chinese-tts.js";
+import {
+  openRouterSpeechResponseFormat,
+  transcodePcm16ToMp3,
+} from "./pcm-mp3.js";
 import type { OpenRouterTtsRoute, TtsModel, TtsVoice } from "./types.js";
 import { getTtsVoicesForModel } from "./types.js";
 
@@ -148,6 +152,7 @@ async function synthesizeOpenRouterSpeechApi(
   model: string,
   voiceId: string,
 ): Promise<Buffer> {
+  const responseFormat = openRouterSpeechResponseFormat(model);
   const res = await fetch(OPENROUTER_SPEECH_URL, {
     method: "POST",
     headers: {
@@ -158,7 +163,7 @@ async function synthesizeOpenRouterSpeechApi(
       model,
       input: text,
       voice: voiceId,
-      response_format: "mp3",
+      response_format: responseFormat,
     }),
   });
 
@@ -177,7 +182,11 @@ async function synthesizeOpenRouterSpeechApi(
   if (bytes.byteLength === 0) {
     throw new Error("OpenRouter TTS 回應無音訊資料");
   }
-  return Buffer.from(bytes);
+  const raw = Buffer.from(bytes);
+  if (responseFormat === "pcm") {
+    return transcodePcm16ToMp3(raw);
+  }
+  return raw;
 }
 
 function parseSseAudioChunks(body: ReadableStream<Uint8Array>): Promise<Buffer> {

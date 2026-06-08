@@ -46,6 +46,10 @@ ENV HOSTNAME=0.0.0.0
 ENV COURSEFLOW_PRESENTATION_ROOT=/tmp/cf-presentations
 WORKDIR /app
 
+# OpenRouter Gemini TTS 回傳 PCM，需 ffmpeg 轉 MP3
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+  && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 --home /home/nextjs --ingroup nodejs nextjs \
   && mkdir -p /home/nextjs /tmp/cf-presentations /tmp/.npm-cache \
