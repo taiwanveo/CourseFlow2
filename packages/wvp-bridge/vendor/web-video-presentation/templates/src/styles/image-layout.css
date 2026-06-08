@@ -67,6 +67,22 @@
   margin-inline: auto;
 }
 
+/* 單圖主視覺：盡量滿版，不縮成裝飾小圖（Asian Slide Design 硬規則） */
+.cf-img-single--hero {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--stage-safe-w);
+  min-height: 0;
+}
+
+.cf-img-single--hero img,
+.cf-img-single--hero .usd-hero-figure {
+  width: 100%;
+  max-width: min(var(--stage-safe-w), var(--stage-viz-max-w));
+  max-height: var(--stage-figure-h);
+  min-height: min(44vh, 400px);
+}
+
 /* 圖文分區：文字在上、圖在下（或反之），絕不重疊 */
 .cf-img-text-stack {
   display: flex;

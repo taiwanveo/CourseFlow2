@@ -29,9 +29,38 @@
   margin-bottom: var(--space-4);
 }
 
+/* 單圖＋標題：圖文上下分區，配圖盡量滿版（結語／magazine 等） */
+.usd-center-with-figure {
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-5);
+  max-height: var(--stage-safe-h);
+}
+
+.usd-center-with-figure .cf-img-text-stack__copy {
+  flex: 0 0 auto;
+}
+
+.usd-center-with-figure .cf-img-text-stack__media {
+  flex: 1 1 auto;
+  min-height: min(48vh, 420px);
+}
+
+.usd-hero-figure {
+  display: block;
+  width: 100%;
+  max-width: min(var(--stage-safe-w), var(--stage-viz-max-w));
+  max-height: var(--stage-figure-h);
+  min-height: min(48vh, 420px);
+  height: auto;
+  margin-inline: auto;
+  object-fit: contain;
+  border-radius: var(--r-card);
+}
+
 .usd-step-image {
-  max-height: 42vh;
-  max-width: min(720px, 90%);
+  max-height: var(--stage-figure-h);
+  max-width: min(var(--stage-viz-max-w), 92%);
   object-fit: contain;
   border-radius: var(--r-card);
 }

@@ -187,18 +187,33 @@ function PerStepScene({
     );
   }
 
+  const heroFigure = Boolean(imageUrl) && !hasAnim && !stepDef.visual;
+
   return (
     <StepEnterFrame
       enterAnimationId={enterAnimationId}
-      className="usd-step usd-center scene-pad"
+      className={
+        heroFigure
+          ? "usd-step usd-center-with-figure scene-pad cf-img-text-stack"
+          : "usd-step usd-center scene-pad"
+      }
     >
-      <MaskReveal show duration={1100}>
-        <h1 className="usd-screen serif-cn">{stepDef.screen.headline}</h1>
-        {stepDef.screen.sub ? (
-          <p className="usd-sub muted">{stepDef.screen.sub}</p>
-        ) : null}
-      </MaskReveal>
-      {imageUrl ? (
+      <div className={heroFigure ? "cf-img-text-stack__copy" : undefined}>
+        <MaskReveal show duration={1100}>
+          <h1 className="usd-screen serif-cn">{stepDef.screen.headline}</h1>
+          {stepDef.screen.sub ? (
+            <p className="usd-sub muted">{stepDef.screen.sub}</p>
+          ) : null}
+        </MaskReveal>
+      </div>
+      {heroFigure ? (
+        <div
+          className="cf-img-text-stack__media cf-img-single cf-img-single--hero"
+          data-no-advance
+        >
+          <img src={imageUrl} alt="" className="usd-hero-figure" />
+        </div>
+      ) : imageUrl ? (
         <img src={imageUrl} alt="" className="usd-step-image" data-no-advance />
       ) : null}
       {hasAnim ? (

@@ -543,9 +543,9 @@ ${stepBlocks.join("\n")}
 }
 .${prefix}-figure .cf-chapter-figure {
   width: 100%;
-  max-width: 840px;
+  max-width: var(--stage-viz-max-w);
   min-width: min(560px, 100%);
-  min-height: 400px;
+  min-height: min(48vh, 420px);
   max-height: var(--stage-figure-h);
 }
 .${prefix}-figure img,
