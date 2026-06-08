@@ -185,4 +185,9 @@ export function resolveTtsModel(provider: TtsProviderId, model?: string): string
   return model;
 }
 
-export { formatVoiceLabel } from "./chinese-tts.js";
+export {
+  filterChineseVoices,
+  filterChineseTtsModelsWithVoices,
+  formatVoiceLabel,
+  voiceIdSupportsChinese,
+} from "./chinese-tts.js";

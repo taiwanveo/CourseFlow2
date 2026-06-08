@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import { getOrderedSteps } from "@courseflow/core";
 import type { TtsModel, TtsVoice } from "@courseflow/tts/types";
-import { filterChineseVoices } from "@courseflow/tts";
 import {
   edgeTtsVisibleForLanguage,
+  filterChineseVoices,
   formatVoiceLabel,
   getTtsVoicesForModel,
 } from "@courseflow/tts/types";

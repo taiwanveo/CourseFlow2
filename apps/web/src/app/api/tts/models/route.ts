@@ -4,11 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { decryptApiKey } from "@/lib/crypto";
 import type { TtsModel, TtsProviderId } from "@courseflow/tts/types";
 import { getTtsVoicesForModel } from "@courseflow/tts/types";
+import { fetchOpenRouterTtsCatalog } from "@courseflow/tts";
 import {
-  fetchOpenRouterTtsCatalog,
   filterChineseTtsModelsWithVoices,
   filterChineseVoices,
-} from "@courseflow/tts";
+} from "@courseflow/tts/types";
 
 export const runtime = "nodejs";
 

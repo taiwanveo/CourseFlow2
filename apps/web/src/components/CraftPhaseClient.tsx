@@ -75,7 +75,7 @@ import {
   STEP_TRANSITION_IDS,
   STEP_TRANSITION_LABELS,
   type StepTransitionId,
-} from "@/lib/wvp-motion-utils";
+} from "@/lib/wvp-chapter-transitions";
 
 type CraftRow = {
   id: string;
