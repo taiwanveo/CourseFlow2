@@ -13,6 +13,7 @@ export function ChapterOutlineImages({
   onAssetsChange,
   locked,
   variant = "default",
+  compact = false,
 }: {
   projectId: string;
   wvpChapterId: string;
@@ -21,6 +22,8 @@ export function ChapterOutlineImages({
   locked: boolean;
   /** hook：多圖開場，最多 3 張，順序對應 slide 01–03 */
   variant?: "default" | "hook";
+  /** 僅顯示上傳按鈕與張數（章節列旁用） */
+  compact?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -88,9 +91,7 @@ export function ChapterOutlineImages({
   const uploadLabel = uploading
     ? "上傳中…"
     : isHook
-      ? remainingSlots && remainingSlots > 0
-        ? `+ 上傳開場圖（尚可 ${remainingSlots} 張）`
-        : "+ 上傳開場圖"
+      ? "+ 上傳開場圖（最多 3 張）"
       : "+ 章節配圖";
 
   return (
@@ -123,7 +124,7 @@ export function ChapterOutlineImages({
         ) : null}
       </div>
       {err ? <p className="text-[10px] text-amber-500/90">{err}</p> : null}
-      {chapterAssets.length > 0 ? (
+      {!compact && chapterAssets.length > 0 ? (
         <ul className="flex flex-wrap gap-1.5">
           {chapterAssets.map((a, i) => (
             <li key={`${a.url}-${i}`} className="group relative">
