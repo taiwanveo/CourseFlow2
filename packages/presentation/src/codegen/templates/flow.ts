@@ -17,7 +17,11 @@ function escapeTsString(s: string): string {
 
 export function generateFlowSources(input: ChapterCodegenInput) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
-  const { intro, introSub, nodes } = parseFlowSlots(input.narrations, input.screenContents ?? []);
+  const { intro, introSub, nodes } = parseFlowSlots(
+    input.narrations,
+    input.screenContents ?? [],
+    input.title,
+  );
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const assetsLiteral = JSON.stringify(chapterAssets);
   const stepImageBlock = buildCodegenStepImageBlock(

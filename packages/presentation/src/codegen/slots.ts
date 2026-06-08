@@ -149,12 +149,14 @@ export function verbatimScreenOrFallback(
 export function parseListRevealSlots(
   narrations: string[],
   screenContents: string[] = [],
+  introFallback = "本章",
 ): { intro: string; introSub: string; items: ListRevealItem[] } {
+  const introPlaceholder = introFallback.trim() || "本章";
   if (narrations.length === 0) {
-    return { intro: "本章", introSub: "", items: [] };
+    return { intro: introPlaceholder, introSub: "", items: [] };
   }
   if (narrations.length === 1) {
-    const introOnly = screenTextOnly(screenContents[0], "本章");
+    const introOnly = screenTextOnly(screenContents[0], introPlaceholder);
     const hasExplicitIntroScreen = Boolean(screenContents[0]?.trim());
     const introParts = hasExplicitIntroScreen
       ? [introOnly]
@@ -165,7 +167,7 @@ export function parseListRevealSlots(
       items: [],
     };
   }
-  const introSource = screenTextOnly(screenContents[0], "本章");
+  const introSource = screenTextOnly(screenContents[0], introPlaceholder);
   const hasExplicitIntroScreen = Boolean(screenContents[0]?.trim());
   const introParts = hasExplicitIntroScreen
     ? [introSource]
@@ -196,9 +198,11 @@ export function parseListRevealSlots(
 export function parseFlowSlots(
   narrations: string[],
   screenContents: string[] = [],
+  introFallback = "流程",
 ): { intro: string; introSub: string; nodes: FlowNodeSlot[] } {
+  const introPlaceholder = introFallback.trim() || "流程";
   if (narrations.length <= 1) {
-    const single = screenTextOnly(screenContents[0], "流程");
+    const single = screenTextOnly(screenContents[0], introPlaceholder);
     return {
       intro: single,
       introSub: "",
@@ -207,7 +211,7 @@ export function parseFlowSlots(
         : [],
     };
   }
-  const introSource = screenTextOnly(screenContents[0], "流程");
+  const introSource = screenTextOnly(screenContents[0], introPlaceholder);
   const introParts = splitHeadlineForStaggeredReveal(introSource, 2);
   const intro = introParts[0] ?? introSource;
   const introSub = introParts[1] ?? "";

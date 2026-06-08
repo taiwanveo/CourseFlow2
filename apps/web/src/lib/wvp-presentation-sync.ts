@@ -297,11 +297,16 @@ export async function materializeChapterFromCraft(
     !llmCacheScreenContentsStale &&
     !templateKindStale &&
     !templateNarrationLeakedOnScreen;
+  // 試執行錨點章可保留版型，但螢幕欄過期／占位符／craft 後設外洩時仍須重產
   const preserveApprovedAnchor =
     !opts?.forceFreshChapterSource &&
     opts?.preserveApprovedAnchorChapter === true &&
     craft.sort_order === 0 &&
-    Boolean(llmTsx);
+    Boolean(llmTsx) &&
+    !placeholderScreenTextInCachedTsx &&
+    !templateScreenContentsStale &&
+    !llmCacheScreenContentsStale &&
+    !craftMetadataInCachedTsx;
   if (
     !opts?.forceFreshChapterSource &&
     (preserveApprovedAnchor || useCachedLlmSource || useCachedTemplateSource)

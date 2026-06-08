@@ -82,8 +82,9 @@ export function screenContentsForChapter(
     composition.chapters.find((c) => c.id === chapterId)?.title?.trim() ?? "";
   return orderedWvpStepsForChapter(composition, chapterId).map((s) => {
     if (isChapterStep(s)) {
-      const title = stripEditorChapterLabel(s.screenContent ?? "") || chapterTitle;
-      return title;
+      const custom = stripEditorChapterLabel(s.screenContent ?? "");
+      if (custom && custom !== chapterTitle) return custom;
+      return chapterTitle || custom;
     }
     const raw = compactSpaces((s.screenContent ?? "").replace(/\.\.\.|…/g, ""));
     return sanitizeScreenContentForCodegen(raw, s.script ?? "");

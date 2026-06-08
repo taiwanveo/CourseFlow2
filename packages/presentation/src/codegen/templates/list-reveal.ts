@@ -20,6 +20,7 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
   const { intro, introSub, items } = parseListRevealSlots(
     input.narrations,
     input.screenContents ?? [],
+    input.title,
   );
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const introCheckpoint = assetForStep(chapterAssets, 0);
