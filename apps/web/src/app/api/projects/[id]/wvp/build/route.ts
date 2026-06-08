@@ -6,12 +6,79 @@ import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { assertProjectImageStyleConfigured } from "@/lib/wvp-image-style-guard";
 import { runWvpBuild } from "@/lib/run-wvp-build";
 import { createInitialWvpBuildProgress } from "@/lib/wvp-build-progress";
+import { isStaleJob } from "@/lib/job-runs-stale";
+import { resolveJobStaleMs } from "@/lib/wvp-craft-async";
 import { shouldAsyncWvpBuild } from "@/lib/wvp-build-async";
 import { syncFullWvpProject } from "@/lib/wvp-presentation-sync";
 import { wvpEmbedBasePath, wvpPlayPagePath } from "@/lib/wvp-workdir";
+import { parseWvpBuildProgress } from "@/lib/wvp-build-progress";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+/** 查詢進行中的打包任務（重新整理頁面後可接續輪詢） */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "未登入" }, { status: 401 });
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .single();
+  if (!project) return NextResponse.json({ error: "找不到專案" }, { status: 404 });
+
+  const staleMs = resolveJobStaleMs();
+  const { data: existingJob } = await supabase
+    .from("job_runs")
+    .select("id, status, updated_at, created_at, result, error_message")
+    .eq("project_id", id)
+    .eq("job_type", "wvp-build")
+    .in("status", ["pending", "running", "cancelling"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!existingJob?.id) {
+    return NextResponse.json({ active: false });
+  }
+
+  const stale = isStaleJob(existingJob.updated_at, existingJob.created_at, staleMs);
+  if (stale) {
+    const nowIso = new Date().toISOString();
+    await supabase
+      .from("job_runs")
+      .update({
+        status: "failed",
+        error_message: `任務逾時未更新（>${Math.round(staleMs / 1000)}s），已自動結束`,
+        updated_at: nowIso,
+      })
+      .eq("id", existingJob.id)
+      .in("status", ["pending", "running", "cancelling"]);
+    return NextResponse.json({
+      active: false,
+      staleCleared: true,
+      clearedJobRunId: existingJob.id,
+    });
+  }
+
+  const result = existingJob.result as Record<string, unknown> | null;
+  return NextResponse.json({
+    active: true,
+    jobRunId: existingJob.id,
+    status: existingJob.status,
+    progress: parseWvpBuildProgress(result),
+    errorMessage: existingJob.error_message,
+  });
+}
 
 /** M3：建置 WVP presentation（Vite build）供 /wvp-play 預覽 */
 export async function POST(
@@ -38,9 +105,14 @@ export async function POST(
     return NextResponse.json({ error: styleGuard.error }, { status: styleGuard.status });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { themeId?: string };
+  const body = (await req.json().catch(() => ({}))) as {
+    themeId?: string;
+    /** 結束進行中／僵死任務後重新建立打包 */
+    forceRestart?: boolean;
+  };
   const requestedThemeId =
     typeof body.themeId === "string" && body.themeId.trim() ? body.themeId.trim() : undefined;
+  const forceRestart = body.forceRestart === true;
 
   try {
     const composition = await loadProjectComposition(supabase, id);
@@ -63,27 +135,51 @@ export async function POST(
     );
 
     if (shouldAsyncWvpBuild()) {
+      const staleMs = resolveJobStaleMs();
       const { data: existingJob } = await supabase
         .from("job_runs")
-        .select("id, status")
+        .select("id, status, updated_at, created_at")
         .eq("project_id", id)
         .eq("job_type", "wvp-build")
-        .in("status", ["pending", "running"])
+        .in("status", ["pending", "running", "cancelling"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (existingJob?.id) {
-        console.log(`[wvp-build] reuse running job=${existingJob.id} project=${id}`);
-        return NextResponse.json(
-          {
-            ok: true,
-            queued: true,
-            jobRunId: existingJob.id,
-            message: "已有打包任務進行中，請稍候…",
-          },
-          { status: 202 },
+        const stale = isStaleJob(
+          existingJob.updated_at,
+          existingJob.created_at,
+          staleMs,
         );
+        if (forceRestart || stale) {
+          const nowIso = new Date().toISOString();
+          await supabase
+            .from("job_runs")
+            .update({
+              status: "failed",
+              error_message: stale
+                ? `任務逾時未更新（>${Math.round(staleMs / 1000)}s），已自動結束`
+                : "使用者要求重新打包，已結束舊任務",
+              updated_at: nowIso,
+            })
+            .eq("id", existingJob.id)
+            .in("status", ["pending", "running", "cancelling"]);
+          console.warn(
+            `[wvp-build] cleared existing job=${existingJob.id} project=${id} stale=${stale} forceRestart=${forceRestart}`,
+          );
+        } else {
+          console.log(`[wvp-build] reuse running job=${existingJob.id} project=${id}`);
+          return NextResponse.json(
+            {
+              ok: true,
+              queued: true,
+              jobRunId: existingJob.id,
+              message: "已有打包任務進行中，請稍候…",
+            },
+            { status: 202 },
+          );
+        }
       }
 
       const chapterCount = composition.chapters.filter((ch) => !ch.parentId).length;

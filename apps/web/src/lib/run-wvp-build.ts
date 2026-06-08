@@ -25,6 +25,8 @@ export type WvpBuildJobResult = {
   screenTextAudit?: WvpScreenTextAuditEntry[];
 };
 
+const HEARTBEAT_INTERVAL_MS = 15_000;
+
 export async function runWvpBuild(payload: {
   projectId: string;
   userId: string;
@@ -34,6 +36,16 @@ export async function runWvpBuild(payload: {
   const supabase = createServiceClient();
   let progress = createInitialWvpBuildProgress();
   let lastStageAt = Date.now();
+
+  const isCancelled = async (): Promise<boolean> => {
+    const { data: job } = await supabase
+      .from("job_runs")
+      .select("status")
+      .eq("id", payload.jobRunId)
+      .maybeSingle();
+    const status = (job as { status?: string } | null)?.status;
+    return status === "cancelled" || status === "cancelling" || status === "failed";
+  };
 
   const patchJob = async (patch: {
     status: string;
@@ -49,6 +61,9 @@ export async function runWvpBuild(payload: {
     phase: WvpBuildPhase,
     update?: WvpBuildStageUpdate,
   ): Promise<void> => {
+    if (await isCancelled()) {
+      throw new Error("任務已取消");
+    }
     const now = Date.now();
     const phaseChanged = phase !== progress.phase;
     if (phaseChanged) {
@@ -120,6 +135,19 @@ export async function runWvpBuild(payload: {
     updated_at: new Date().toISOString(),
   });
   const startedAt = Date.now();
+  const heartbeat = setInterval(() => {
+    void patchJob({
+      status: "running",
+      result: {
+        ok: false,
+        chapterCount: progress.chapterCount ?? 0,
+        previewUrl: wvpPlayPagePath(payload.projectId),
+        embedUrl: wvpEmbedBasePath(payload.projectId),
+        progress,
+      },
+      updated_at: new Date().toISOString(),
+    });
+  }, HEARTBEAT_INTERVAL_MS);
   console.log(
     `[wvp-build] job start job=${payload.jobRunId} project=${payload.projectId} user=${payload.userId} theme=${payload.themeId ?? "default"}`,
   );
@@ -171,18 +199,21 @@ export async function runWvpBuild(payload: {
     return jobResult;
   } catch (e) {
     const message = e instanceof Error ? e.message : "建置失敗";
+    const cancelled = message.includes("任務已取消") || (await isCancelled());
     progress = { ...progress, lastError: message.slice(0, 2000) };
-    logStructured("error", {
-      pipeline: "wvp-build",
-      jobRunId: payload.jobRunId,
-      projectId: payload.projectId,
-      phase: progress.phase,
-      message: "背景建置失敗",
-      error: message,
-    });
+    if (!cancelled) {
+      logStructured("error", {
+        pipeline: "wvp-build",
+        jobRunId: payload.jobRunId,
+        projectId: payload.projectId,
+        phase: progress.phase,
+        message: "背景建置失敗",
+        error: message,
+      });
+    }
     await patchJob({
-      status: "failed",
-      error_message: message.slice(0, 2000),
+      status: cancelled ? "cancelled" : "failed",
+      error_message: cancelled ? "任務已取消" : message.slice(0, 2000),
       result: {
         ok: false,
         chapterCount: progress.chapterCount ?? 0,
@@ -193,5 +224,7 @@ export async function runWvpBuild(payload: {
       updated_at: new Date().toISOString(),
     });
     throw e;
+  } finally {
+    clearInterval(heartbeat);
   }
 }

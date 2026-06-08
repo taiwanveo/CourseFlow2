@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
 import { WvpPhaseBottomActions, WvpPhaseNav } from "@/components/ProjectPhaseNav";
 import { ExportMp4Button } from "@/components/ExportMp4Button";
@@ -111,6 +111,8 @@ export function PublishPhaseClient({
   const [shareBusy, setShareBusy] = useState(false);
   const [browserNotifyOn, setBrowserNotifyOn] = useState(false);
   const [buildLastError, setBuildLastError] = useState<string | null>(null);
+  const [activeBuildJobId, setActiveBuildJobId] = useState<string | null>(null);
+  const buildPollAbortRef = useRef(false);
   const buildElapsedMs = useElapsedMs(building);
   const { toast } = useToast();
   const locked = locks.publish;
@@ -165,7 +167,8 @@ export function PublishPhaseClient({
   const POLL_INTERVAL_MS = 2000;
   const POLL_MAX_ATTEMPTS = 600;
 
-  const pollWvpBuildJob = async (jobRunId: string, attempt = 0): Promise<void> => {
+  const pollWvpBuildJob = useCallback(async (jobRunId: string, attempt = 0): Promise<void> => {
+    if (buildPollAbortRef.current) return;
     let res: Response;
     let data: {
       error?: string;
@@ -237,6 +240,10 @@ export function PublishPhaseClient({
       setBuildLastError(err);
       throw new Error(err);
     }
+    if (status === "cancelled") {
+      setBuildLastError(data.job?.error_message ?? "任務已取消");
+      return;
+    }
 
     if (attempt >= POLL_MAX_ATTEMPTS) {
       throw new Error(
@@ -246,16 +253,17 @@ export function PublishPhaseClient({
 
     await new Promise((r) => window.setTimeout(r, POLL_INTERVAL_MS));
     return pollWvpBuildJob(jobRunId, attempt + 1);
-  };
+  }, []);
 
-  const buildWvpPreview = async () => {
+  const buildWvpPreview = useCallback(async (forceRestart = false) => {
     if (!audioGate.ready) {
       toast(audioGate.message ?? "請先完成語音合成", "error");
       return;
     }
+    buildPollAbortRef.current = false;
     setBuilding(true);
     setBuildLastError(null);
-    setBuildQueueHint("正在啟動打包任務…");
+    setBuildQueueHint(forceRestart ? "正在重新打包…" : "正在啟動打包任務…");
     const rootChapterCount = composition.chapters.filter((ch) => !ch.parentId).length;
     setBuildProgress(createInitialWvpBuildProgress(rootChapterCount));
     try {
@@ -264,6 +272,7 @@ export function PublishPhaseClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           themeId: composition.meta.themeId ?? undefined,
+          forceRestart,
         }),
       });
       const text = await res.text();
@@ -288,6 +297,7 @@ export function PublishPhaseClient({
         throw new Error(`建置失敗（HTTP ${res.status}）。${hint}`);
       }
       if (res.status === 202 && data.jobRunId) {
+        setActiveBuildJobId(data.jobRunId);
         toast(data.message ?? "課程打包已開始，請稍候…", "info");
         await pollWvpBuildJob(data.jobRunId);
         return;
@@ -304,9 +314,79 @@ export function PublishPhaseClient({
       toast(e instanceof Error ? e.message : "建置失敗", "error");
     } finally {
       setBuilding(false);
+      setActiveBuildJobId(null);
       setBuildQueueHint(null);
     }
-  };
+  }, [audioGate.message, audioGate.ready, composition.chapters, composition.meta.themeId, pollWvpBuildJob, projectId, toast]);
+
+  const cancelAndRestartBuild = useCallback(async () => {
+    buildPollAbortRef.current = true;
+    const jobId = activeBuildJobId;
+    if (jobId) {
+      try {
+        const res = await fetch(`/api/job-runs/${jobId}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ force: true }),
+        });
+        const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+        if (!res.ok) {
+          throw new Error(data.error ?? "清除任務失敗");
+        }
+        toast(data.message ?? "已清除任務", "info");
+      } catch (e) {
+        toast(e instanceof Error ? e.message : "清除任務失敗", "error");
+        buildPollAbortRef.current = false;
+        return;
+      }
+    }
+    setBuilding(false);
+    setActiveBuildJobId(null);
+    setBuildQueueHint(null);
+    buildPollAbortRef.current = false;
+    await buildWvpPreview(true);
+  }, [activeBuildJobId, buildWvpPreview, toast]);
+
+  useEffect(() => {
+    let disposed = false;
+    void (async () => {
+      const res = await fetch(`/api/projects/${projectId}/wvp/build`, { cache: "no-store" });
+      if (!res.ok || disposed) return;
+      const data = (await res.json()) as {
+        active?: boolean;
+        jobRunId?: string;
+        progress?: WvpBuildProgress;
+        staleCleared?: boolean;
+      };
+      if (data.staleCleared) {
+        toast("偵測到逾時未更新的打包任務，已自動清除", "info");
+        return;
+      }
+      if (!data.active || !data.jobRunId || disposed) return;
+      setActiveBuildJobId(data.jobRunId);
+      if (data.progress) setBuildProgress(data.progress);
+      setBuilding(true);
+      setBuildQueueHint("接續進行中的打包任務…");
+      buildPollAbortRef.current = false;
+      try {
+        await pollWvpBuildJob(data.jobRunId);
+      } catch (e) {
+        if (!disposed) {
+          toast(e instanceof Error ? e.message : "打包失敗", "error");
+        }
+      } finally {
+        if (!disposed) {
+          setBuilding(false);
+          setActiveBuildJobId(null);
+          setBuildQueueHint(null);
+        }
+      }
+    })();
+    return () => {
+      disposed = true;
+      buildPollAbortRef.current = true;
+    };
+  }, [pollWvpBuildJob, projectId, toast]);
 
   const buildProgressLabel = useMemo(() => {
     if (buildProgress) return formatWvpBuildProgressLabel(buildProgress);
@@ -518,7 +598,7 @@ export function PublishPhaseClient({
             type="button"
             className="cf-btn cf-btn-primary"
             disabled={locked || building || !audioGate.ready}
-            onClick={buildWvpPreview}
+            onClick={() => void buildWvpPreview()}
             title={audioGate.message ?? undefined}
           >
             {building ? "打包中…" : "打包課程"}
@@ -605,7 +685,18 @@ export function PublishPhaseClient({
           percent={buildProgressPercent}
           eta={buildProgress ? estimateWvpBuildRemainingMs(buildProgress) : null}
           queueHint={buildQueueHint}
+          onCancel={building ? () => void cancelAndRestartBuild() : undefined}
         />
+        {!building && buildLastError ? (
+          <button
+            type="button"
+            className="cf-btn cf-btn-secondary cf-btn-sm"
+            disabled={locked || !audioGate.ready}
+            onClick={() => void buildWvpPreview(true)}
+          >
+            清除並重新打包
+          </button>
+        ) : null}
       </section>
 
       <section className="cf-card cf-card-padded space-y-4">

@@ -2,9 +2,14 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-/** 取消進行中的 job_runs 背景任務（協作式取消） */
+type CancelBody = {
+  /** 立即標記失敗（適用僵死任務），不等待背景程序協作結束 */
+  force?: boolean;
+};
+
+/** 取消進行中的 job_runs 背景任務（協作式或強制結束） */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
@@ -13,6 +18,9 @@ export async function POST(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "未登入" }, { status: 401 });
+
+  const body = (await req.json().catch(() => ({}))) as CancelBody;
+  const force = body.force === true;
 
   const { data: job, error } = await supabase
     .from("job_runs")
@@ -26,15 +34,18 @@ export async function POST(
   }
 
   const status = job.status as string;
-  if (status !== "pending" && status !== "running") {
+  const cancellable = status === "pending" || status === "running" || status === "cancelling";
+  if (!cancellable) {
     return NextResponse.json({ error: "此任務已無法取消" }, { status: 400 });
   }
 
+  const nowIso = new Date().toISOString();
   const { error: updateError } = await supabase
     .from("job_runs")
     .update({
-      status: "cancelling",
-      updated_at: new Date().toISOString(),
+      status: force ? "failed" : "cancelling",
+      error_message: force ? "使用者已清除任務" : null,
+      updated_at: nowIso,
     })
     .eq("id", id);
 
@@ -45,6 +56,9 @@ export async function POST(
   return NextResponse.json({
     ok: true,
     jobRunId: id,
-    message: "已送出取消請求，正在完成目前章節…",
+    forced: force,
+    message: force
+      ? "已清除任務，可重新打包"
+      : "已送出取消請求，正在完成目前步驟…",
   });
 }

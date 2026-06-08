@@ -8,6 +8,8 @@ type FullWidthProgressPanelProps = {
   percent: number;
   eta?: number | null;
   queueHint?: string | null;
+  onCancel?: () => void;
+  cancelLabel?: string;
 };
 
 export function FullWidthProgressPanel({
@@ -16,6 +18,8 @@ export function FullWidthProgressPanel({
   percent,
   eta = null,
   queueHint,
+  onCancel,
+  cancelLabel = "清除任務並重做",
 }: FullWidthProgressPanelProps) {
   if (!busy) return null;
 
@@ -36,9 +40,22 @@ export function FullWidthProgressPanel({
           style={{ width: `${clampedPercent}%` }}
         />
       </div>
-      {eta !== null ? (
-        <p className="mt-1.5 text-xs text-zinc-500">預估剩餘 {formatEtaMs(eta)}</p>
-      ) : null}
+      <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+        {eta !== null ? (
+          <p className="text-xs text-zinc-500">預估剩餘 {formatEtaMs(eta)}</p>
+        ) : (
+          <span />
+        )}
+        {onCancel ? (
+          <button
+            type="button"
+            className="text-xs text-amber-400/95 hover:text-amber-300 hover:underline"
+            onClick={onCancel}
+          >
+            {cancelLabel}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
