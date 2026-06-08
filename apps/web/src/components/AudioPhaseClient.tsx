@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -167,7 +167,6 @@ export function AudioPhaseClient({
     void batchElapsedMs;
     return estimateTtsBatchRemainingMs(batchProgress);
   }, [batchProgress, batchSynthesizing, batchElapsedMs]);
-  const lastTtsDoneCount = useRef(0);
   const [stepSynthesizing, setStepSynthesizing] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingBusy, setRecordingBusy] = useState(false);
@@ -477,11 +476,6 @@ export function AudioPhaseClient({
           const progress = parseTtsBatchProgress(result);
           if (progress) {
             setBatchProgress(progress);
-            const done = progress.steps.filter((s) => s.status === "done").length;
-            if (done > lastTtsDoneCount.current) {
-              lastTtsDoneCount.current = done;
-              void refreshComposition();
-            }
           }
         }
       }
@@ -497,6 +491,7 @@ export function AudioPhaseClient({
       if (status === "failed") {
         const progress = parseTtsBatchProgress(result);
         if (progress) setBatchProgress(progress);
+        await refreshComposition();
         const stepError = progress?.steps.find((s) => s.error)?.error;
         toast(stepError ?? data.job?.error_message ?? "語音合成失敗", "error");
         onDone();
@@ -641,7 +636,6 @@ export function AudioPhaseClient({
     }
     setBatchSynthesizing(true);
     setBatchQueueHint("正在送出批次任務…");
-    lastTtsDoneCount.current = 0;
     const initial = buildInitialBatchProgress();
     setBatchProgress(initial);
     try {
@@ -905,6 +899,14 @@ export function AudioPhaseClient({
       return;
     }
     if (locked) return;
+    // TTS 背景任務完成前，composition.audio 尚未寫入 DB；此時自動儲存會覆蓋掉已合成的語音。
+    if (batchSynthesizing || stepSynthesizing) {
+      if (autoSaveTimer.current) {
+        clearTimeout(autoSaveTimer.current);
+        autoSaveTimer.current = null;
+      }
+      return;
+    }
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaveStatus("saving");
     autoSaveTimer.current = setTimeout(() => {
@@ -916,7 +918,7 @@ export function AudioPhaseClient({
     return () => {
       if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     };
-  }, [composition, locked]);
+  }, [composition, locked, batchSynthesizing, stepSynthesizing]);
 
   const unlockPhase = async () => {
     const res = await fetch(`/api/projects/${projectId}/wvp/phases/audio/lock`, {

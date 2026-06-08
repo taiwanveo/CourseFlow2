@@ -4,7 +4,7 @@ import type { CourseComposition } from "@courseflow/core";
 import { assertPhaseEditable, ensureChapterDividerSteps } from "@courseflow/core";
 import type { PhaseLocks } from "@courseflow/core";
 import { createClient } from "@/lib/supabase/server";
-import { saveComposition } from "@/lib/project-composition";
+import { loadProjectComposition, saveComposition } from "@/lib/project-composition";
 
 export async function PUT(
   req: NextRequest,
@@ -37,7 +37,21 @@ export async function PUT(
     return NextResponse.json({ error: (e as Error).message }, { status: 403 });
   }
 
-  const composition = ensureChapterDividerSteps(body.composition);
+  let composition = ensureChapterDividerSteps(body.composition);
+
+  if (body.phase === "audio") {
+    const existing = await loadProjectComposition(supabase, id);
+    const incomingCount = composition.audio.filter(
+      (a) => a.stepId && (a.storagePath?.trim() || a.publicUrl?.trim()),
+    ).length;
+    const existingCount = (existing?.audio ?? []).filter(
+      (a) => a.stepId && (a.storagePath?.trim() || a.publicUrl?.trim()),
+    ).length;
+    if (incomingCount === 0 && existingCount > 0) {
+      composition = { ...composition, audio: existing!.audio };
+    }
+  }
+
   await saveComposition(supabase, id, composition);
 
   if (body.phase === "content") {

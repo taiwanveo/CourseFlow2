@@ -127,8 +127,11 @@ export async function saveComposition(
   projectId: string,
   composition: CourseComposition,
 ): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("projects")
     .update({ composition_snapshot: composition as unknown as Record<string, unknown> })
     .eq("id", projectId);
+  if (error) {
+    throw new Error(`儲存 composition 失敗：${error.message}`);
+  }
 }
