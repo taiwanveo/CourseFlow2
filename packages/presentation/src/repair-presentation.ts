@@ -59,6 +59,7 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "useStepper.ts",
     "useAutoMode.ts",
     "usePlayControlBridge.ts",
+    "useAudioRevision.ts",
     "useAudioPlayer.ts",
     "usePresentationMotion.ts",
     "usePauseControl.ts",

@@ -124,6 +124,7 @@ export async function scaffoldPresentation(
   for (const hook of [
     "useStageScale.ts",
     "useStepper.ts",
+    "useAudioRevision.ts",
     "useAudioPlayer.ts",
     "useAutoMode.ts",
     "usePlayControlBridge.ts",

@@ -185,10 +185,15 @@ function isPercentDeltaPhrase(prefix: string): boolean {
 }
 
 /** 剝除 Craft／製作備註，避免污染 chart／table 列 */
+function hasBarChartIntent(text: string): boolean {
+  return /長條圖|长条图|柱狀圖|柱状图|bar\s*chart/i.test(text);
+}
+
 function stripVisualCraftMeta(text: string): string {
   return text
     .replace(/預期產出為[^。；;\n]+/g, "")
     .replace(/預期產出折線圖[^。；;\n]*/g, "")
+    .replace(/預期產出長條圖[^。；;\n]*/g, "")
     .replace(/預期產出圓餅圖[^。；;\n]*/g, "")
     .replace(/使用表格視覺進行\s*/g, "")
     .replace(/四項加總\s*\d+\s*%?/g, "")
@@ -406,6 +411,57 @@ function extractQualitativeSchemeRows(seg: string): { item: string; 說明: stri
   return out;
 }
 
+function normalizeQuarterLabel(raw: string): string {
+  const map: Record<string, string> = {
+    "１": "1",
+    "２": "2",
+    "３": "3",
+    "４": "4",
+    一: "1",
+    二: "2",
+    三: "3",
+    四: "4",
+  };
+  return `Q${map[raw] ?? raw}`;
+}
+
+/** Q1 120億、Q2 135億 — 必須優先於 PAIR_RE，避免 Q 與數字被拆成多筆 */
+function inferQuarterlyRevenueChart(text: string): VisualConfig | null {
+  const pairs: { label: string; value: number }[] = [];
+  let unit: string | undefined;
+
+  for (const m of text.matchAll(
+    /Q\s*([1-4１-４一二三四])\s*(\d+(?:\.\d+)?)\s*(億|萬|万|千|百)?/gi,
+  )) {
+    const value = parseFloat(m[2]!);
+    if (!Number.isFinite(value)) continue;
+    if (!unit && m[3]) unit = m[3];
+    pairs.push({ label: normalizeQuarterLabel(m[1]!), value });
+  }
+
+  if (pairs.length < 2) return null;
+
+  const seen = new Set<string>();
+  const unique = pairs.filter((p) => {
+    if (seen.has(p.label)) return false;
+    seen.add(p.label);
+    return true;
+  });
+  if (unique.length < 2) return null;
+
+  const forceBar =
+    hasBarChartIntent(text) || /季度|營收|营收|四季/.test(text);
+  const forceLine =
+    !forceBar && /折線|曲线|趨勢|趋势|序列/.test(text);
+  return chartFromPairs(
+    unique,
+    shortDataTitle(text, "季度營收"),
+    unit ?? (/億/.test(text) ? "億" : undefined),
+    forceLine,
+    forceBar,
+  );
+}
+
 /** N月VALUE 趨勢（例：1月100、2月150）— 必須優先於 PAIR_RE，避免月份數字被當 Y 值 */
 function inferMonthlyTrendChart(text: string): VisualConfig | null {
   const pairs: { label: string; value: number }[] = [];
@@ -449,12 +505,13 @@ function chartFromPairs(
   title: string,
   unit?: string,
   forceLine?: boolean,
+  forceBar?: boolean,
 ): VisualConfig {
   const xKey = "label";
   const yKey = "value";
   const data = pairs.map((p) => ({ [xKey]: p.label, [yKey]: p.value }));
   const hasPercent = unit === "%" || /%/.test(title);
-  if (hasPercent && pairs.length <= 6 && !forceLine) {
+  if (hasPercent && pairs.length <= 6 && !forceLine && !forceBar) {
     return {
       kind: "chart",
       chartType: "pie",
@@ -466,9 +523,14 @@ function chartFromPairs(
       colorRole: "categorical",
     };
   }
+  const chartType: "line" | "bar" = forceBar
+    ? "bar"
+    : forceLine || pairs.length >= 4
+      ? "line"
+      : "bar";
   return {
     kind: "chart",
-    chartType: forceLine || pairs.length >= 4 ? "line" : "bar",
+    chartType,
     title: title.slice(0, 32),
     xKey,
     yKey,
@@ -611,8 +673,19 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     });
   }
   if (seasonPairs.length >= 2) {
-    return chartFromPairs(seasonPairs, shortDataTitle(t, "季度營收"), "萬", true);
+    const forceBar =
+      hasBarChartIntent(t) || /季度|營收|营收|長條|长条/.test(t);
+    return chartFromPairs(
+      seasonPairs,
+      shortDataTitle(t, "季度營收"),
+      "萬",
+      !forceBar,
+      forceBar,
+    );
   }
+
+  const quarterlyRevenue = inferQuarterlyRevenueChart(t);
+  if (quarterlyRevenue) return quarterlyRevenue;
 
   const monthlyTrend = inferMonthlyTrendChart(t);
   if (monthlyTrend) return monthlyTrend;

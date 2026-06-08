@@ -63,6 +63,14 @@ export const GOLDEN_CASES: GoldenCase[] = [
     id: "quarter-bar",
     input: "2024 年四季營收 Q1 120億 Q2 135億 Q3 150億 Q4 180億",
     expectKind: "chart",
+    expectChartType: "bar",
+  },
+  {
+    id: "quarter-bar-craft-meta",
+    input:
+      "季度營收：長條圖展示\n4-5 季度營收長條。2024 年四季營收分別為Q1 120億、Q2 135億、Q3 150億、Q4 180億。預期產出長條圖或季度序列圖。",
+    expectKind: "chart",
+    expectChartType: "bar",
   },
   {
     id: "month-line",
