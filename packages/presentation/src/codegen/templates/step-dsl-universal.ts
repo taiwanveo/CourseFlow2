@@ -2,11 +2,10 @@ import type { StepDslChapter } from "../../step-dsl/schema.js";
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
-import { buildCodegenStepAnimationBlock } from "../step-image-codegen.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
- * StepDSL v1 通用章節 codegen：不再產 per-step if/else TSX，改輸出資料 + UniversalStepChapter。
+ * StepDSL v1 通用章節 codegen：動畫以 step-dsl-data.explain 為唯一真相來源，不再內嵌 STEP_ANIMATION_*。
  */
 export function generateUniversalStepDslSources(
   input: ChapterCodegenInput,
@@ -16,17 +15,6 @@ export function generateUniversalStepDslSources(
   const stepImageBlock = buildCodegenStepImageBlock(
     input.wvpChapterId,
     input.stepImageExtensions ?? {},
-  );
-  const animIndices = (input.stepAnimationIndices ?? []).filter(
-    (step) =>
-      Boolean(input.stepAnimationConfigByStep?.[step]) ||
-      Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
-  );
-  const stepAnimationBlock = buildCodegenStepAnimationBlock(
-    input.wvpChapterId,
-    animIndices,
-    input.stepAnimationHtmlByStep,
-    input.stepAnimationConfigByStep,
   );
 
   const dslTs = `import type { StepDslChapterData } from "../../components/step-dsl-types";
@@ -40,18 +28,15 @@ import type { ChapterStepProps } from "../../registry/types";
 import { STEP_DSL_CHAPTER } from "./step-dsl-data";
 import "./${componentName}.css";
 
-${stepImageBlock}${stepAnimationBlock}
+${stepImageBlock}
 
-/** CourseFlow · StepDSL v1 通用 StepRenderer */
+/** CourseFlow · StepDSL v1 通用 StepRenderer（動畫僅讀 step-dsl-data） */
 export default function ${componentName}({ step }: ChapterStepProps) {
   return (
     <UniversalStepChapter
       step={step}
       chapter={STEP_DSL_CHAPTER}
       stepImageUrl={stepImageUrl}
-      hasStepAnimation={hasStepAnimation}
-      stepAnimationConfig={stepAnimationConfig}
-      stepAnimationSrcDoc={stepAnimationSrcDoc}
     />
   );
 }

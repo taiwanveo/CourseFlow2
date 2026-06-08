@@ -184,7 +184,7 @@ export default function App() {
   return (
     <>
       <Stage onAdvance={onStageAdvance}>
-        <div key={ch.id} className="scene">
+        <div key={`${ch.id}-${stepper.cursor.step}`} className="scene">
           <Cmp step={stepper.cursor.step} />
         </div>
       </Stage>

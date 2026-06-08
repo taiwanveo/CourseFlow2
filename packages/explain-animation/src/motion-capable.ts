@@ -17,6 +17,10 @@ export const MOTION_CAPABLE_PATTERNS = [
   "funnel_narrow",
   "ratio_split",
   "pulse_highlight",
+  "venn_overlap",
+  "before_after_slider",
+  "timeline_year",
+  "sparkline_up",
 ] as const satisfies readonly ExplainPatternId[];
 
 export type MotionCapablePattern = (typeof MOTION_CAPABLE_PATTERNS)[number];

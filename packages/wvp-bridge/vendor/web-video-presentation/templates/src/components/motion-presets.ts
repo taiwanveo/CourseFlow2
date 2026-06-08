@@ -197,3 +197,37 @@ export const enterMotionVariants: Record<string, Variants> = {
     show: { opacity: 1, filter: "blur(0px)", transition: springReveal },
   },
 };
+
+/** 步與步之間轉場（StepDSL transitionId → 步進器） */
+export const stepTransitionVariants: Record<string, Variants> = {
+  crossfade: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
+  fade: {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+  },
+  wipe: {
+    initial: { opacity: 0, y: 28, clipPath: "inset(100% 0 0 0)" },
+    animate: { opacity: 1, y: 0, clipPath: "inset(0 0 0 0)" },
+    exit: { opacity: 0, y: -18, clipPath: "inset(0 0 100% 0)" },
+  },
+  "slide-left": {
+    initial: { opacity: 0, x: 48 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -36 },
+  },
+  "slide-right": {
+    initial: { opacity: 0, x: -48 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 36 },
+  },
+  none: {
+    initial: { opacity: 1 },
+    animate: { opacity: 1 },
+    exit: { opacity: 1 },
+  },
+};

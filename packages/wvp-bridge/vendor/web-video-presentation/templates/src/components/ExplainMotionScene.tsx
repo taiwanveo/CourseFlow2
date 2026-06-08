@@ -26,6 +26,10 @@ const MOTION_PATTERNS = new Set([
   "funnel_narrow",
   "ratio_split",
   "pulse_highlight",
+  "venn_overlap",
+  "before_after_slider",
+  "timeline_year",
+  "sparkline_up",
 ]);
 
 export function isExplainMotionPattern(pattern: string): boolean {
@@ -507,6 +511,210 @@ function RatioSplitScene({ params }: { params: Record<string, unknown> }) {
   );
 }
 
+function numPoints(params: Record<string, unknown>): { label: string; value: number }[] {
+  const raw = params.points;
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((x): x is { label: string; value: number } =>
+      Boolean(x && typeof x === "object" && "label" in x && "value" in x),
+    )
+    .map((x) => ({
+      label: String((x as { label: unknown }).label),
+      value: Number((x as { value: unknown }).value) || 0,
+    }));
+}
+
+function SparklineScene({ params }: { params: Record<string, unknown> }) {
+  const points = numPoints(params);
+  const unit = String(params.unit ?? "");
+  const max = Math.max(...points.map((p) => p.value), 1);
+  const { reduce, stagger, springReveal } = usePresentationMotion();
+
+  return (
+    <div className="exm-scene exm-sparkline" data-no-advance>
+      <motion.svg viewBox="0 0 480 220" className="exm-sparkline-svg">
+        <motion.polyline
+          className="exm-sparkline-line"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="3"
+          points={points
+            .map((p, i) => {
+              const x = 60 + (i * 360) / Math.max(1, points.length - 1);
+              const y = 180 - (p.value / max) * 120;
+              return `${x},${y}`;
+            })
+            .join(" ")}
+          initial={{ pathLength: 0, opacity: 0.4 }}
+          animate={{ pathLength: 1, opacity: 1 }}
+          transition={{ duration: reduce ? 0 : 1.2, ease: [0.25, 1, 0.5, 1] }}
+        />
+        {points.map((p, i) => {
+          const x = 60 + (i * 360) / Math.max(1, points.length - 1);
+          const y = 180 - (p.value / max) * 120;
+          return (
+            <g key={`${p.label}-${i}`}>
+              <motion.circle
+                cx={x}
+                cy={y}
+                r="5"
+                fill="var(--accent)"
+                initial={{ opacity: 0, scale: 0 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ ...springReveal, delay: reduce ? 0 : 0.5 + i * stagger }}
+              />
+              <text x={x} y={200} textAnchor="middle" className="exm-sparkline-label">
+                {p.label}
+              </text>
+              <text x={x} y={y - 12} textAnchor="middle" className="exm-sparkline-val">
+                {p.value}
+              </text>
+            </g>
+          );
+        })}
+      </motion.svg>
+      {unit ? <span className="exm-sparkline-unit muted">{unit}</span> : null}
+    </div>
+  );
+}
+
+function VennOverlapScene({ params }: { params: Record<string, unknown> }) {
+  const leftLabel = String(params.leftLabel ?? "A").slice(0, 6);
+  const rightLabel = String(params.rightLabel ?? "B").slice(0, 6);
+  const overlapLabel = String(params.overlapLabel ?? "∩");
+  const { springReveal } = usePresentationMotion();
+
+  return (
+    <div className="exm-scene exm-venn" data-no-advance>
+      <motion.div
+        className="exm-venn-circle exm-venn-left"
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 0.55, x: 0 }}
+        transition={springReveal}
+      >
+        {leftLabel}
+      </motion.div>
+      <motion.div
+        className="exm-venn-circle exm-venn-right"
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 0.55, x: 0 }}
+        transition={{ ...springReveal, delay: 0.35 }}
+      >
+        {rightLabel}
+      </motion.div>
+      <motion.div
+        className="exm-venn-overlap"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 0.9, scale: 1 }}
+        transition={{ ...springReveal, delay: 0.75 }}
+      >
+        {overlapLabel}
+      </motion.div>
+    </div>
+  );
+}
+
+function BeforeAfterSliderScene({ params }: { params: Record<string, unknown> }) {
+  const beforeLabel = String(params.beforeLabel ?? "改造前").slice(0, 6);
+  const afterLabel = String(params.afterLabel ?? "改造後").slice(0, 6);
+  const { reduce, springReveal } = usePresentationMotion();
+  const [pos, setPos] = useState(reduce ? 0.5 : 0.82);
+
+  useEffect(() => {
+    if (reduce) return;
+    const t1 = window.setTimeout(() => setPos(0.28), 700);
+    const t2 = window.setTimeout(() => setPos(0.5), 2200);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [reduce]);
+
+  return (
+    <div className="exm-scene exm-before-after" data-no-advance>
+      <div className="exm-ba-track">
+        <div className="exm-ba-pane exm-ba-before">
+          <span>{beforeLabel}</span>
+        </div>
+        <motion.div
+          className="exm-ba-pane exm-ba-after"
+          style={{ clipPath: `inset(0 ${(1 - pos) * 100}% 0 0)` }}
+          transition={springReveal}
+        >
+          <span>{afterLabel}</span>
+        </motion.div>
+        <motion.div
+          className="exm-ba-handle"
+          style={{ left: `${pos * 100}%` }}
+          transition={springReveal}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TimelineYearScene({ params }: { params: Record<string, unknown> }) {
+  const raw = params.years;
+  const years = Array.isArray(raw)
+    ? raw
+        .filter((x): x is { year: number; label?: string } =>
+          Boolean(x && typeof x === "object" && "year" in x),
+        )
+        .map((x) => ({
+          year: Number((x as { year: unknown }).year),
+          label: (x as { label?: string }).label,
+        }))
+        .sort((a, b) => a.year - b.year)
+    : [];
+  const { reduce, stagger, springReveal } = usePresentationMotion();
+  const [active, setActive] = useState(reduce ? years.length - 1 : 0);
+
+  useEffect(() => {
+    if (reduce || years.length === 0) return;
+    setActive(0);
+    let i = 0;
+    const id = window.setInterval(() => {
+      i += 1;
+      if (i >= years.length) {
+        window.clearInterval(id);
+        return;
+      }
+      setActive(i);
+    }, 650);
+    return () => window.clearInterval(id);
+  }, [years.length, reduce]);
+
+  return (
+    <div className="exm-scene exm-timeline" data-no-advance>
+      <div className="exm-timeline-rail" />
+      <motion.div
+        className="exm-timeline-nodes"
+        initial="hidden"
+        animate="show"
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: reduce ? 0 : stagger } },
+        }}
+      >
+        {years.map((y, i) => {
+          const state = i <= active ? "on" : "pending";
+          return (
+            <motion.div
+              key={y.year}
+              className={`exm-timeline-node exm-timeline-node--${state}`}
+              variants={listSlotLineVariants}
+              transition={springReveal}
+            >
+              <span className="exm-timeline-year">{y.year}</span>
+              {y.label ? <small>{y.label.slice(0, 6)}</small> : null}
+            </motion.div>
+          );
+        })}
+      </motion.div>
+    </div>
+  );
+}
+
 function PulseHighlightScene({ params }: { params: Record<string, unknown> }) {
   const text = String(params.text ?? "");
   const sub = params.sub ? String(params.sub) : undefined;
@@ -609,6 +817,14 @@ export function ExplainMotionScene({ config }: { config: MotionSceneConfig }) {
       return <RatioSplitScene params={config.params} />;
     case "pulse_highlight":
       return <PulseHighlightScene params={config.params} />;
+    case "sparkline_up":
+      return <SparklineScene params={config.params} />;
+    case "venn_overlap":
+      return <VennOverlapScene params={config.params} />;
+    case "before_after_slider":
+      return <BeforeAfterSliderScene params={config.params} />;
+    case "timeline_year":
+      return <TimelineYearScene params={config.params} />;
     default:
       return null;
   }

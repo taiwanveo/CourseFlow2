@@ -1,4 +1,4 @@
-import { access, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPlayableAnimationHtml } from "@/lib/wvp-animation-html";
@@ -317,6 +317,18 @@ export async function syncHeuristicExplainAnimations(
         step,
         motionRecord,
       );
+      const htmlPath = join(
+        presentationDir,
+        "public",
+        "animations",
+        opts.wvpChapterId,
+        `${String(step + 1).padStart(2, "0")}.html`,
+      );
+      try {
+        await unlink(htmlPath);
+      } catch {
+        /* 無舊 HTML 可刪 */
+      }
       written++;
       continue;
     }

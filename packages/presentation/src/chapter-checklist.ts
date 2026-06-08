@@ -49,6 +49,7 @@ export function runChapterCraftChecklist(opts: {
     id: "narrations-length",
     label: "narrations 與 step 區塊一致",
     passed:
+      /UniversalStepChapter|STEP_DSL_CHAPTER/.test(tsx) ||
       /ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx) ||
       narrations.every((_, i) => tsx.includes(`step === ${i}`)),
     evidence: `${narrations.length} narrations`,
@@ -71,7 +72,9 @@ export function runChapterCraftChecklist(opts: {
   items.push({
     id: "mask-reveal-api",
     label: "MaskReveal API 正確",
-    passed: !chapterUsesInvalidMaskReveal(tsx) || tsx.includes("ListRevealGrid") || tsx.includes("FlowDiagram") || tsx.includes("VisualBlock"),
+    passed:
+      !chapterUsesInvalidMaskReveal(tsx) ||
+      /UniversalStepChapter|ListRevealGrid|FlowDiagram|VisualBlock/.test(tsx),
   });
 
   items.push({

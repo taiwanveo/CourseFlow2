@@ -14,7 +14,8 @@
     "bananax:catalog": "node scripts/build-bananax-catalog.mjs",
     "render:cutover": "node scripts/render-cutover.mjs",
     "bananax:catalog:json": "node scripts/build-bananax-catalog.mjs --skip-download",
-    "playwright:install": "pnpm --filter @courseflow/presentation exec playwright install chromium"
+    "playwright:install": "pnpm --filter @courseflow/presentation exec playwright install chromium",
+    "verify:step-dsl": "node scripts/verify-step-dsl-deploy.mjs"
   },
   "devDependencies": {
     "turbo": "^2.5.4",
