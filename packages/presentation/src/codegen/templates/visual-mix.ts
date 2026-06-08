@@ -1,6 +1,6 @@
 import type { ChapterCodegenInput } from "../chapter-types.js";
 import { chapterComponentName } from "../chapter-types.js";
-import type { StepVisualEntry } from "../step-visuals.js";
+import { mergeStepVisualConfigs, type StepVisualEntry } from "../step-visuals.js";
 import { screenHeadlineForSlot, screenTextOnly, stripNarrationLeakFromScreen } from "../slots.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 import { buildCodegenStepAnimationBlock } from "../step-image-codegen.js";
@@ -15,22 +15,39 @@ function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\r?\n/g, " ");
 }
 
-/** 圖表上方只顯示螢幕短語（禁止口播／步驟說明外洩） */
-function visualMixHeadline(screen: string | undefined, title: string): string {
-  const cleaned = screen?.trim()
-    ? stripNarrationLeakFromScreen(screenTextOnly(screen, title))
-    : "";
-  const headline = screenHeadlineForSlot(cleaned || title, title, 24);
-  return escapeTsString(headline);
+/** 畫面主文：完整螢幕欄位（僅 strip craft 後設，不截斷、不 fallback 口播） */
+function visualMixScreenText(screen: string | undefined): string {
+  return escapeTsString(screenTextOnly(screen));
 }
 
-function stepAnimationEmbedBranch(step: number, componentName: string): string {
+/** 圖表區小標：收斂為短語，避免與 chart title 重複過長 */
+function visualMixChartHeadline(screen: string | undefined): string {
+  const cleaned = screen?.trim()
+    ? stripNarrationLeakFromScreen(screenTextOnly(screen))
+    : "";
+  return escapeTsString(screenHeadlineForSlot(cleaned, 24));
+}
+
+/** 有解說動畫時仍必須顯示螢幕內容；動畫在下方，不可單獨佔滿整屏 */
+function stepAnimationWithScreenBranch(
+  step: number,
+  componentName: string,
+  screenText: string,
+): string {
+  const headlineBlock = screenText
+    ? `<h1 className="${componentName}-screen serif-cn">${screenText}</h1>`
+    : "";
   return `
   if (step === ${step}) {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
+    const animDoc = stepAnimationSrcDoc(${step});
+    const animCfg = stepAnimationConfig(${step});
     return (
-      <div className={\`${componentName}-anim-wrap scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <SafeAnimationFrame className="${componentName}-anim-frame" srcDoc={stepAnimationSrcDoc(${step})} title="" loading="eager" sandbox="allow-scripts allow-same-origin" />
+      <div className={\`${componentName}-step-wrap ${componentName}-anim-step scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        ${headlineBlock}
+        {(animCfg || animDoc) ? (
+          <ExplainAnimationSlot className="${componentName}-anim-frame" animationConfig={animCfg} animationHtml={animDoc} title="" />
+        ) : null}
       </div>
     );
   }`;
@@ -38,16 +55,25 @@ function stepAnimationEmbedBranch(step: number, componentName: string): string {
 
 export function generateVisualMixSources(
   input: ChapterCodegenInput,
-  stepVisuals: StepVisualEntry[],
+  stepVisualsInput: StepVisualEntry[],
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
-  const animIndices = (input.stepAnimationIndices ?? []).filter((step) =>
-    Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+  const animIndices = (input.stepAnimationIndices ?? []).filter(
+    (step) =>
+      Boolean(input.stepAnimationConfigByStep?.[step]) ||
+      Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+  );
+  const stepVisuals = mergeStepVisualConfigs(
+    input.narrations,
+    input.screenContents ?? [],
+    stepVisualsInput,
+    new Set(animIndices),
   );
   const stepAnimationBlock = buildCodegenStepAnimationBlock(
     input.wvpChapterId,
     animIndices,
     input.stepAnimationHtmlByStep,
+    input.stepAnimationConfigByStep,
   );
   const configLiteral = stepVisuals
     .map((e) => `  ${e.step}: ${JSON.stringify(e.config)},`)
@@ -57,28 +83,28 @@ export function generateVisualMixSources(
     .map((_narration, step) => {
       const cfg = stepVisuals.find((e) => e.step === step);
       const hasAnim = animIndices.includes(step);
+      const screenText = visualMixScreenText(input.screenContents?.[step]);
+      if (hasAnim) {
+        return stepAnimationWithScreenBranch(step, componentName, screenText);
+      }
       if (cfg) {
-        const headline = visualMixHeadline(input.screenContents?.[step], input.title);
+        const chartHeadline = visualMixChartHeadline(input.screenContents?.[step]);
         return `
   if (step === ${step}) {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
-      <div className={\`cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <VisualBlock step={step} headline="${headline}" config={STEP_VISUALS[${step}]!} />
+      <div className={\`${componentName}-step-wrap cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        <VisualBlock step={step} headline="${chartHeadline}" config={STEP_VISUALS[${step}]!} />
       </div>
     );
   }`;
       }
-      if (hasAnim) {
-        return stepAnimationEmbedBranch(step, componentName);
-      }
-      const fallbackHeadline = visualMixHeadline(input.screenContents?.[step], input.title);
       return `
   if (step === ${step}) {
     const motion = STEP_MOTIONS[${step}] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" };
     return (
-      <div className={\`${componentName}-fallback scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
-        <p className="serif-cn">${fallbackHeadline}</p>
+      <div className={\`${componentName}-step-wrap ${componentName}-fallback scene-pad cf-enter-\${motion.enterAnimationId}\`} data-cf-transition={motion.transitionId}>
+        <p className="serif-cn">${screenText}</p>
       </div>
     );
   }`;
@@ -87,7 +113,7 @@ export function generateVisualMixSources(
 
   const tsx = `import { VisualBlock } from "../../components/VisualBlock";
 import type { VisualConfigProp } from "../../components/VisualBlock";
-import { SafeAnimationFrame } from "../../components/SafeAnimationFrame";
+import { ExplainAnimationSlot } from "../../components/ExplainAnimationSlot";
 import type { ChapterStepProps } from "../../registry/types";
 import "./${componentName}.css";
 
@@ -105,6 +131,17 @@ ${stepBranches}
 `;
 
   const css = `/* 1920×1080 舞台：尺寸一律用 base.css --stage-* token，勿用 vh/vw */
+.${componentName}-step-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: var(--stage-safe-h);
+  max-height: var(--stage-safe-h);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+}
 .${componentName}-fallback {
   display: flex;
   align-items: center;
@@ -121,24 +158,27 @@ ${stepBranches}
   text-align: center;
   max-width: var(--stage-viz-max-w);
 }
-.${componentName}-anim-wrap {
-  width: 100%;
-  max-width: var(--stage-viz-max-w);
-  margin-inline: auto;
-  flex: 1;
-  min-height: 0;
-  max-height: calc(var(--stage-safe-h) - var(--stage-headline-band));
+.${componentName}-anim-step {
   display: flex;
-  align-items: stretch;
-  justify-content: stretch;
-  padding: 0;
-  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
 }
-.${componentName}-anim-frame {
+.${componentName}-screen {
+  flex-shrink: 0;
+  margin: 0;
+  font-size: clamp(40px, 3.6vw, 72px);
+  line-height: 1.15;
+  text-align: center;
+  max-width: var(--stage-viz-max-w);
+  color: var(--text);
+}
+.${componentName}-anim-step .${componentName}-anim-frame {
   width: 100%;
-  height: 100%;
-  min-height: 520px;
-  max-height: var(--stage-anim-h);
+  flex: 1;
+  min-height: 280px;
+  max-height: calc(var(--stage-safe-h) - var(--stage-headline-band) - 80px);
   border: none;
   border-radius: var(--r-card, 12px);
   background: transparent;

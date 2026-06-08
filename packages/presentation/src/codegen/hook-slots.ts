@@ -14,6 +14,8 @@ export interface ChapterAssetInput {
   wvpChapterId?: string;
 }
 
+export const HOOK_SLIDE_MAX = 3;
+
 export function assetsForChapter(
   assets: ChapterAssetInput[] | undefined,
   wvpChapterId: string,
@@ -35,21 +37,32 @@ export function assetForStep(
   return withUrl[0];
 }
 
+/**
+ * Hook slide 張數：步驟 0 為章節分隔頁，其後至 takeover 前為 slide（上限 3）。
+ * 禁止硬塞 3 張；步驟數不足就少一些 slide。
+ */
+export function hookSlideCount(narrationCount: number): number {
+  if (narrationCount <= 1) return 1;
+  const afterDivider = narrationCount - 1;
+  if (afterDivider <= 1) return afterDivider;
+  return Math.min(HOOK_SLIDE_MAX, afterDivider - 1);
+}
+
 export function buildHookSlides(
   assets: ChapterAssetInput[],
-  narrations: string[],
+  narrationCount: number,
   screenContents: string[] = [],
 ): HookSlide[] {
   const withUrl = assets.filter((a) => a.url?.trim());
-  const count = Math.max(1, Math.min(3, withUrl.length || 3));
+  const count = hookSlideCount(narrationCount);
   const slides: HookSlide[] = [];
 
   for (let i = 0; i < count; i++) {
     const asset = withUrl[i];
-    const cap = screenTextOnly(screenContents[i + 1], `重點 ${i + 1}`);
+    const cap = screenTextOnly(screenContents[i + 1]);
     slides.push({
       url: asset?.url?.trim() ?? null,
-      alt: asset?.alt?.trim() || cap.slice(0, 24),
+      alt: cap.slice(0, 24),
       caption: cap,
       label: `${String(i + 1).padStart(2, "0")} / ${String(count).padStart(2, "0")}`,
     });
@@ -57,28 +70,16 @@ export function buildHookSlides(
   return slides;
 }
 
+/** @deprecated Hook 已改為 WVP 逐步 1:1，不再重寫 narrations */
 export function hookNarrationsForSlides(
   original: string[],
   slideCount: number,
   includeClose: boolean,
 ): string[] {
-  const intro = original[0]?.trim() || "本章開場";
-  const mids: string[] = [];
-  for (let i = 0; i < slideCount; i++) {
-    mids.push(original[i + 1]?.trim() || `重點 ${i + 1}`);
-  }
-  const takeover =
-    original[Math.max(1, original.length - 2)]?.trim() ||
-    original[original.length - 1]?.trim() ||
-    intro;
-  const out = [intro, ...mids, takeover];
-  if (includeClose) {
-    const close = original[original.length - 1]?.trim();
-    if (close && close !== takeover) out.push(close);
-  }
-  return out;
+  return original;
 }
 
+/** @deprecated 播放器步數 = narrations.length */
 export function hookStepCount(slideCount: number, includeClose: boolean): number {
   return 1 + slideCount + 1 + (includeClose ? 1 : 0);
 }

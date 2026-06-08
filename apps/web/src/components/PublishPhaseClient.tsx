@@ -8,12 +8,13 @@ import { ExportMp4Button } from "@/components/ExportMp4Button";
 import { useToast } from "@/components/Toast";
 import { evaluateWvpAudioBuildGate } from "@/lib/wvp-build-gate";
 import { FullWidthProgressPanel } from "@/components/FullWidthProgressPanel";
+import { useElapsedMs } from "@/hooks/useElapsedMs";
 import {
+  blendWvpBuildPercent,
   createInitialWvpBuildProgress,
   estimateWvpBuildRemainingMs,
+  formatWvpBuildProgressLabel,
   parseWvpBuildProgress,
-  WVP_BUILD_PHASE_LABEL,
-  WVP_BUILD_PHASE_PERCENT,
   type WvpBuildProgress,
 } from "@/lib/wvp-build-progress";
 import { stepCountForChapter } from "@/lib/wvp-chapters";
@@ -83,6 +84,7 @@ export function PublishPhaseClient({
   const [buildProgress, setBuildProgress] = useState<WvpBuildProgress | null>(null);
   const [buildQueueHint, setBuildQueueHint] = useState<string | null>(null);
   const [skippingChapterId, setSkippingChapterId] = useState<string | null>(null);
+  const buildElapsedMs = useElapsedMs(building);
   const { toast } = useToast();
   const locked = locks.publish;
 
@@ -254,18 +256,15 @@ export function PublishPhaseClient({
   };
 
   const buildProgressLabel = useMemo(() => {
-    if (!buildProgress) return "正在打包…";
-    const phase = WVP_BUILD_PHASE_LABEL[buildProgress.phase] ?? buildProgress.phase;
-    const chapters =
-      buildProgress.chapterCount && buildProgress.chapterCount > 0
-        ? ` · ${buildProgress.chapterCount} 章`
-        : "";
-    return `${phase}${chapters}`;
-  }, [buildProgress]);
+    if (buildProgress) return formatWvpBuildProgressLabel(buildProgress);
+    if (building) return "啟動打包…";
+    return "正在打包…";
+  }, [buildProgress, building]);
 
-  const buildProgressPercent = buildProgress
-    ? WVP_BUILD_PHASE_PERCENT[buildProgress.phase] ?? 0
-    : 0;
+  const buildProgressPercent = useMemo(
+    () => blendWvpBuildPercent(buildProgress, buildElapsedMs),
+    [buildProgress, buildElapsedMs],
+  );
 
   const chapterStatuses = useMemo(() => {
     type ReadinessChapter = NonNullable<ExportReadiness["chapters"]>[number] & {

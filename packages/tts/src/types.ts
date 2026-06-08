@@ -18,6 +18,8 @@ export interface TtsModel {
   id: string;
   name: string;
   provider: TtsProviderId;
+  /** OpenRouter 等提供者：各模型專屬語音清單 */
+  voices?: TtsVoice[];
 }
 
 export interface TtsSynthesizeOptions {
@@ -129,24 +131,14 @@ export function getTtsVoicesForModel(modelId: string, provider: TtsProviderId): 
   return OPENAI_TTS_VOICES.map((v) => ({ ...v, provider }));
 }
 
-/**
- * OpenRouter 不提供 OpenAI `audio/speech` 端點（無 openai/tts-1 等模型）。
- * 語音合成請改用 OpenAI 直連 API Key 或 Edge-TTS。
- */
-export const OPENROUTER_TTS_UNSUPPORTED_MESSAGE =
-  "OpenRouter 不支援傳統 TTS（audio/speech）API。請在設定頁填寫 OpenAI API Key 並選「OpenAI」提供者，或改用 Edge-TTS（繁中）。";
-
-export const OPENROUTER_KNOWN_TTS_MODEL_IDS: readonly string[] = [];
-
-export const OPENROUTER_TTS_MODELS: TtsModel[] = [];
-
-export const OPENROUTER_DEFAULT_TTS_MODEL = "";
-
-const LEGACY_OPENROUTER_MODEL_MAP: Record<string, string> = {
-  "openai/gpt-4o-mini-tts-2025-12-15": "",
-  "openai/tts-1": "",
-  "openai/tts-1-hd": "",
-};
+/** 舊版幽靈模型 ID → 清除（改由動態 speech 模型清單取代） */
+const LEGACY_OPENROUTER_MODEL_IDS = new Set([
+  "openai/gpt-4o-mini-tts-2025-12-15",
+  "openai/tts-1",
+  "openai/tts-1-hd",
+  "tts-1",
+  "tts-1-hd",
+]);
 
 export function resolveTtsModel(provider: TtsProviderId, model?: string): string | undefined {
   if (provider === "edge-tts" || provider === "gemini") return undefined;
@@ -158,12 +150,9 @@ export function resolveTtsModel(provider: TtsProviderId, model?: string): string
   }
 
   if (provider === "openrouter") {
-    if (model && OPENROUTER_TTS_MODELS.some((item) => item.id === model)) return model;
-    if (model && LEGACY_OPENROUTER_MODEL_MAP[model]) {
-      const mapped = LEGACY_OPENROUTER_MODEL_MAP[model];
-      if (mapped) return mapped;
-    }
-    return undefined;
+    if (!model?.trim()) return undefined;
+    if (LEGACY_OPENROUTER_MODEL_IDS.has(model)) return undefined;
+    return model;
   }
 
   return model;

@@ -3,17 +3,15 @@ import { chapterComponentName, deriveChapterKicker } from "../chapter-types.js";
 import {
   assetsForChapter,
   buildHookSlides,
-  hookNarrationsForSlides,
-  hookStepCount,
+  hookSlideCount,
 } from "../hook-slots.js";
+import { screenTextOnly } from "../slots.js";
 import { buildCodegenStepImageBlock } from "../step-image-codegen.js";
 import { buildNarrationsTs } from "../narrations-ts.js";
 
 /**
- * Hook 開場多圖版型的 codegen。
- *
- * 這裡決定 hook 章節會有幾張 slide、是否包含 close scene、以及 takeover 標題內容。
- * 真正的圖片網格尺寸、主標大小、收束 quote 樣式則在 HookImageStrip.css。
+ * Hook 開場多圖版型。
+ * 規則：narrations = 口播稿（字幕）；screenContents = 螢幕文字（畫面）。禁止互相 fallback。
  */
 export function generateHookSources(
   input: ChapterCodegenInput,
@@ -21,16 +19,20 @@ export function generateHookSources(
 ) {
   const componentName = `Chapter${chapterComponentName(input.wvpChapterId)}`;
   const assets = assetsForChapter(input.assets, input.wvpChapterId);
-  const slides = buildHookSlides(assets, input.narrations, input.screenContents ?? []);
-  const slideCount = slides.length;
-  const includeClose = opts?.includeClose ?? input.narrations.length > slideCount + 2;
-  const narrations = hookNarrationsForSlides(input.narrations, slideCount, includeClose);
-  const takeover =
-    narrations[slideCount + 1]?.trim() ||
-    input.title;
-  const closeLine = includeClose ? narrations[narrations.length - 1] : "";
-  const introKicker =
-    (input.screenContents?.[0]?.trim() || input.title).slice(0, 24);
+  const narrations = input.narrations;
+  const screens = input.screenContents ?? [];
+  const slideCount = hookSlideCount(narrations.length);
+  const slides = buildHookSlides(assets, narrations.length, screens);
+  const takeoverStepIndex = slideCount + 1;
+  const hasTakeoverStep = narrations.length > takeoverStepIndex;
+  const takeover = hasTakeoverStep ? screenTextOnly(screens[takeoverStepIndex]) : "";
+  const includeClose =
+    opts?.includeClose ??
+    (hasTakeoverStep && narrations.length > takeoverStepIndex + 1);
+  const closeLine = includeClose
+    ? screenTextOnly(screens[narrations.length - 1])
+    : "";
+  const introKicker = screenTextOnly(screens[0]).slice(0, 48);
 
   const stepImageBlock = buildCodegenStepImageBlock(
     input.wvpChapterId,
@@ -103,5 +105,3 @@ export default function ${componentName}({ step }: ChapterStepProps) {
     templateKind: "hook" as const,
   };
 }
-
-export { hookStepCount };

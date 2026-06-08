@@ -1,10 +1,10 @@
 import OpenAI from "openai";
 import type { TtsCredentials, TtsProvider, TtsVoice, TtsSynthesizeOptions } from "./types.js";
+import { OPENAI_TTS_VOICES, resolveTtsModel } from "./types.js";
 import {
-  OPENAI_TTS_VOICES,
-  OPENROUTER_TTS_UNSUPPORTED_MESSAGE,
-  resolveTtsModel,
-} from "./types.js";
+  fetchOpenRouterTtsCatalog,
+  synthesizeOpenRouterSpeech,
+} from "./openrouter-tts.js";
 
 export const openAiTtsProvider: TtsProvider = {
   id: "openai",
@@ -39,20 +39,31 @@ export const openRouterTtsProvider: TtsProvider = {
 
   async listVoices(credentials?: TtsCredentials): Promise<TtsVoice[]> {
     if (!credentials?.apiKey) return [];
-    return OPENAI_TTS_VOICES.map((voice) => ({
-      ...voice,
-      provider: "openrouter" as const,
-    }));
+    const models = await fetchOpenRouterTtsCatalog(credentials.apiKey);
+    const seen = new Set<string>();
+    const voices: TtsVoice[] = [];
+    for (const model of models) {
+      for (const voice of model.voices ?? []) {
+        if (seen.has(voice.id)) continue;
+        seen.add(voice.id);
+        voices.push(voice);
+      }
+    }
+    return voices;
   },
 
   async synthesize(
-    _text: string,
-    _voiceId: string,
+    text: string,
+    voiceId: string,
     credentials?: TtsCredentials,
-    _options?: TtsSynthesizeOptions,
+    options?: TtsSynthesizeOptions,
   ): Promise<Buffer> {
     if (!credentials?.apiKey) throw new Error("缺少 OpenRouter API Key");
-    throw new Error(OPENROUTER_TTS_UNSUPPORTED_MESSAGE);
+    const model = resolveTtsModel("openrouter", options?.model);
+    if (!model) {
+      throw new Error("請選擇 OpenRouter TTS 模型（需支援 speech 輸出）");
+    }
+    return synthesizeOpenRouterSpeech(credentials.apiKey, text, model, voiceId);
   },
 };
 

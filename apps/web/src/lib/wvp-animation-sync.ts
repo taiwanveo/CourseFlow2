@@ -14,6 +14,8 @@ type StepIllustrationRow = {
   stepIndex: number;
   imageSource?: string;
   animationHtml?: string | null;
+  /** Phase 3：DSL → Framer Motion（優先於 HTML） */
+  animationConfig?: Record<string, unknown> | null;
   animationStoragePath?: string | null;
 };
 
@@ -87,35 +89,83 @@ export type StepAnimationHtmlMap = {
   htmlByStep: Partial<Record<number, string>>;
 };
 
-/** 掃描 presentation/public/animations 並回傳可內嵌至章節 TSX 的 HTML */
-export async function loadStepAnimationHtmlMap(
+export type StepAnimationBundle = StepAnimationHtmlMap & {
+  configByStep: Partial<Record<number, Record<string, unknown>>>;
+};
+
+function motionConfigFromUnknown(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object") return null;
+  const o = value as Record<string, unknown>;
+  if (typeof o.pattern !== "string" || !o.params || typeof o.params !== "object") return null;
+  return {
+    version: typeof o.version === "number" ? o.version : 1,
+    pattern: o.pattern,
+    params: o.params as Record<string, unknown>,
+  };
+}
+
+/** 寫入 presentation/public/animations/<chapterId>/<NN>.json（Phase 3 Motion DSL） */
+export async function writePresentationAnimationConfigFile(
   presentationDir: string,
   wvpChapterId: string,
-): Promise<StepAnimationHtmlMap> {
+  stepIndex: number,
+  config: Record<string, unknown>,
+): Promise<void> {
   const dir = join(presentationDir, "public", "animations", wvpChapterId);
-  const indices: number[] = [];
+  await mkdir(dir, { recursive: true });
+  const fileName = `${String(stepIndex + 1).padStart(2, "0")}.json`;
+  await writeFile(join(dir, fileName), `${JSON.stringify(config)}\n`, "utf-8");
+}
+
+/** 掃描 presentation/public/animations 並回傳可內嵌至章節 TSX 的 HTML + Motion config */
+export async function loadStepAnimationBundle(
+  presentationDir: string,
+  wvpChapterId: string,
+): Promise<StepAnimationBundle> {
+  const dir = join(presentationDir, "public", "animations", wvpChapterId);
+  const indexSet = new Set<number>();
   const htmlByStep: Partial<Record<number, string>> = {};
+  const configByStep: Partial<Record<number, Record<string, unknown>>> = {};
   try {
     const names = await readdir(dir);
     for (const name of names) {
-      const m = /^(\d{2})\.html$/i.exec(name);
+      const htmlMatch = /^(\d{2})\.html$/i.exec(name);
+      const jsonMatch = /^(\d{2})\.json$/i.exec(name);
+      const m = htmlMatch ?? jsonMatch;
       if (!m) continue;
       const step = Number.parseInt(m[1]!, 10) - 1;
       if (step < 0) continue;
       try {
-        const html = await readFile(join(dir, name), "utf-8");
-        if (!isPlayableAnimationHtml(html)) continue;
-        indices.push(step);
-        htmlByStep[step] = html;
+        if (htmlMatch) {
+          const html = await readFile(join(dir, name), "utf-8");
+          if (!isPlayableAnimationHtml(html)) continue;
+          indexSet.add(step);
+          htmlByStep[step] = html;
+        } else if (jsonMatch) {
+          const raw = await readFile(join(dir, name), "utf-8");
+          const parsed = motionConfigFromUnknown(JSON.parse(raw) as unknown);
+          if (!parsed) continue;
+          indexSet.add(step);
+          configByStep[step] = parsed;
+        }
       } catch {
         continue;
       }
     }
   } catch {
-    return { indices: [], htmlByStep: {} };
+    return { indices: [], htmlByStep: {}, configByStep: {} };
   }
-  indices.sort((a, b) => a - b);
-  return { indices, htmlByStep };
+  const indices = [...indexSet].sort((a, b) => a - b);
+  return { indices, htmlByStep, configByStep };
+}
+
+/** @deprecated 請改用 loadStepAnimationBundle */
+export async function loadStepAnimationHtmlMap(
+  presentationDir: string,
+  wvpChapterId: string,
+): Promise<StepAnimationHtmlMap> {
+  const bundle = await loadStepAnimationBundle(presentationDir, wvpChapterId);
+  return { indices: bundle.indices, htmlByStep: bundle.htmlByStep };
 }
 
 export type HeuristicExplainAnimationSyncResult = {
@@ -141,6 +191,37 @@ export async function syncPresentationStepAnimations(
     for (const step of readStepIllustrations(craft)) {
       if (step.imageSource !== "animation") continue;
       attempted++;
+
+      const motionCfg = motionConfigFromUnknown(step.animationConfig);
+      if (motionCfg) {
+        const animDir = join(
+          presentationDir,
+          "public",
+          "animations",
+          craft.wvp_chapter_id,
+        );
+        const fileName = `${String(step.stepIndex + 1).padStart(2, "0")}.json`;
+        const target = join(animDir, fileName);
+        const payload = `${JSON.stringify(motionCfg)}\n`;
+        try {
+          await access(target);
+          const existing = await readFile(target, "utf-8");
+          if (existing.trim() === payload.trim()) {
+            reused++;
+            continue;
+          }
+        } catch {
+          /* 尚未寫入 */
+        }
+        await writePresentationAnimationConfigFile(
+          presentationDir,
+          craft.wvp_chapter_id,
+          step.stepIndex,
+          motionCfg,
+        );
+        written++;
+        continue;
+      }
 
       let html = step.animationHtml?.trim() ?? "";
       if (!html && step.animationStoragePath?.trim()) {
@@ -196,16 +277,17 @@ export async function syncHeuristicExplainAnimations(
     craft?: CraftRow;
   },
 ): Promise<HeuristicExplainAnimationSyncResult> {
-  const { inferExplainAnimation, renderExplainAnimationHtml } = await import(
+  const { inferExplainAnimation, isMotionRenderable, renderExplainAnimationHtml } = await import(
     "@courseflow/explain-animation"
   );
   const craftAnimated = new Set(
     readStepIllustrations(opts.craft ?? { wvp_chapter_id: opts.wvpChapterId })
-      .filter(
-        (s) =>
-          s.imageSource === "animation" &&
-          Boolean(s.animationHtml?.trim() || s.animationStoragePath?.trim()),
-      )
+      .filter((s) => {
+        if (s.imageSource !== "animation") return false;
+        if (motionConfigFromUnknown(s.animationConfig)) return true;
+        const inline = s.animationHtml?.trim() ?? "";
+        return Boolean(inline && isPlayableAnimationHtml(inline));
+      })
       .map((s) => s.stepIndex),
   );
 
@@ -222,14 +304,26 @@ export async function syncHeuristicExplainAnimations(
     if (!script && !screen) continue;
     const inferred = inferExplainAnimation(script, screen);
     if (!inferred) continue;
+
+    if (isMotionRenderable(inferred.config)) {
+      const motionRecord = {
+        version: inferred.config.version ?? 1,
+        pattern: inferred.config.pattern,
+        params: inferred.config.params,
+      };
+      await writePresentationAnimationConfigFile(
+        presentationDir,
+        opts.wvpChapterId,
+        step,
+        motionRecord,
+      );
+      written++;
+      continue;
+    }
+
     const html = renderExplainAnimationHtml(inferred.config, { themeId: opts.themeId });
     if (!isPlayableAnimationHtml(html)) continue;
-    await writePresentationAnimationFile(
-      presentationDir,
-      opts.wvpChapterId,
-      step,
-      html,
-    );
+    await writePresentationAnimationFile(presentationDir, opts.wvpChapterId, step, html);
     written++;
   }
   return { written, skippedCraft };

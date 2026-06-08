@@ -1,6 +1,7 @@
 import type { CourseComposition } from "@courseflow/core";
 import { isChapterStep } from "@courseflow/core";
 import { titleToWvpChapterId } from "@/lib/wvp-slug";
+import { narrationTextForStep } from "@/lib/wvp-step-text";
 
 export interface ChapterCraftRow {
   id: string;
@@ -47,8 +48,9 @@ export function buildChapterCraftPlan(composition: CourseComposition) {
   }));
 }
 
+/** WVP 字幕／音訊：每步只取 script（口播稿），禁止用 screenContent 補位 */
 export function narrationsForChapter(composition: CourseComposition, chapterId: string) {
-  return orderedWvpStepsForChapter(composition, chapterId).map(
-    (s) => s.script.trim() || s.screenContent.trim(),
+  return orderedWvpStepsForChapter(composition, chapterId).map((s) =>
+    narrationTextForStep(s),
   );
 }

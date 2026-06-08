@@ -1,6 +1,7 @@
 /** 是否含與口播綁定的視覺演示（概念圖解／清單／流程） */
 export function hasVisualDemoInSources(tsx: string, css: string): boolean {
   const blob = `${tsx}\n${css}`;
+  if (/UniversalStepChapter|STEP_DSL_CHAPTER/i.test(blob)) return true;
   if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock|vf-chart|hk-solo-frame|cf-flow-track|cf-flow-svg|lr-slot-active|bs-scene|bs-contrast|bs-metric/i.test(blob)) return true;
   if (/ChapterFigure|hero-num|MaskReveal\s+show/i.test(blob)) return true;
   if (/NarrationBeat|cf-narration-beat/i.test(blob)) return true;
@@ -14,7 +15,7 @@ export function hasVisualDemoInSources(tsx: string, css: string): boolean {
 /** 章節是否涵蓋 0..stepCount-1 各步（元件驅動或 if(step===N) 皆可） */
 export function chapterCoversAllSteps(tsx: string, stepCount: number): boolean {
   if (stepCount <= 0) return false;
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return true;
+  if (/UniversalStepChapter|ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return true;
   if (/VisualBlock/.test(tsx) && /STEP_VISUALS/.test(tsx)) return true;
   for (let i = 0; i < stepCount; i++) {
     if (!tsx.includes(`step === ${i}`)) return false;
@@ -32,7 +33,7 @@ export function chapterBindsNarrationText(tsx: string, narrations: string[]): bo
   if (stepBranches >= narrations.length) return true;
 
   // ListRevealGrid / FlowDiagram 以 step prop 驅動，不需要 if(step===N) 分支
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return true;
+  if (/UniversalStepChapter|ListRevealGrid|FlowDiagram|HookImageStrip/.test(tsx)) return true;
 
   // VisualBlock：有 STEP_VISUALS 結構，逐步索引視為已綁定
   if (/VisualBlock/.test(tsx) && /STEP_VISUALS/.test(tsx)) {
@@ -83,7 +84,7 @@ export function needsChapterContentUpgrade(
   if (/StepContentViz/.test(tsx)) return true;
   // CourseFlow 模板章節（ListReveal / Flow / Hook / VisualBlock）的螢幕文案寫在 TSX 常數裡。
   // 建置前重產時沒有 screenContents 輸入，會退回「本章」「重點 1」占位符，故一律跳過。
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) return false;
+  if (/UniversalStepChapter|ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) return false;
   if (chapterUsesInvalidMaskReveal(tsx)) return true;
   if (!hasVisualDemoInSources(tsx, css)) return true;
   if (!chapterBindsNarrationText(tsx, narrations)) return true;

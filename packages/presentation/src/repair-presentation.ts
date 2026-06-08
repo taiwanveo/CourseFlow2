@@ -19,6 +19,23 @@ async function copyIfMissing(from: string, to: string) {
   }
 }
 
+/** 既有 presentation 補上 Framer Motion 依賴（新 scaffold 已內建） */
+async function ensurePresentationPackageDeps(presentationDir: string): Promise<void> {
+  const pkgPath = join(presentationDir, "package.json");
+  let raw: string;
+  try {
+    raw = await readFile(pkgPath, "utf8");
+  } catch {
+    return;
+  }
+  const pkg = JSON.parse(raw) as { dependencies?: Record<string, string> };
+  const deps = pkg.dependencies ?? {};
+  if (deps["framer-motion"]) return;
+  deps["framer-motion"] = "^12.40.0";
+  pkg.dependencies = deps;
+  await writeFile(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`);
+}
+
 /** 建置前：Studio 預覽放大舞台、補齊視覺元件、缺演示的章節回退增強模板 */
 export async function repairPresentationBeforeBuild(presentationDir: string): Promise<{
   stageScalePatched: boolean;
@@ -31,6 +48,7 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
 
   await mkdir(hooksDir, { recursive: true });
   await mkdir(componentsDir, { recursive: true });
+  await ensurePresentationPackageDeps(presentationDir);
 
   const scaleSrc = join(t, "src/hooks/useStageScale.ts");
   const scaleDst = join(hooksDir, "useStageScale.ts");
@@ -40,6 +58,7 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "useAutoMode.ts",
     "usePlayControlBridge.ts",
     "useAudioPlayer.ts",
+    "usePresentationMotion.ts",
   ]) {
     await cp(join(t, "src/hooks", hook), join(hooksDir, hook), { force: true });
   }
@@ -66,6 +85,12 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
   }
 
   for (const name of [
+    "motion-presets.ts",
+    "explain-motion-types.ts",
+    "ExplainMotionScene.tsx",
+    "ExplainMotionScene.css",
+    "ExplainAnimationSlot.tsx",
+    "MaskReveal.tsx",
     "SafeAnimationFrame.tsx",
     "SafeAnimationFrame.css",
     "ListRevealGrid.tsx",
@@ -78,6 +103,9 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "HookImageStrip.css",
     "VisualBlock.tsx",
     "VisualBlock.css",
+    "step-dsl-types.ts",
+    "UniversalStepChapter.tsx",
+    "UniversalStepChapter.css",
   ]) {
     await cp(join(t, "src/components", name), join(componentsDir, name), { force: true });
   }
@@ -92,9 +120,10 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
   ];
   await mkdir(join(componentsDir, "visual"), { recursive: true });
   for (const name of visualNames) {
-    await copyIfMissing(
+    await cp(
       join(t, "src/components/visual", name),
       join(componentsDir, "visual", name),
+      { force: true },
     );
   }
 

@@ -32,11 +32,10 @@ function splitKeyPointPhrases(text: string): string[] {
 /** 螢幕主標：1~3 個重點片語，禁止省略符號 */
 export function screenHeadlineForSlot(
   source: string | undefined,
-  fallback: string,
   maxChars = 56,
 ): string {
   const raw = compactSpaces(stripEllipsis(source ?? ""));
-  if (!raw) return fallback;
+  if (!raw) return "";
   const parts = splitKeyPointPhrases(raw);
   const core = parts.length > 0 ? parts.slice(0, 3).join("／") : raw;
   if (core.length <= maxChars) return core;
@@ -45,31 +44,15 @@ export function screenHeadlineForSlot(
 
 /**
  * 清單格卡片標題：只取第一段關鍵詞，上限 14 字。
- * 當 screenContents 未提供而 fallback 為 narration 全文時，
- * 自動萃取第一個片語避免把口說稿搬到畫面上。
  */
-export function screenLabelForItem(
-  source: string | undefined,
-  fallback: string,
-): string {
+export function screenLabelForItem(source: string | undefined): string {
   const MAX = 14;
   const raw = compactSpaces(stripEllipsis(source ?? ""));
-  if (!raw) return fallback;
+  if (!raw) return "";
   const parts = splitKeyPointPhrases(raw);
-  // 優先取最短的那段（通常是真正的關鍵詞），不超過 MAX 字
   const sorted = [...parts].sort((a, b) => a.length - b.length);
   const best = sorted.find((p) => p.length <= MAX) ?? parts[0] ?? raw;
   return best.slice(0, MAX).trim();
-}
-
-function truncate(s: string, max: number): string {
-  const t = s.trim();
-  if (t.length <= max) return t;
-  return t.slice(0, max).trim();
-}
-
-function sanitizeScreenLabel(text: string | undefined, fallback: string, max: number): string {
-  return screenHeadlineForSlot(text, fallback, max);
 }
 
 const NARRATION_LEAK_ON_SCREEN =
@@ -110,53 +93,54 @@ export function stripCraftMetadataFromScreen(text: string): string {
   const cutAt = t.search(/\s*章節：|【畫面\s*\d+】|\s*→\s*畫面：/);
   if (cutAt > 0) t = t.slice(0, cutAt).trim();
 
-  return t
+  const craftBlob =
+    /章節分隔頁|口播稿(?:為|是)|【畫面\s*\d+】|→\s*畫面：|章節：/.test(t);
+  let out = t
     .replace(/^章節分隔頁的(?:螢幕|畫面)內容(?:是|為)\s*/i, "")
     .replace(/\s*章節：[^\n【]+/g, "")
     .replace(/【畫面\s*\d+】/g, "")
     .replace(/\s*→\s*畫面：[^\n]+/g, "")
     .replace(/\s*口播稿(?:為|是|：|:).+$/i, "")
-    .replace(
-      /\s*[（(](?:Flow|Beat-Scene|Visual-Mix|節拍全屏|清單揭示|流程圖|list-reveal|Magazine|雜誌)[^）)]*[）)]\s*/gi,
-      "",
-    )
     .trim();
+  if (craftBlob) {
+    out = out
+      .replace(
+        /\s*[（(](?:Flow|Beat-Scene|Visual-Mix|節拍全屏|清單揭示|流程圖|list-reveal|Magazine|雜誌)[^）)]*[）)]\s*/gi,
+        "",
+      )
+      .trim();
+  }
+  return out;
 }
 
 /**
- * 畫面文字僅取自「文稿內容」的螢幕欄位。
- * 禁止以口播稿作為 fallback，避免把口播第一句（標點前片段）搬上螢幕。
+ * 畫面文字：僅取自螢幕欄位，空白就空白，禁止占位符 fallback。
  */
-export function screenTextOnly(
-  source: string | undefined,
-  placeholder = "重點",
-): string {
+export function screenTextOnly(source: string | undefined): string {
   const raw = stripCraftMetadataFromScreen(source ?? "");
-  if (!raw) return placeholder;
-  if (raw.length > 48) return screenHeadlineForSlot(raw, placeholder, 48);
+  if (!raw) return "";
+  if (raw.length > 72) return screenHeadlineForSlot(raw, 72);
   return raw;
 }
 
-/** @deprecated 請改用 screenTextOnly；保留相容，但不再接受口播稿作 fallback */
+/** @deprecated 請改用 screenTextOnly(source) */
 export function verbatimScreenOrFallback(
   source: string | undefined,
-  fallback: string,
+  _fallback: string,
 ): string {
-  return screenTextOnly(source, fallback === "本章" || fallback === "重點" ? fallback : "重點");
+  return screenTextOnly(source);
 }
 
 /** 第 0 步為引子，其餘每步對應一個清單項 */
 export function parseListRevealSlots(
   narrations: string[],
   screenContents: string[] = [],
-  introFallback = "本章",
 ): { intro: string; introSub: string; items: ListRevealItem[] } {
-  const introPlaceholder = introFallback.trim() || "本章";
   if (narrations.length === 0) {
-    return { intro: introPlaceholder, introSub: "", items: [] };
+    return { intro: "", introSub: "", items: [] };
   }
   if (narrations.length === 1) {
-    const introOnly = screenTextOnly(screenContents[0], introPlaceholder);
+    const introOnly = screenTextOnly(screenContents[0]);
     const hasExplicitIntroScreen = Boolean(screenContents[0]?.trim());
     const introParts = hasExplicitIntroScreen
       ? [introOnly]
@@ -167,7 +151,7 @@ export function parseListRevealSlots(
       items: [],
     };
   }
-  const introSource = screenTextOnly(screenContents[0], introPlaceholder);
+  const introSource = screenTextOnly(screenContents[0]);
   const hasExplicitIntroScreen = Boolean(screenContents[0]?.trim());
   const introParts = hasExplicitIntroScreen
     ? [introSource]
@@ -175,7 +159,7 @@ export function parseListRevealSlots(
   const intro = introParts[0] ?? introSource;
   const introSub = introParts[1] ?? "";
   const items = narrations.slice(1).map((_n, i) => {
-    const screen = screenTextOnly(screenContents[i + 1], `重點 ${i + 1}`);
+    const screen = screenTextOnly(screenContents[i + 1]);
     const hasScreen = Boolean(screenContents[i + 1]?.trim());
     if (hasScreen) {
       return {
@@ -198,11 +182,9 @@ export function parseListRevealSlots(
 export function parseFlowSlots(
   narrations: string[],
   screenContents: string[] = [],
-  introFallback = "流程",
 ): { intro: string; introSub: string; nodes: FlowNodeSlot[] } {
-  const introPlaceholder = introFallback.trim() || "流程";
   if (narrations.length <= 1) {
-    const single = screenTextOnly(screenContents[0], introPlaceholder);
+    const single = screenTextOnly(screenContents[0]);
     return {
       intro: single,
       introSub: "",
@@ -211,13 +193,12 @@ export function parseFlowSlots(
         : [],
     };
   }
-  const introSource = screenTextOnly(screenContents[0], introPlaceholder);
+  const introSource = screenTextOnly(screenContents[0]);
   const introParts = splitHeadlineForStaggeredReveal(introSource, 2);
   const intro = introParts[0] ?? introSource;
   const introSub = introParts[1] ?? "";
   const nodes = narrations.slice(1).map((_n, i) => {
-    const screen = screenTextOnly(screenContents[i + 1], `步驟 ${i + 1}`);
-    const stepTag = `步驟 ${i + 1}`;
+    const screen = screenTextOnly(screenContents[i + 1]);
     const colonMatch = screen.match(/^步驟\s*([一二三四五六七八九十\d]+)\s*[：:]\s*(.+)$/);
     if (colonMatch) {
       return {
@@ -229,7 +210,7 @@ export function parseFlowSlots(
     const parts = splitHeadlineForStaggeredReveal(screen, 2);
     return {
       id: `n${i}`,
-      label: screenLabelForItem(screen, stepTag),
+      label: screenLabelForItem(screen) || parts[0] || "",
       detail: parts[1] ?? "",
     };
   });

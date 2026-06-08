@@ -2,6 +2,8 @@ export * from "./paths.js";
 export * from "./vendor-paths.js";
 export * from "./scaffold.js";
 export * from "./codegen/chapter.js";
+export { buildStepDslFromChapterInput } from "./codegen/step-dsl-build.js";
+export * from "./step-dsl/index.js";
 export * from "./codegen/step-visuals.js";
 export * from "./codegen/router.js";
 export * from "./codegen/content-aware.js";

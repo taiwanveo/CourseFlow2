@@ -147,6 +147,72 @@ function chartFromPairs(
 }
 
 /** 從口播／畫面文字啟發式產出 VisualConfig（無 LLM） */
+/** 分號分隔的多方案敘述 → 表格（例：人工製作…；AI 自動化…；CourseFlow 折衷…） */
+function inferSemicolonComparisonTable(text: string): VisualConfig | null {
+  if (!/[；;]/.test(text)) return null;
+  if (
+    !/方案對比|方案对比|方案比較|三種方案|表格視覺|對比|对比|比較|比较|對照/.test(text)
+  ) {
+    return null;
+  }
+
+  const segments = text
+    .split(/[；;]+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 6)
+    .slice(0, 8);
+  if (segments.length < 2) return null;
+
+  let first = segments[0]!;
+  first = first
+    .replace(/^[^。！？.!?]*方案對比[。.！？]?\s*/i, "")
+    .replace(/^使用表格視覺進行\s*/i, "")
+    .replace(/^第[一二三四\d]+步[^。！？.!?]*[。.！？]?\s*/i, "")
+    .trim();
+
+  const rows: Record<string, string>[] = [];
+  for (const raw of [first, ...segments.slice(1)]) {
+    const seg = raw.replace(/[。.！？!?]+$/, "").trim();
+    if (seg.length < 4) continue;
+
+    const abc = seg.match(/^方案\s*([ABCＡＢＣ])\s*(.+)$/i);
+    if (abc) {
+      rows.push({
+        item: `方案 ${abc[1]!.toUpperCase()}`,
+        說明: abc[2]!.trim().slice(0, 64),
+      });
+      continue;
+    }
+
+    const comma = seg.match(/^(.{3,32}?)[，,](.+)$/);
+    if (comma) {
+      const name = comma[1]!
+        .replace(/^使用/, "")
+        .replace(/^採用/, "")
+        .trim();
+      rows.push({
+        item: name.slice(0, 28),
+        說明: comma[2]!.trim().slice(0, 64),
+      });
+    }
+  }
+
+  const validRows = rows.filter((r) => r.item.length > 0 && r.說明.length > 0);
+  if (validRows.length < 2) return null;
+
+  return {
+    kind: "table",
+    title: shortDataTitle(text, "方案對比"),
+    columns: [
+      { key: "item", label: "方案" },
+      { key: "說明", label: "特點" },
+    ],
+    rows: validRows,
+    reveal: "row",
+    emphasis: "row",
+  } as unknown as VisualConfig;
+}
+
 export function inferVisualConfigFromText(text: string): VisualConfig | null {
   const t = text.trim();
   if (t.length < 6) return null;
@@ -222,11 +288,11 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     }
   }
 
+  const semicolonComparison = inferSemicolonComparisonTable(t);
+  if (semicolonComparison) return semicolonComparison;
+
   // 定性方案對比：方案 A 成本較低…方案 B…（無數字欄位時）
-  if (
-    (/方案\s*[ABCＡＢＣ]/i.test(t) || /三種方案/.test(t)) &&
-    /對比|对比|對照|比较|三種方案/.test(t)
-  ) {
+  if (/方案\s*[ABCＡＢＣ]/i.test(t) || /三種方案/.test(t)) {
     const rows: Record<string, string>[] = [];
     for (const m of t.matchAll(
       /方案\s*([ABCＡＢＣ])\s*([^，,。；;]*?)(?=(?:，|,|。|;|；|方案\s*[ABCＡＢＣ]|$))/gi,
@@ -409,7 +475,8 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
     listItems.length >= 2 &&
     listItems.length <= 8 &&
     !/\d{2,}/.test(t) &&
-    !/第[一二三四1-4]季|季度|營收|营收|折線|折线|成長曲線|成长曲线/.test(t)
+    !/第[一二三四1-4]季|季度|營收|营收|折線|折线|成長曲線|成长曲线/.test(t) &&
+    !/方案對比|方案对比|表格視覺|三種方案|方案\s*[ABCＡＢＣ]/i.test(t)
   ) {
     return {
       kind: "animation",

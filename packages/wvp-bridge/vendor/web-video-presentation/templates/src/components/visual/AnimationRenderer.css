@@ -24,7 +24,6 @@
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-left: 3px solid var(--rule);
-  animation: vf-item-in var(--dur-base) var(--ease-quart) backwards;
 }
 .vf-item-hi {
   border-left-color: var(--accent);

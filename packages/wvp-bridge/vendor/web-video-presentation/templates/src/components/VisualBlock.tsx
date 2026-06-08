@@ -1,6 +1,8 @@
+import { motion } from "framer-motion";
 import { AnimationRenderer, type AnimationConfigProp } from "./visual/AnimationRenderer";
 import { ChartRenderer, type ChartConfigProp } from "./visual/ChartRenderer";
 import { TableRenderer, type TableConfigProp } from "./visual/TableRenderer";
+import { sceneBodyVariants, sceneHeadlineVariants } from "./motion-presets";
 import "./VisualBlock.css";
 
 export type VisualConfigProp =
@@ -18,11 +20,17 @@ export function VisualBlock({
   headline?: string;
 }) {
   return (
-    <div className="vf-block scene-pad">
+    <motion.div
+      className="vf-block scene-pad"
+      variants={sceneBodyVariants}
+      initial="hidden"
+      animate="show"
+      key={step}
+    >
       {headline ? (
-        <header className="vf-headline masthead">
+        <motion.header className="vf-headline masthead" variants={sceneHeadlineVariants}>
           <span className="vf-headline-text serif-cn">{headline}</span>
-        </header>
+        </motion.header>
       ) : null}
       {config.kind === "chart" ? (
         <ChartRenderer key={step} config={config} />
@@ -41,6 +49,6 @@ export function VisualBlock({
           }
         />
       )}
-    </div>
+    </motion.div>
   );
 }

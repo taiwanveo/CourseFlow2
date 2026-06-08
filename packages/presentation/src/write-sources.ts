@@ -33,14 +33,23 @@ export function craftMetadataLeakedInTsx(tsx: string): boolean {
   );
 }
 
-/** 模板 TSX 仍使用「本章」「重點 N」等占位符，代表未帶入文稿螢幕欄 */
+/** 模板 TSX 仍使用占位符／章節 slug，代表未帶入文稿螢幕欄 */
 export function chapterUsesPlaceholderScreenText(tsx: string): boolean {
   return (
-    /title:\s*"(?:重點 \d+|本章|流程)"/.test(tsx) ||
-    /introTitle=\{[^}]*"(?:本章|流程)"/.test(tsx) ||
+    /title:\s*"(?:重點 \d+|本章|流程|步驟 \d+)"/.test(tsx) ||
+    /introTitle=\{[^}]*"(?:本章|流程|chapter-\d+)"/.test(tsx) ||
+    /chapterTitle=\{[^}]*"ch\.\s*\d+"/i.test(tsx) ||
     />\s*重點 \d+\s*</.test(tsx) ||
     />\s*本章\s*</.test(tsx)
   );
+}
+
+/** 快取 TSX 是否已嵌入所有非空螢幕欄文字（唯一可信的過期判斷） */
+export function tsxEmbedsAllScreenContents(tsx: string, screenContents: string[]): boolean {
+  if (craftMetadataLeakedInTsx(tsx)) return false;
+  const required = screenContents.map((s) => s.trim()).filter((s) => s.length > 2);
+  if (required.length === 0) return true;
+  return required.every((sc) => tsx.includes(sc));
 }
 
 export function validateChapterTsxIssues(
@@ -93,6 +102,7 @@ const NAMED_TEMPLATE_COMPONENTS = [
   "FlowDiagram",
   "HookImageStrip",
   "VisualBlock",
+  "UniversalStepChapter",
   "ChapterFigure",
   "NarrationBeat",
 ] as const;
@@ -270,7 +280,7 @@ export function checkStepsHaveVisuals(
   tsx: string,
   stepCount: number,
 ): { pass: boolean; failedSteps: number[] } {
-  if (/ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) {
+  if (/UniversalStepChapter|ListRevealGrid|FlowDiagram|HookImageStrip|VisualBlock/.test(tsx)) {
     return { pass: true, failedSteps: [] };
   }
   const failedSteps: number[] = [];

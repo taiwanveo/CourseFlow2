@@ -20,13 +20,14 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
   const { intro, introSub, items } = parseListRevealSlots(
     input.narrations,
     input.screenContents ?? [],
-    input.title,
   );
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const introCheckpoint = assetForStep(chapterAssets, 0);
   const animIndices = new Set<number>(
-    (input.stepAnimationIndices ?? []).filter((step) =>
-      Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+    (input.stepAnimationIndices ?? []).filter(
+      (step) =>
+        Boolean(input.stepAnimationConfigByStep?.[step]) ||
+        Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
     ),
   );
 
@@ -37,7 +38,8 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
 
   let introVisualLine: string;
   if (hasIntroAnimation) {
-    introVisualLine = `introAnimationHtml={hasStepAnimation(0) ? stepAnimationSrcDoc(0) : undefined}`;
+    introVisualLine = `introAnimationConfig={hasStepAnimation(0) ? stepAnimationConfig(0) : undefined}
+      introAnimationHtml={hasStepAnimation(0) ? stepAnimationSrcDoc(0) : undefined}`;
   } else if (introCheckpoint?.url?.trim()) {
     introVisualLine = `introImageUrl="${escapeTsString(introCheckpoint.url.trim())}"`;
   } else if (hasIntroStepImage) {
@@ -54,7 +56,9 @@ export function generateListRevealSources(input: ChapterCodegenInput) {
       let visualLine: string;
       const hasStepImage = wvpStep in (input.stepImageExtensions ?? {});
       if (hasAnim) {
-        visualLine = `    animationHtml: hasStepAnimation(${wvpStep}) ? stepAnimationSrcDoc(${wvpStep}) : undefined,\n`;
+        visualLine = `    animationConfig: hasStepAnimation(${wvpStep}) ? stepAnimationConfig(${wvpStep}) : undefined,
+    animationHtml: hasStepAnimation(${wvpStep}) ? stepAnimationSrcDoc(${wvpStep}) : undefined,
+`;
       } else if (checkpoint?.url?.trim()) {
         visualLine = `    imageUrl: "${escapeTsString(checkpoint.url.trim())}",\n`;
       } else if (hasStepImage) {
@@ -78,6 +82,7 @@ ${visualLine}  }`;
     input.wvpChapterId,
     input.stepAnimationIndices ?? [],
     input.stepAnimationHtmlByStep,
+    input.stepAnimationConfigByStep,
   );
 
   const tsx = `import { ListRevealGrid } from "../../components/ListRevealGrid";

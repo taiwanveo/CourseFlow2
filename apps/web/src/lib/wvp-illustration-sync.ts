@@ -107,6 +107,8 @@ export type WvpIllustrationSyncOptions = {
   skipVisualDirector?: boolean;
   /** 若 public/images 已有檔案則不重算／重下 */
   reuseExistingFiles?: boolean;
+  /** 逐步回報配圖進度（current 從 1 起算） */
+  onStepProgress?: (current: number, total: number) => void;
 };
 
 export type WvpIllustrationSyncResult = {
@@ -139,6 +141,21 @@ function directorHintsFromPlan(plan: VisualDirectorPlan): StepImageDirectorHints
   };
 }
 
+/** Hook 多圖開場：步驟 1–3（0-based）對應三張 slide，與 resolveSlideUrl(slideIndex+1) 一致 */
+export const HOOK_SLIDE_STEP_MAX = 3;
+
+/** 合併啟發式與使用者儲存的「需要配圖」；舊版 hook 曾整章 skip，啟發式改為 true 時可自動升級 */
+export function resolveStepNeedsImage(
+  heuristicNeedsImage: boolean,
+  existing?: { needsImage?: boolean; status?: string },
+): boolean {
+  if (existing?.needsImage === true) return true;
+  if (existing?.needsImage === false && existing?.status === "skip" && !heuristicNeedsImage) {
+    return false;
+  }
+  return heuristicNeedsImage;
+}
+
 /** 哪些 WVP 步驟需要配圖（避免 cover／幽靈格／純圖表步硬塞圖） */
 export function wvpStepNeedsIllustration(
   templateKind: string | undefined,
@@ -147,7 +164,12 @@ export function wvpStepNeedsIllustration(
 ): boolean {
   if (totalSteps <= 0) return false;
   const kind = templateKind ?? "magazine";
-  if (kind === "hook") return false;
+  if (kind === "hook") {
+    if (stepIndex < 1 || stepIndex > HOOK_SLIDE_STEP_MAX) return false;
+    // 最後一步常為 takeover／收束，不當 slide 配圖
+    if (stepIndex >= totalSteps - 1) return false;
+    return true;
+  }
   if (kind === "visual-mix") return false;
   if (kind === "list-reveal") return stepIndex >= 0;
   if (kind === "flow") return stepIndex >= 0;
@@ -268,6 +290,16 @@ export async function syncPresentationIllustrations(
   let reusedExisting = 0;
   const reuseExistingFiles = syncOpts?.reuseExistingFiles !== false;
   const skipVisualDirector = syncOpts?.skipVisualDirector === true;
+  const onStepProgress = syncOpts?.onStepProgress;
+
+  let totalSteps = 0;
+  for (const craft of crafts) {
+    const chapter = resolveCompositionChapterForCraft(composition, craft);
+    if (!chapter) continue;
+    totalSteps += narrationsForChapter(composition, chapter.id).length;
+  }
+
+  let processedSteps = 0;
 
   for (const craft of crafts) {
     const kind = chapterTemplateKind(craft);
@@ -300,6 +332,11 @@ export async function syncPresentationIllustrations(
     );
 
     for (let stepIndex = 0; stepIndex < narrations.length; stepIndex++) {
+      processedSteps++;
+      if (onStepProgress && totalSteps > 0) {
+        onStepProgress(processedSteps, totalSteps);
+      }
+
       const wvpStep = wvpSteps[stepIndex];
       const compStep = wvpSteps[stepIndex];
       const isDivider = Boolean(wvpStep && isChapterStep(wvpStep));

@@ -12,7 +12,7 @@ importers:
         specifier: ^2.5.4
         version: 2.9.14
       typescript:
-        specifier: ^5.8.3
+        specifier: ^5.9.3
         version: 5.9.3
 
   apps/web:
@@ -353,6 +353,9 @@ importers:
       playwright:
         specifier: ^1.52.0
         version: 1.60.0
+      zod:
+        specifier: ^3.25.28
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.15.21

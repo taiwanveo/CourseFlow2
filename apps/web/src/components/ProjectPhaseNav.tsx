@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
+  allWvpPhasesLocked,
   canAccessWvpPhase,
   canEditWvpPhase,
+  lockAllWvpPhases,
   lockWvpPhase,
   wvpPhaseAccessBlockedReason,
   type WvpPhaseId,
@@ -89,6 +91,48 @@ export function WvpPhaseNav({
     }
   };
 
+  const lockAllPhases = async () => {
+    setPendingAction("lock-all");
+    const priorLocks = locks;
+    const optimistic = lockAllWvpPhases(priorLocks);
+    try {
+      if (
+        !isPlayPage &&
+        current !== "play" &&
+        typeof current === "string" &&
+        !locks[current] &&
+        onBeforeLock
+      ) {
+        await onBeforeLock();
+      }
+      if (optimistic.ok) {
+        onLocksChange(optimistic.locks);
+      }
+      const res = await fetch(`/api/projects/${projectId}/wvp/phases/lock-all`, {
+        method: "PATCH",
+      });
+      const data = (await res.json()) as { error?: string; wvp_phase_locks?: unknown };
+      if (!res.ok) {
+        onLocksChange(priorLocks);
+        toast(data.error ?? "鎖定全部階段失敗", "error");
+        return;
+      }
+      onLocksChange(
+        parseWvpPhaseLocksResponse(
+          data.wvp_phase_locks,
+          optimistic.ok ? optimistic.locks : priorLocks,
+        ),
+      );
+      router.refresh();
+      toast("已鎖定全部階段", "success");
+    } catch {
+      onLocksChange(priorLocks);
+      toast("鎖定全部階段失敗", "error");
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
   const unlockPhase = async (phase: WvpPhaseId) => {
     setPendingAction(`unlock-${phase}`);
     try {
@@ -109,6 +153,8 @@ export function WvpPhaseNav({
       setPendingAction(null);
     }
   };
+
+  const showLockAll = !allWvpPhasesLocked(locks);
 
   return (
     <nav className="mb-6 border-b border-[var(--border)] pb-4">
@@ -178,6 +224,23 @@ export function WvpPhaseNav({
             </div>
           );
         })}
+        {showLockAll ? (
+          <div className="flex min-w-[7.5rem] flex-col gap-1.5 self-start sm:ml-auto">
+            <button
+              type="button"
+              onClick={lockAllPhases}
+              disabled={pendingAction === "lock-all"}
+              title="依序鎖定文稿、視覺動效、語音生成與預覽匯出"
+              className={cn(
+                "cf-btn cf-btn-sm w-full justify-center border border-lime-600/70 bg-lime-950/30 text-xs text-lime-300 hover:bg-lime-950/50 disabled:cursor-wait",
+                pendingAction === "lock-all" && "animate-pulse opacity-70",
+              )}
+            >
+              {pendingAction === "lock-all" ? "鎖定中…" : "鎖定全部階段"}
+            </button>
+            <div className="min-h-[30px]" aria-hidden />
+          </div>
+        ) : null}
         {locks.publish ? (
           <div className="flex flex-col gap-1.5 self-start">
             <div className="flex flex-wrap items-center gap-2">

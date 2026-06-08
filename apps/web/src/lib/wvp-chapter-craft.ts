@@ -214,6 +214,7 @@ export async function generateChapterCraft(
     let chapterSource: {
       chapterTsx?: string;
       chapterCss?: string;
+      chapterDslTs?: string;
       source: "llm" | "template";
       templateKind?: string;
     } = { source: "template" };
@@ -360,7 +361,8 @@ export async function generateChapterCraft(
         }
         const effectiveForceTemplate =
           dataVisualChapter &&
-          (opts.forceTemplate === "flow" || opts.forceTemplate === "list-reveal")
+          opts.forceTemplate &&
+          opts.forceTemplate !== "visual-mix"
             ? undefined
             : opts.forceTemplate;
         const gen = generateChapterSources({
@@ -386,6 +388,7 @@ export async function generateChapterCraft(
         chapterSource = {
           chapterTsx: gen.tsx,
           chapterCss: gen.css,
+          chapterDslTs: "dslTs" in gen ? gen.dslTs : undefined,
           source: "template",
           templateKind: gen.templateKind,
         };
@@ -574,6 +577,7 @@ export async function applyChapterTemplate(
         chapterSource: {
           chapterTsx: gen.tsx,
           chapterCss: gen.css,
+          chapterDslTs: "dslTs" in gen ? gen.dslTs : undefined,
           source: "template",
           templateKind: gen.templateKind,
         },

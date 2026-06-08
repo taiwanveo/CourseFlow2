@@ -5,7 +5,9 @@ import {
   createInitialWvpBuildProgress,
   type WvpBuildPhase,
   type WvpBuildProgress,
+  type WvpBuildStageUpdate,
 } from "@/lib/wvp-build-progress";
+import type { WvpScreenTextAuditEntry } from "@/lib/wvp-step-text-audit";
 
 export type WvpBuildJobResult = {
   ok?: boolean;
@@ -18,6 +20,8 @@ export type WvpBuildJobResult = {
   illustrationSyncWarning?: string;
   chaptersVisualUpgraded?: string[];
   progress?: WvpBuildProgress;
+  /** DEBUG 9d8c4f */
+  screenTextAudit?: WvpScreenTextAuditEntry[];
 };
 
 export async function runWvpBuild(payload: {
@@ -40,16 +44,33 @@ export async function runWvpBuild(payload: {
     await supabase.from("job_runs").update(patch).eq("id", payload.jobRunId);
   };
 
-  const emitStage = async (phase: WvpBuildPhase, chapterCount?: number): Promise<void> => {
+  const emitStage = async (
+    phase: WvpBuildPhase,
+    update?: WvpBuildStageUpdate,
+  ): Promise<void> => {
     const now = Date.now();
-    progress.stageDurationsMs.push(now - lastStageAt);
-    lastStageAt = now;
+    const phaseChanged = phase !== progress.phase;
+    if (phaseChanged) {
+      progress.stageDurationsMs.push(now - lastStageAt);
+      lastStageAt = now;
+    }
     progress = {
       ...progress,
       phase,
-      chapterCount: chapterCount ?? progress.chapterCount,
+      chapterCount: update?.chapterCount ?? progress.chapterCount,
       stageDurationsMs: [...progress.stageDurationsMs],
+      subCurrent: update?.subCurrent,
+      subTotal: update?.subTotal,
+      subLabel: update?.subLabel,
     };
+    if (phaseChanged && update?.subCurrent === undefined) {
+      progress = {
+        ...progress,
+        subCurrent: undefined,
+        subTotal: undefined,
+        subLabel: undefined,
+      };
+    }
     const partial: WvpBuildJobResult = {
       ok: false,
       chapterCount: progress.chapterCount ?? 0,
@@ -62,8 +83,12 @@ export async function runWvpBuild(payload: {
       result: partial,
       updated_at: new Date().toISOString(),
     });
+    const sub =
+      progress.subCurrent !== undefined && progress.subTotal !== undefined
+        ? ` sub=${progress.subCurrent}/${progress.subTotal}`
+        : "";
     console.log(
-      `[wvp-build] progress job=${payload.jobRunId} phase=${phase} chapters=${progress.chapterCount ?? "-"}`,
+      `[wvp-build] progress job=${payload.jobRunId} phase=${phase} chapters=${progress.chapterCount ?? "-"}${sub}`,
     );
   };
 
@@ -111,7 +136,7 @@ export async function runWvpBuild(payload: {
       `[wvp-build] job sync+build ok job=${payload.jobRunId} chapters=${result.chapterCount} built=${result.built} storageUploaded=${result.storageUploaded}`,
     );
 
-    await emitStage("done", result.chapterCount);
+    await emitStage("done", { chapterCount: result.chapterCount });
 
     const jobResult: WvpBuildJobResult = {
       ok: true,
@@ -126,6 +151,7 @@ export async function runWvpBuild(payload: {
       audioSyncWarning: result.audioSyncWarning,
       illustrationSyncWarning: result.illustrationSyncWarning,
       chaptersVisualUpgraded: result.chaptersVisualUpgraded,
+      screenTextAudit: result.screenTextAudit ? [...result.screenTextAudit] : undefined,
       progress,
     };
 

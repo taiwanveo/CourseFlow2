@@ -323,6 +323,11 @@ export function CraftIllustrationStudio({
           <p className="text-[11px] leading-relaxed text-zinc-500">
             先確認生圖提示詞，再逐張或批次生圖；生成後即時顯示，可排隊重新生成。
           </p>
+          {state?.templateKind === "hook" ? (
+            <p className="mt-1 text-[11px] leading-relaxed text-amber-200/80">
+              Hook 多圖開場：請為步驟 2、3、4 各上傳或生成一張圖（對應預覽幽靈格 01–03）。
+            </p>
+          ) : null}
           {aiSteps.length > 0 ? (
             <p className="mt-1 text-[11px] text-zinc-600">
               需配圖 {aiSteps.length} 步 · 已完成 {doneCount}
@@ -363,6 +368,13 @@ export function CraftIllustrationStudio({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-medium text-zinc-300">
                   步驟 {step.stepIndex + 1}
+                  {state?.templateKind === "hook" &&
+                  step.stepIndex >= 1 &&
+                  step.stepIndex <= 3 ? (
+                    <span className="ml-2 text-amber-200/70">
+                      （Hook 圖 {step.stepIndex} / 3）
+                    </span>
+                  ) : null}
                   {step.recommendedOutput === "chapter-divider" ? (
                     <span className="ml-2 text-zinc-500">（章節分隔頁）</span>
                   ) : step.status === "skip" ? (

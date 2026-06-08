@@ -58,7 +58,7 @@
   border-bottom-color: var(--accent);
 }
 .vf-tr {
-  animation: vf-row-in var(--dur-base) var(--ease-quart) backwards;
+  /* 列進場由 Framer Motion variants 控制 */
 }
 .vf-tr:nth-child(odd) .vf-td {
   background: rgba(255, 255, 255, 0.02);

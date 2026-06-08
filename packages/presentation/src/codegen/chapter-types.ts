@@ -20,6 +20,8 @@ export interface ChapterCodegenInput {
   stepAnimationIndices?: number[];
   /** 打包時內嵌至章節 TSX 的動畫 HTML（避免預覽 iframe 遠端載入失敗） */
   stepAnimationHtmlByStep?: Partial<Record<number, string>>;
+  /** Phase 3：DSL → Framer Motion 場景（優先於 HTML） */
+  stepAnimationConfigByStep?: Partial<Record<number, Record<string, unknown>>>;
 }
 
 export function chapterComponentName(wvpChapterId: string): string {

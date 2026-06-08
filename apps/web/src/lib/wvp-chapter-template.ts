@@ -74,3 +74,10 @@ export function resolveChapterTemplateSelectState(
 export function craftTemplateOptionLabel(kind: WvpChapterKind): string {
   return templateKindDisplayLabel(kind);
 }
+
+/** 章節實際將使用的版型（自動推斷或手動指定） */
+export function chapterEffectiveTemplateKind(
+  state: ChapterTemplateSelectState,
+): WvpChapterKind {
+  return state.isAuto ? state.inferredKind : state.selectValue;
+}

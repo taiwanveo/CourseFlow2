@@ -1,3 +1,6 @@
+import { motion } from "framer-motion";
+import { listStaggerContainer, tableRowVariants } from "../motion-presets";
+import { usePresentationMotion } from "../../hooks/usePresentationMotion";
 import "./TableRenderer.css";
 import {
   bestRowIndex,
@@ -26,6 +29,7 @@ export type TableConfigProp = {
 };
 
 export function TableRenderer({ config, step }: { config: TableConfigProp; step: number }) {
+  const { staggerRow } = usePresentationMotion();
   const rows = [...config.rows];
   const sortKey = config.sortBy?.key;
   const sortDir = config.sortBy?.direction ?? "desc";
@@ -56,7 +60,6 @@ export function TableRenderer({ config, step }: { config: TableConfigProp; step:
     const idx = bestRowIndex(rows, config.highlightBest.key, config.highlightBest.direction);
     bestByKey.set(config.highlightBest.key, idx);
   } else {
-    // 自動：對每個數值欄位標記最大值（常見於 cost/price/score）
     for (const col of config.columns) {
       const meta = metaByKey.get(col.key);
       if (!meta || meta.format === "text") continue;
@@ -70,7 +73,6 @@ export function TableRenderer({ config, step }: { config: TableConfigProp; step:
   const hiRow = typeof config.highlightRowIndex === "number" ? config.highlightRowIndex : -1;
   const emphasize = config.emphasis ?? (hiCol && hiRow >= 0 ? "both" : hiCol ? "column" : hiRow >= 0 ? "row" : undefined);
   const alignRightDefault = config.numericAlign !== "auto" ? true : config.numericAlign === "right";
-  const reveal = config.reveal ?? "row";
   const dense = config.density === "compact";
 
   return (
@@ -94,19 +96,21 @@ export function TableRenderer({ config, step }: { config: TableConfigProp; step:
             })}
           </tr>
         </thead>
-        <tbody>
+        <motion.tbody
+          variants={listStaggerContainer}
+          initial="hidden"
+          animate="show"
+          transition={{ staggerChildren: staggerRow, delayChildren: step * 0.01 }}
+        >
           {rows.map((row, ri) => {
             const isHiRow = ri === hiRow && (emphasize === "row" || emphasize === "both");
             return (
-              <tr
+              <motion.tr
                 key={ri}
                 className={isHiRow ? "vf-tr vf-tr-hi" : "vf-tr"}
-                style={{
-                  animationDelay:
-                    reveal === "row" ? `${ri * 55 + step * 15}ms` : `${step * 15}ms`,
-                }}
+                variants={tableRowVariants}
               >
-                {config.columns.map((col, ci) => {
+                {config.columns.map((col) => {
                   const meta = metaByKey.get(col.key);
                   const raw = row[col.key];
                   const isBestCol = bestByKey.get(col.key) === ri;
@@ -131,12 +135,6 @@ export function TableRenderer({ config, step }: { config: TableConfigProp; step:
                       ]
                         .filter(Boolean)
                         .join(" ")}
-                      style={{
-                        animationDelay:
-                          reveal === "column"
-                            ? `${ci * 45 + ri * 12 + step * 10}ms`
-                            : undefined,
-                      }}
                     >
                       {col.key === "item" ? (
                         <span className="vf-cell vf-cell-text">{formatCellValue(raw, meta)}</span>
@@ -155,10 +153,10 @@ export function TableRenderer({ config, step }: { config: TableConfigProp; step:
                     </td>
                   );
                 })}
-              </tr>
+              </motion.tr>
             );
           })}
-        </tbody>
+        </motion.tbody>
       </table>
     </div>
   );

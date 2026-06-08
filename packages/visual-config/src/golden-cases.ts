@@ -220,6 +220,12 @@ export const GOLDEN_CASES: GoldenCase[] = [
     input: "方案 A 成本較低但功能少，方案 B 平衡性佳，方案 C 功能最全但價格較高",
     expectKind: "table",
   },
+  {
+    id: "scheme-semicolon-courseflow",
+    input:
+      "使用表格視覺進行方案對比。人工製作教學影片，需時較長，但品質通常較好；使用AI自動化產出教學影片，效率最好，但品質上較不可控，且充滿「AI味」；採用CourseFlow為折衷方案，能夠兼顧品質與效率。",
+    expectKind: "table",
+  },
 ];
 
 export function runGoldenCaseHeuristics(): {

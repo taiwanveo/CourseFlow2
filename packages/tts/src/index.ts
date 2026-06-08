@@ -1,5 +1,10 @@
 import type { TtsCredentials, TtsProvider, TtsProviderId, TtsVoice, TtsModel, ProjectLanguage, TtsSynthesizeOptions } from "./types.js";
-import { edgeTtsVisibleForLanguage, EDGE_TTS_ZH_TW_VOICES, OPENAI_TTS_MODELS, getTtsVoicesForModel } from "./types.js";
+import {
+  edgeTtsVisibleForLanguage,
+  EDGE_TTS_ZH_TW_VOICES,
+  OPENAI_TTS_MODELS,
+} from "./types.js";
+import { fetchOpenRouterTtsCatalog } from "./openrouter-tts.js";
 import { edgeTtsProvider } from "./edge-tts.js";
 import {
   openAiTtsProvider,
@@ -34,7 +39,7 @@ export async function listAllVoices(
 ): Promise<TtsVoice[]> {
   const voices: TtsVoice[] = [];
 
-  for (const id of ["openai", "gemini"] as TtsProviderId[]) {
+  for (const id of ["openai", "gemini", "openrouter"] as TtsProviderId[]) {
     const creds = credentialsByProvider[id];
     if (creds?.apiKey) {
       const provider = getTtsProvider(id);
@@ -49,14 +54,22 @@ export async function listAllVoices(
   return voices;
 }
 
-export function listTtsModels(
+export async function listTtsModels(
   credentialsByProvider: Partial<Record<TtsProviderId, TtsCredentials>>,
-): Partial<Record<TtsProviderId, TtsModel[]>> {
+): Promise<Partial<Record<TtsProviderId, TtsModel[]>>> {
   const models: Partial<Record<TtsProviderId, TtsModel[]>> = {};
   if (credentialsByProvider.openai?.apiKey) {
     models.openai = OPENAI_TTS_MODELS;
   }
-  // OpenRouter 不支援 audio/speech；不在此預填模型，避免 UI 出現無法使用的幽靈模型
+  if (credentialsByProvider.openrouter?.apiKey) {
+    try {
+      models.openrouter = await fetchOpenRouterTtsCatalog(
+        credentialsByProvider.openrouter.apiKey,
+      );
+    } catch {
+      models.openrouter = [];
+    }
+  }
   return models;
 }
 
@@ -78,3 +91,8 @@ export async function synthesizeSpeech(
 
 export * from "./types.js";
 export { edgeTtsProvider } from "./edge-tts.js";
+export {
+  fetchOpenRouterSpeechModels,
+  fetchOpenRouterTtsCatalog,
+  synthesizeOpenRouterSpeech,
+} from "./openrouter-tts.js";

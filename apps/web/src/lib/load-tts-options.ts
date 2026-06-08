@@ -9,8 +9,7 @@ import {
   type TtsVoice,
 } from "@courseflow/tts";
 
-/** 語音合成可用的 API Key 提供者（OpenRouter 不支援 audio/speech，故排除） */
-const KEY_PROVIDERS = ["openai", "gemini"] as const;
+const KEY_PROVIDERS = ["openai", "gemini", "openrouter"] as const;
 
 export type TtsOptionsPayload = {
   voices: TtsVoice[];
@@ -46,7 +45,7 @@ export async function loadTtsOptionsForUser(
   }
 
   const voices = await listAllVoices(language, credentialsByProvider);
-  const models = listTtsModels(credentialsByProvider);
+  const models = await listTtsModels(credentialsByProvider);
 
   const providers: TtsProviderId[] = [];
   if (edgeTtsVisibleForLanguage(language)) providers.push("edge-tts");

@@ -43,6 +43,7 @@ import {
   screenContentsForChapter,
 } from "@/lib/wvp-chapter-meta";
 import {
+  resolveStepNeedsImage,
   wvpStepNeedsIllustration,
   type WvpIllustrationSyncOptions,
 } from "@/lib/wvp-illustration-sync";
@@ -78,6 +79,8 @@ export type StepIllustrationEntry = {
   imageSource?: "ai" | "upload" | "animation";
   /** AI 解說動畫：自包含的 HTML 字串（CSS/SVG/Canvas 動畫） */
   animationHtml?: string | null;
+  /** Phase 3：DSL → Framer Motion 場景（優先於 HTML） */
+  animationConfig?: Record<string, unknown> | null;
   /** 解說動畫 HTML 的 Supabase Storage 路徑（打包時還原用） */
   animationStoragePath?: string | null;
   /** 是否納入「批次生圖」 */
@@ -394,7 +397,7 @@ export async function getChapterIllustrationsState(
         );
       }
       const imageSource = existing.imageSource ?? "ai";
-      const needsImage = existing.needsImage ?? heuristicNeedsImage;
+      const needsImage = resolveStepNeedsImage(heuristicNeedsImage, existing);
       const batchSelected =
         existing.batchSelected ?? (needsImage && imageSource === "ai");
       const resolvedStatus = imageWritten
@@ -514,8 +517,8 @@ export async function planChapterIllustrationPrompts(
       ? false
       : wvpStepNeedsIllustration(kind, stepIndex, narrations.length);
     const prevStep = existing.find((s) => s.stepIndex === stepIndex);
-    const forcedNeedsImage = prevStep?.needsImage ?? heuristicNeedsImage;
-    if (!heuristicNeedsImage && !forcedNeedsImage) continue;
+    const forcedNeedsImage = resolveStepNeedsImage(heuristicNeedsImage, prevStep);
+    if (!forcedNeedsImage) continue;
     const shouldRegenerate = !onlySet || onlySet.has(stepIndex);
 
     const narration = narrations[stepIndex] ?? "";
@@ -684,6 +687,7 @@ export async function patchChapterIllustrationPrompts(
     imageSource?: "ai" | "upload" | "animation";
     batchSelected?: boolean;
     animationHtml?: string | null;
+    animationConfig?: Record<string, unknown> | null;
   }>,
 ): Promise<ChapterIllustrationsState> {
   const prev =
@@ -736,7 +740,7 @@ export async function patchChapterIllustrationPrompts(
         steps[idx]!.batchSelected = false;
       }
       if (p.imageSource === "animation") {
-        if (!steps[idx]!.animationHtml) {
+        if (!steps[idx]!.animationHtml && !steps[idx]!.animationConfig) {
           steps[idx]!.status =
             steps[idx]!.needsImage === false ? "skip" : "prompt-draft";
           steps[idx]!.imageWritten = false;
@@ -744,6 +748,7 @@ export async function patchChapterIllustrationPrompts(
         }
       } else {
         steps[idx]!.animationHtml = null;
+        steps[idx]!.animationConfig = null;
         if (prevSource === "animation" || p.imageSource !== prevSource) {
           steps[idx]!.imageWritten = false;
           steps[idx]!.storagePath = null;
@@ -757,10 +762,28 @@ export async function patchChapterIllustrationPrompts(
         }
       }
     }
+    if (p.animationConfig !== undefined) {
+      steps[idx]!.animationConfig = p.animationConfig;
+      if (p.animationConfig) {
+        steps[idx]!.animationHtml = null;
+        steps[idx]!.animationStoragePath = null;
+        steps[idx]!.imageSource = "animation";
+        steps[idx]!.batchSelected = false;
+        steps[idx]!.status = "done";
+        steps[idx]!.imageWritten = true;
+        steps[idx]!.storagePath = null;
+        steps[idx]!.error = null;
+      } else if (steps[idx]!.imageSource === "animation" && !steps[idx]!.animationHtml) {
+        steps[idx]!.imageWritten = false;
+        steps[idx]!.status =
+          steps[idx]!.needsImage === false ? "skip" : "prompt-draft";
+      }
+    }
     if (p.animationHtml !== undefined) {
       const animHtml = normalizeAnimationHtml(p.animationHtml);
       steps[idx]!.animationHtml = animHtml;
       if (animHtml) {
+        steps[idx]!.animationConfig = null;
         const animPath = craftAnimationStoragePath(
           userId,
           projectId,

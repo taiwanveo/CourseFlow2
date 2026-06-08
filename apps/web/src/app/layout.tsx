@@ -32,7 +32,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-TW" className={`${dmSans.variable} ${notoSansTc.variable}`}>
+    <html
+      lang="zh-TW"
+      suppressHydrationWarning
+      className={`${dmSans.variable} ${notoSansTc.variable}`}
+    >
       <body className="min-h-screen antialiased" style={{ fontFamily: "var(--font-sans)" }}>
         <Providers>{children}</Providers>
       </body>

@@ -82,7 +82,7 @@ function chapterDividerScene(
   checkpointUrl?: string,
   figureAlt?: string,
 ): string {
-  const headline = screenTextOnly(screenContent, title || "章節");
+  const headline = screenTextOnly(screenContent);
   const figureUrl = checkpointUrl?.trim()
     ? `"${escapeTsString(checkpointUrl.trim())}"`
     : `{stepImageUrl(0)}`;
@@ -114,7 +114,7 @@ function stepScene(
   figureAlt?: string,
 ): string {
   const layout = pickLayout(step);
-  const headline = screenTextOnly(screenContent, `步驟 ${step + 1}`);
+  const headline = screenTextOnly(screenContent);
   const headlineTone =
     headline.length <= 8 ? "headline-short" : headline.length <= 16 ? "headline-mid" : "headline-long";
   const stepLabel = `Step ${String(step + 1).padStart(2, "0")}`;

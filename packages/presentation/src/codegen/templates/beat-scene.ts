@@ -131,7 +131,7 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
     ? [input.screenContents?.[1] ?? ""]
     : (input.screenContents ?? []);
   const dividerKicker = isDividerPlusOne
-    ? screenTextOnly(input.screenContents?.[0], input.title)
+    ? screenTextOnly(input.screenContents?.[0])
     : undefined;
   const workMotions = isDividerPlusOne
     ? [input.stepMotions?.[1] ?? input.stepMotions?.[0] ?? { enterAnimationId: "fade-up", transitionId: "crossfade" }]
@@ -139,7 +139,7 @@ export function generateBeatSceneSources(input: ChapterCodegenInput) {
 
   const scenes = workNarrations.map((narration, stepIndex) => {
     const screen = sanitizeBeatScreen(workScreens[stepIndex] ?? "");
-    const headline = screenTextOnly(screen, "重點");
+    const headline = screenTextOnly(screen);
     const hasScreen = Boolean(screen.trim());
     const parts = hasScreen ? splitHeadlineForStaggeredReveal(headline, 2) : [];
     const intro = parts[0] ?? headline;

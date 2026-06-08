@@ -10,6 +10,7 @@ import { buildCodegenStepImageBlock, buildCodegenStepAnimationBlock } from "../s
  *
  * 這個檔案負責把章節拆成 `intro + nodes`，再餵給 FlowDiagram。
  * 版面比例、導言字級、右側圖片框高度等視覺旋鈕，主要在 FlowDiagram.css。
+ * 4+ 節點預設橫向緊湊排列，避免直向堆疊被舞台裁切。
  */
 function escapeTsString(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -20,7 +21,6 @@ export function generateFlowSources(input: ChapterCodegenInput) {
   const { intro, introSub, nodes } = parseFlowSlots(
     input.narrations,
     input.screenContents ?? [],
-    input.title,
   );
   const chapterAssets = assetsForChapter(input.assets, input.wvpChapterId);
   const assetsLiteral = JSON.stringify(chapterAssets);
@@ -28,20 +28,29 @@ export function generateFlowSources(input: ChapterCodegenInput) {
     input.wvpChapterId,
     input.stepImageExtensions ?? {},
   );
-  const animIndices = (input.stepAnimationIndices ?? []).filter((step) =>
-    Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
+  const animIndices = (input.stepAnimationIndices ?? []).filter(
+    (step) =>
+      Boolean(input.stepAnimationConfigByStep?.[step]) ||
+      Boolean(input.stepAnimationHtmlByStep?.[step]?.trim()),
   );
   const stepAnimationBlock = buildCodegenStepAnimationBlock(
     input.wvpChapterId,
     animIndices,
     input.stepAnimationHtmlByStep,
+    input.stepAnimationConfigByStep,
   );
   const stepAnimationHelper =
     animIndices.length > 0
       ? `function stepAnimationHtml(step: number) {
   return hasStepAnimation(step) ? stepAnimationSrcDoc(step) : undefined;
+}
+function stepMotionAnimationConfig(step: number) {
+  return hasStepAnimation(step) ? stepAnimationConfig(step) : undefined;
 }`
       : `function stepAnimationHtml(_step: number) {
+  return undefined;
+}
+function stepMotionAnimationConfig(_step: number) {
   return undefined;
 }`;
 
@@ -80,6 +89,7 @@ export default function ${componentName}({ step }: ChapterStepProps) {
       introSub={${JSON.stringify(introSub)}}
       nodes={[...NODES]}
       stepImageUrl={stepImage(step)}
+      stepAnimationConfig={stepMotionAnimationConfig(step)}
       stepAnimationHtml={stepAnimationHtml(step)}
       enterAnimationId={motion.enterAnimationId}
       transitionId={motion.transitionId}

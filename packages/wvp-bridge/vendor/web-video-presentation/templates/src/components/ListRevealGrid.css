@@ -144,7 +144,6 @@
   min-height: 180px;
   overflow: hidden;
   transition:
-    opacity var(--dur-base) var(--ease-quart),
     filter var(--dur-base) var(--ease-quart),
     border-color var(--dur-base) var(--ease-quart);
 }
@@ -157,31 +156,10 @@
   color: var(--text-faint);
 }
 
-/* Ghost slots stagger in when the intro scene mounts */
-@keyframes lr-slot-appear {
-  from { opacity: 0; transform: translateY(14px) scale(0.97); }
-  to   { opacity: 0.55; transform: translateY(0) scale(1); }
-}
-.lr-grid-ghost .lr-slot {
-  animation: lr-slot-appear var(--dur-base, 600ms) var(--ease-quart, cubic-bezier(0.19,1,0.22,1)) both;
-  animation-delay: calc(var(--lr-i, 0) * 80ms + 320ms);
-}
-
 .lr-slot-active {
   border: var(--rule-w) solid var(--accent);
   background: var(--surface);
   box-shadow: var(--shadow-card);
-  animation: lr-slot-activate var(--dur-base, 600ms) var(--ease-quart, cubic-bezier(0.25, 1, 0.5, 1)) both;
-}
-@keyframes lr-slot-activate {
-  from {
-    opacity: 0.55;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 /* ══ 卡片左上角序號 ══ 預設用 accent 色顯示 */
 .lr-slot-active .lr-slot-num {

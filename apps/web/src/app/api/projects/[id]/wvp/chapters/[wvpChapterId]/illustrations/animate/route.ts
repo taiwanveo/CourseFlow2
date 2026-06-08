@@ -18,14 +18,21 @@ import {
   resolveCompositionChapterForCraft,
   screenContentsForChapter,
 } from "@/lib/wvp-chapter-meta";
-import { writePresentationAnimationFile } from "@/lib/wvp-animation-sync";
+import {
+  writePresentationAnimationConfigFile,
+  writePresentationAnimationFile,
+} from "@/lib/wvp-animation-sync";
 import {
   animationHtmlIssueMessage,
   extractAnimationHtml,
   inspectAnimationHtml,
 } from "@/lib/wvp-animation-html";
 import { presentationDirForProject } from "@/lib/wvp-workdir";
-import { inferExplainAnimation, renderExplainAnimationHtml } from "@courseflow/explain-animation";
+import {
+  inferExplainAnimation,
+  isMotionRenderable,
+  renderExplainAnimationHtml,
+} from "@courseflow/explain-animation";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -523,26 +530,36 @@ export async function POST(
   });
 
   let animationHtml = "";
+  let animationConfig: Record<string, unknown> | null = null;
   let lastIssue: ReturnType<typeof inspectAnimationHtml> = "not-html";
-  let dslSource: "infer" | "llm" | null = null;
+  let dslSource: "infer" | "llm" | "motion" | null = null;
 
-  // DSL 優先：啟發式匹配成功則用規則引擎渲染，跳過 LLM
+  // DSL 優先：啟發式匹配成功則用 Motion 或規則引擎 HTML，跳過 LLM
   if (!body.animationPrompt?.trim()) {
     const inferred = inferExplainAnimation(script, screen, visualHint);
     if (inferred) {
-      animationHtml = renderExplainAnimationHtml(inferred.config, { themeId });
-      lastIssue = inspectAnimationHtml(animationHtml, { script, screen });
-      if (!lastIssue) {
-        dslSource = "infer";
+      if (isMotionRenderable(inferred.config)) {
+        animationConfig = {
+          version: inferred.config.version ?? 1,
+          pattern: inferred.config.pattern,
+          params: inferred.config.params,
+        };
+        dslSource = "motion";
       } else {
-        animationHtml = "";
-        lastIssue = "not-html";
+        animationHtml = renderExplainAnimationHtml(inferred.config, { themeId });
+        lastIssue = inspectAnimationHtml(animationHtml, { script, screen });
+        if (!lastIssue) {
+          dslSource = "infer";
+        } else {
+          animationHtml = "";
+          lastIssue = "not-html";
+        }
       }
     }
   }
 
   try {
-    if (dslSource === "infer") {
+    if (dslSource === "infer" || dslSource === "motion") {
       // 已由 DSL 產出，略過 LLM
     } else {
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -587,14 +604,24 @@ export async function POST(
     {
       stepIndex,
       imageSource: "animation",
-      animationHtml,
+      animationHtml: animationConfig ? null : animationHtml,
+      animationConfig,
     },
   ]);
 
-  // Write animation HTML to local presentation folder (best-effort)
+  // Write animation asset to local presentation folder (best-effort)
   try {
     const presentationDir = presentationDirForProject(id);
-    await writePresentationAnimationFile(presentationDir, wvpChapterId, stepIndex, animationHtml);
+    if (animationConfig) {
+      await writePresentationAnimationConfigFile(
+        presentationDir,
+        wvpChapterId,
+        stepIndex,
+        animationConfig,
+      );
+    } else {
+      await writePresentationAnimationFile(presentationDir, wvpChapterId, stepIndex, animationHtml);
+    }
   } catch {
     // Non-fatal — presentation might not be scaffolded yet
   }
@@ -608,7 +635,7 @@ export async function POST(
     .single();
 
   if (!updatedCraft) {
-    return NextResponse.json({ ok: true, animationHtml });
+    return NextResponse.json({ ok: true, animationHtml, animationConfig, dslSource });
   }
 
   const state = await getChapterIllustrationsState(
@@ -618,5 +645,5 @@ export async function POST(
     updatedCraft,
     composition,
   );
-  return NextResponse.json({ ok: true, animationHtml, dslSource, ...state });
+  return NextResponse.json({ ok: true, animationHtml, animationConfig, dslSource, ...state });
 }

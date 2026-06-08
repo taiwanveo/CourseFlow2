@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { BrandMark } from "@/components/BrandMark";
 import { usePlaySoundOnError } from "@/hooks/usePlaySoundOnError";
+import { formatAuthError } from "@/lib/format-auth-error";
+
+const MISSING_EMAIL_MESSAGE = "請輸入您的帳號（電子郵件）";
+const MISSING_PASSWORD_MESSAGE = "請輸入密碼";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +21,14 @@ export default function LoginPage() {
   usePlaySoundOnError(error);
 
   async function handleAuth(mode: "signIn" | "signUp") {
+    if (!email.trim()) {
+      setError(MISSING_EMAIL_MESSAGE);
+      return;
+    }
+    if (!password) {
+      setError(MISSING_PASSWORD_MESSAGE);
+      return;
+    }
     const supabase = createClient();
     setLoading(true);
     setError("");
@@ -27,7 +39,7 @@ export default function LoginPage() {
     const { error: err } = await fn;
     setLoading(false);
     if (err) {
-      setError(err.message);
+      setError(formatAuthError(err));
       return;
     }
     router.push("/dashboard");
@@ -50,12 +62,12 @@ export default function LoginPage() {
         >
           <div>
             <label className="cf-label" htmlFor="email">
-              Email
+              帳號（電子郵件）
             </label>
             <input
               id="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder="例如：name@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="cf-input"

@@ -84,6 +84,8 @@ sequenceDiagram
 
 list-reveal 的 `wvpStepNeedsIllustration` 含 **step 0**（章節分隔頁配圖）。
 
+hook 的 **stepIndex 1–3** 對應三張 slide（預覽幽靈格 01–03）；步驟 0 為章節分隔頁、最後一步為 takeover，不需 slide 配圖。工作室「步驟配圖」可逐張上傳或 AI 生圖。
+
 ## 環境變數
 
 | 變數 | 值 | 效果 |

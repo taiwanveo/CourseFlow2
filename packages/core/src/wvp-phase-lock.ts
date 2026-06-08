@@ -1,4 +1,5 @@
 import {
+  WVP_PHASE_ORDER,
   type WvpPhaseId,
   type WvpPhaseLocks,
   canAccessWvpPhase,
@@ -51,6 +52,27 @@ export function lockWvpPhase(
   const next: WvpPhaseLocks = { ...locks, [phase]: true };
   if (phase === "content") next.checkpoint = true;
   return { ok: true, locks: next };
+}
+
+/** 四個使用者可見階段是否皆已鎖定 */
+export function allWvpPhasesLocked(locks: WvpPhaseLocks): boolean {
+  return WVP_PHASE_ORDER.every((phase) => locks[phase]);
+}
+
+/** 依序鎖定 content → craft → audio → publish（略過已鎖定者） */
+export function lockAllWvpPhases(
+  locks: WvpPhaseLocks,
+): { ok: true; locks: WvpPhaseLocks } | { ok: false; error: string; phase?: WvpPhaseId } {
+  let next = { ...locks };
+  for (const phase of WVP_PHASE_ORDER) {
+    if (next[phase]) continue;
+    const result = lockWvpPhase(next, phase);
+    if (!result.ok) {
+      return { ok: false, error: result.error, phase };
+    }
+    next = result.locks;
+  }
+  return { ok: true, locks: normalizeWvpPhaseLocks(next) };
 }
 
 export function unlockWvpPhase(locks: WvpPhaseLocks, phase: WvpPhaseId): WvpPhaseLocks {

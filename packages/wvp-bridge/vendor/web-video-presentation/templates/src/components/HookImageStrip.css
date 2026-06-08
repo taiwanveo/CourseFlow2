@@ -111,6 +111,41 @@
   max-width: 24ch;
   text-align: center;
 }
+.hk-placeholder--screen {
+  padding: var(--space-6);
+}
+.hk-placeholder-screen {
+  color: var(--text);
+  text-align: center;
+  line-height: 1.35;
+  max-width: 90%;
+  margin: 0 auto;
+}
+/* 自適應字級：短標題用大展示字，長文收斂避免溢出 */
+.hk-text--hero {
+  font-size: var(--t-display-1);
+  line-height: 0.95;
+}
+.hk-text--md {
+  font-size: clamp(64px, 6vw, 96px);
+  line-height: 1.05;
+}
+.hk-text--lg {
+  font-size: clamp(48px, 4.5vw, 72px);
+  line-height: 1.12;
+}
+.hk-text--compact {
+  font-size: clamp(32px, 3.2vw, 48px);
+  line-height: 1.25;
+  max-width: 22ch;
+}
+.hk-ghost-caption {
+  font-size: var(--t-body);
+  color: var(--text-2);
+  align-self: end;
+  line-height: 1.35;
+  max-width: 100%;
+}
 .hk-stamp {
   position: absolute;
   top: var(--space-4);
@@ -121,18 +156,6 @@
   font-size: var(--t-cue);
   font-weight: 900;
   transform: rotate(-8deg);
-  animation: hk-stamp-drop var(--dur-base) var(--ease-quart) backwards;
-  animation-delay: 600ms;
-}
-@keyframes hk-stamp-drop {
-  0% {
-    transform: rotate(-8deg) scale(2.4);
-    opacity: 0;
-  }
-  100% {
-    transform: rotate(-8deg) scale(1);
-    opacity: 1;
-  }
 }
 .hk-solo-meta {
   display: flex;
@@ -167,42 +190,21 @@
   object-fit: cover;
   border-radius: calc(var(--r-card) * 0.5);
   box-shadow: var(--shadow-card);
-  animation: hk-mini-shrink var(--dur-base) var(--ease-quart) backwards;
 }
 .hk-mini-ph {
   background: var(--surface-2);
   border: var(--rule-w) dashed var(--rule);
 }
-@keyframes hk-mini-shrink {
-  from {
-    transform: scale(2.4);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
 .hk-accent-bar {
   width: 60%;
   height: 4px;
   background: var(--accent);
-  animation: hk-bar-grow 700ms var(--ease-quart) 250ms backwards;
 }
-@keyframes hk-bar-grow {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-/* takeover 主標：hook 版型最常調的標題大小入口。 */
+/* takeover 主標：字級由 .hk-text--* 自適應 */
 .hk-hero {
   margin: 0;
-  font-size: var(--t-display-1);
-  line-height: 0.95;
   text-align: center;
+  max-width: 92%;
 }
 
 .hk-close {
@@ -213,10 +215,9 @@
   position: relative;
   display: inline-block;
 }
-/* close scene 引言：若收尾字太大/太小，改這裡。 */
+/* close scene 引言：字級由 .hk-text--* 自適應 */
 .hk-quote {
   margin: 0;
-  font-size: var(--t-display-2);
 }
 .hk-brush {
   position: absolute;
@@ -226,11 +227,5 @@
   height: 0.18em;
   background: var(--accent);
   transform-origin: left center;
-  transform: scaleX(0) translateY(-50%);
-  animation: hk-brush-strike 700ms var(--ease-expo) 500ms forwards;
-}
-@keyframes hk-brush-strike {
-  to {
-    transform: scaleX(1) translateY(-50%);
-  }
+  transform: translateY(-50%);
 }

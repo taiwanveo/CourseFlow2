@@ -23,6 +23,7 @@ const PRESENTATION_PACKAGE_JSON = {
   dependencies: {
     react: "^19.1.0",
     "react-dom": "^19.1.0",
+    "framer-motion": "^12.40.0",
     recharts: "^2.15.3",
     "@vitejs/plugin-react": "^4.4.1",
     typescript: "^5.8.3",
@@ -122,6 +123,7 @@ export async function scaffoldPresentation(
     "usePlaybackRate.ts",
     "useSubtitleSettings.ts",
     "useViewportFit.ts",
+    "usePresentationMotion.ts",
   ]) {
     await copyFile(join(t, "src/hooks", hook), join(targetDir, "src/hooks", hook));
   }
@@ -135,6 +137,11 @@ export async function scaffoldPresentation(
     "NarrationBeat.css",
     "SafeAnimationFrame.tsx",
     "SafeAnimationFrame.css",
+    "motion-presets.ts",
+    "explain-motion-types.ts",
+    "ExplainMotionScene.tsx",
+    "ExplainMotionScene.css",
+    "ExplainAnimationSlot.tsx",
     "ListRevealGrid.tsx",
     "ListRevealGrid.css",
     "FlowDiagram.tsx",
@@ -143,6 +150,9 @@ export async function scaffoldPresentation(
     "HookImageStrip.css",
     "VisualBlock.tsx",
     "VisualBlock.css",
+    "step-dsl-types.ts",
+    "UniversalStepChapter.tsx",
+    "UniversalStepChapter.css",
     "ProgressBar.tsx",
     "ProgressBar.css",
     "AutoStartGate.tsx",

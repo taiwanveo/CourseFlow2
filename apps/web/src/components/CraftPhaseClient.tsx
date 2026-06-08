@@ -12,7 +12,8 @@ import { useConfiguredLlmProviders } from "@/hooks/useConfiguredLlmProviders";
 import { ImageStylePickerModal } from "@/components/ImageStylePickerModal";
 import type { ImageStyleCatalogEntry } from "@/data/image-style-catalog";
 import { catalogEntryToSelection } from "@/lib/image-style";
-import type { WvpSettings } from "@/lib/wvp-settings";
+import type { WvpAssetRef, WvpSettings } from "@/lib/wvp-settings";
+import { ChapterOutlineImages } from "@/components/ChapterOutlineImages";
 import { SettingsNavLink } from "@/components/SettingsNavLink";
 import { CraftChapterIllustration } from "@/components/CraftChapterIllustration";
 import { CraftStepIllustrationModal } from "@/components/CraftStepIllustrationModal";
@@ -25,6 +26,7 @@ import {
 import type { WvpChapterKind } from "@courseflow/core";
 import {
   CRAFT_TEMPLATE_OPTIONS,
+  chapterEffectiveTemplateKind,
   resolveChapterTemplateSelectState,
 } from "@/lib/wvp-chapter-template";
 import { BatchCraftProgressPanel } from "@/components/BatchCraftProgressPanel";
@@ -287,6 +289,7 @@ export function CraftPhaseClient({
   const [savingTheme, setSavingTheme] = useState(false);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [savingImageStyle, setSavingImageStyle] = useState(false);
+  const [savingHookAssets, setSavingHookAssets] = useState(false);
   const [stepStudioChapter, setStepStudioChapter] = useState<{
     wvpChapterId: string;
     title: string;
@@ -506,6 +509,28 @@ export function CraftPhaseClient({
       toast(e instanceof Error ? e.message : "儲存風格失敗", "error");
     } finally {
       setSavingImageStyle(false);
+    }
+  };
+
+  const persistWvpAssets = async (nextAssets: WvpAssetRef[]) => {
+    const next: WvpSettings = { ...settings, assets: nextAssets };
+    setSettings(next);
+    setSavingHookAssets(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/wvp`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wvpSettings: { ...next, devMode: "sequential" as const },
+          themeId: next.themeId ?? initialThemeId,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "開場圖儲存失敗");
+      toast("開場圖已儲存", "success");
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "開場圖儲存失敗", "error");
+    } finally {
+      setSavingHookAssets(false);
     }
   };
 
@@ -1215,10 +1240,15 @@ export function CraftPhaseClient({
                       : batchCh?.status === "failed"
                         ? "✗"
                         : null;
+                const effectiveKind = chapterEffectiveTemplateKind(templateState);
+                const isHookChapter = effectiveKind === "hook";
+                const hookAssetCount = (settings.assets ?? []).filter(
+                  (a) => a.url?.trim() && a.wvpChapterId === ch.wvp_chapter_id,
+                ).length;
 
                 return (
+                  <div key={ch.id} className="space-y-1">
                   <div
-                    key={ch.id}
                     className={`flex items-start gap-1.5 rounded border px-2 py-1.5 ${
                       isSelected
                         ? "border-[var(--accent)] bg-zinc-900"
@@ -1287,14 +1317,23 @@ export function CraftPhaseClient({
                             setBusy(`tpl-${ch.wvp_chapter_id}`);
                             try {
                               const saved = await saveChapterTemplate(ch.wvp_chapter_id, next);
-                              toast(
-                                next === "auto"
-                                  ? `已改為自動推斷（${templateKindDisplayLabel(
-                                      saved.inferredDisplayKind ?? templateState.inferredDisplayKind,
-                                    )}）`
-                                  : `已指定版型：${templateKindDisplayLabel(next)}`,
-                                "success",
-                              );
+                              if (next === "hook") {
+                                setSelectedWvpId(ch.wvp_chapter_id);
+                                toast(
+                                  "已指定多圖開場。請在下方上傳開場圖（最多 3 張），再按「AI 畫面」並重新打包預覽。",
+                                  "info",
+                                );
+                              } else {
+                                toast(
+                                  next === "auto"
+                                    ? `已改為自動推斷（${templateKindDisplayLabel(
+                                        saved.inferredDisplayKind ??
+                                          templateState.inferredDisplayKind,
+                                      )}）`
+                                    : `已指定版型：${templateKindDisplayLabel(next)}`,
+                                  "success",
+                                );
+                              }
                             } catch (err) {
                               toast(
                                 err instanceof Error ? err.message : "版型儲存失敗",
@@ -1333,6 +1372,36 @@ export function CraftPhaseClient({
                       </div>
                     ) : null}
                   </div>
+                  {isHookChapter && !locks.craft ? (
+                    <div
+                      className="rounded border border-amber-800/45 bg-amber-950/25 px-2.5 py-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <p className="text-[10px] leading-relaxed text-amber-200/90">
+                        <span className="font-medium text-amber-100/95">多圖開場</span>
+                        ：請上傳最多 3 張圖，順序對應預覽步驟 2–4（幽靈格 01–03）。
+                        {hookAssetCount < 3
+                          ? ` 目前 ${hookAssetCount} 張。`
+                          : " 已滿 3 張。"}
+                        {savingHookAssets ? " 儲存中…" : ""}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-zinc-500">
+                        亦可至下方「配圖工作室 → 步驟配圖」逐張上傳或 AI 生圖。上傳後請按「AI
+                        畫面」，再到「4. 預覽匯出」打包。
+                      </p>
+                      <div className="mt-1.5">
+                        <ChapterOutlineImages
+                          projectId={projectId}
+                          wvpChapterId={ch.wvp_chapter_id}
+                          assets={settings.assets ?? []}
+                          locked={locks.craft || savingHookAssets}
+                          variant="hook"
+                          onAssetsChange={(next) => void persistWvpAssets(next)}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                  </div>
                 );
               })}
             </div>
@@ -1342,7 +1411,7 @@ export function CraftPhaseClient({
               <div>
                 <h3 className="text-sm font-medium text-zinc-300">配圖工作室</h3>
                 <p className="mt-0.5 text-[11px] text-zinc-500">
-                  設定各章節配圖；若要調整各步驟的配圖或解說動畫，請點「步驟配圖」。
+                  設定各章節配圖；多圖開場可在章節列直接上傳，或點「步驟配圖」逐張調整。
                 </p>
               </div>
               {chapters.map((ch, i) => (

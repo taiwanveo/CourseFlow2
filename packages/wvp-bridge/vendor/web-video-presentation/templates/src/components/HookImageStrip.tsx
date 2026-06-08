@@ -1,4 +1,12 @@
+import { motion } from "framer-motion";
 import { MaskReveal } from "./MaskReveal";
+import {
+  hookGhostVariants,
+  hookMiniVariants,
+  hookSoloVariants,
+  hookStaggerContainer,
+  springReveal,
+} from "./motion-presets";
 import "./HookImageStrip.css";
 
 export type HookSlide = {
@@ -8,14 +16,31 @@ export type HookSlide = {
   label: string;
 };
 
+/** 依字數自適應字級（與 Beat-Scene 同尺度，長文不撐爆畫面） */
+function hkTextTone(text: string): "hero" | "md" | "lg" | "compact" {
+  const len = text.replace(/\s+/g, "").length;
+  if (len <= 12) return "hero";
+  if (len <= 20) return "md";
+  if (len <= 32) return "lg";
+  return "compact";
+}
+
 function SoloImage({ slide }: { slide: HookSlide }) {
   if (slide.url) {
-    return <img className="hk-solo-img" src={slide.url} alt={slide.alt} />;
+    return <img className="hk-solo-img" src={slide.url} alt={slide.alt || slide.caption} />;
+  }
+  const caption = slide.caption?.trim() || slide.alt?.trim();
+  if (caption) {
+    const tone = hkTextTone(caption);
+    return (
+      <div className="hk-placeholder hk-placeholder--screen" aria-hidden>
+        <span className={`hk-placeholder-screen serif-cn hk-text--${tone}`}>{caption}</span>
+      </div>
+    );
   }
   return (
     <div className="hk-placeholder" aria-hidden>
-      <span className="hk-placeholder-label">image · 16:9</span>
-      <span className="hk-placeholder-cap">{slide.alt}</span>
+      <span className="hk-placeholder-label">待配圖</span>
     </div>
   );
 }
@@ -45,6 +70,7 @@ export function HookImageStrip({
   const n = slides.length;
   const takeoverStep = 1 + n;
   const closeStep = includeClose ? takeoverStep + 1 : -1;
+  const takeoverText = takeoverTitle?.trim() ?? "";
 
   if (step === 0) {
     return (
@@ -56,20 +82,27 @@ export function HookImageStrip({
           <span className="hk-kicker-line" />
           <span className="hk-kicker-text">{introKicker || chapterTitle}</span>
         </div>
-        <div className="hk-grid">
+        <motion.div
+          className="hk-grid"
+          variants={hookStaggerContainer}
+          initial="hidden"
+          animate="show"
+        >
           {slides.map((s, idx) => (
-            <MaskReveal show key={s.label} delay={idx * 200} duration={900}>
+            <motion.div key={s.label} variants={hookGhostVariants}>
               <div className={`hk-ghost${s.url ? " hk-ghost--has-img" : ""}`}>
                 <span className="hk-ghost-num">{s.label.split("/")[0]?.trim() || String(idx + 1)}</span>
                 {s.url ? (
                   <img className="hk-ghost-thumb" src={s.url} alt="" loading="eager" />
+                ) : s.caption?.trim() ? (
+                  <span className="hk-ghost-caption serif-cn">{s.caption}</span>
                 ) : (
                   <span className="hk-ghost-label">待配圖</span>
                 )}
               </div>
-            </MaskReveal>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -82,12 +115,22 @@ export function HookImageStrip({
         data-cf-transition={transitionId}
       >
         <div className="hk-solo-frame">
-          <MaskReveal show duration={1100}>
-            <div className="hk-solo-img-wrap">
-              <SoloImage slide={s} />
-              <div className="hk-stamp">重點</div>
-            </div>
-          </MaskReveal>
+          <motion.div
+            className="hk-solo-img-wrap"
+            variants={hookSoloVariants}
+            initial="hidden"
+            animate="show"
+          >
+            <SoloImage slide={s} />
+            <motion.div
+              className="hk-stamp"
+              initial={{ opacity: 0, scale: 2.2, rotate: -8 }}
+              animate={{ opacity: 1, scale: 1, rotate: -8 }}
+              transition={{ ...springReveal, delay: 0.5 }}
+            >
+              重點
+            </motion.div>
+          </motion.div>
           <MaskReveal show delay={400} duration={900}>
             <div className="hk-solo-meta">
               <span className="hk-solo-label">{s.label}</span>
@@ -99,46 +142,66 @@ export function HookImageStrip({
     );
   }
 
-  if (step === takeoverStep) {
+  if (step === takeoverStep && takeoverText) {
+    const tone = hkTextTone(takeoverText);
     return (
       <div
         className={`hk-scene scene-pad hk-takeover cf-enter-${enterAnimationId}`}
         data-cf-transition={transitionId}
       >
-        <div className="hk-mini-row">
-          {slides.map((s, idx) =>
+        <motion.div
+          className="hk-mini-row"
+          variants={hookStaggerContainer}
+          initial="hidden"
+          animate="show"
+        >
+          {slides.map((s) =>
             s.url ? (
-              <img
+              <motion.img
                 key={s.label}
                 className="hk-mini"
                 src={s.url}
                 alt={s.alt}
-                style={{ animationDelay: `${idx * 80}ms` }}
+                variants={hookMiniVariants}
               />
             ) : (
-              <div key={s.label} className="hk-mini hk-mini-ph" />
+              <motion.div key={s.label} className="hk-mini hk-mini-ph" variants={hookMiniVariants} />
             ),
           )}
-        </div>
-        <span className="hk-accent-bar" />
-        <h1 className="hk-hero">
+        </motion.div>
+        <motion.span
+          className="hk-accent-bar"
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1], delay: 0.2 }}
+          style={{ transformOrigin: "center" }}
+        />
+        <h1 className={`hk-hero hk-text--${tone}`}>
           <MaskReveal show duration={1100}>
-            <span className="serif-cn">{takeoverTitle}</span>
+            <span className="serif-cn">{takeoverText}</span>
           </MaskReveal>
         </h1>
       </div>
     );
   }
 
-  if (includeClose && step === closeStep && closeLine) {
+  if (includeClose && step === closeStep && closeLine?.trim()) {
+    const tone = hkTextTone(closeLine);
     return (
       <div
         className={`hk-scene scene-pad hk-close cf-enter-${enterAnimationId}`}
         data-cf-transition={transitionId}
       >
         <div className="hk-quote-wrap">
-          <h2 className="hk-quote serif-cn">{closeLine}</h2>
-          <span className="hk-brush" aria-hidden />
+          <h2 className={`hk-quote serif-cn hk-text--${tone}`}>{closeLine}</h2>
+          <motion.span
+            className="hk-brush"
+            aria-hidden
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.45 }}
+            style={{ transformOrigin: "left center" }}
+          />
         </div>
       </div>
     );

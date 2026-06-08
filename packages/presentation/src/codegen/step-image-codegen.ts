@@ -18,26 +18,50 @@ function stepImageUrl(step: number) {
 `;
 }
 
-/** 章節 TSX 內嵌：動畫步驟集合 + 內嵌 HTML（優先）或 URL 候補 */
+type MotionConfigRecord = Record<string, unknown>;
+
+/** 章節 TSX 內嵌：動畫步驟 + HTML 或 DSL Motion config（Phase 3 優先 config） */
 export function buildCodegenStepAnimationBlock(
   wvpChapterId: string,
   animationStepIndices: number[],
   htmlByStep?: Partial<Record<number, string>>,
+  configByStep?: Partial<Record<number, MotionConfigRecord>>,
 ): string {
   if (animationStepIndices.length === 0) return "";
   const inlineMap: Record<number, string> = {};
+  const inlineConfig: Record<number, MotionConfigRecord> = {};
   for (const step of animationStepIndices) {
+    const cfg = configByStep?.[step];
+    if (cfg && typeof cfg.pattern === "string") {
+      inlineConfig[step] = cfg;
+      continue;
+    }
     const html = htmlByStep?.[step]?.trim();
     if (html) inlineMap[step] = html;
   }
-  return `const STEP_ANIMATION_SET = new Set<number>(${JSON.stringify(animationStepIndices)});
+  const allIndices = [
+    ...new Set([
+      ...animationStepIndices,
+      ...Object.keys(inlineMap).map(Number),
+      ...Object.keys(inlineConfig).map(Number),
+    ]),
+  ].sort((a, b) => a - b);
+
+  return `const STEP_ANIMATION_SET = new Set<number>(${JSON.stringify(allIndices)});
 const STEP_ANIMATION_HTML: Partial<Record<number, string>> = ${JSON.stringify(inlineMap)};
+const STEP_ANIMATION_CONFIG: Partial<Record<number, { pattern: string; params: Record<string, unknown>; version?: number }>> = ${JSON.stringify(inlineConfig)};
 function stepAnimationUrl(step: number) {
   return \`\${import.meta.env.BASE_URL}animations/\${WVP_ID}/\${String(step + 1).padStart(2, "0")}.html\`;
 }
 function stepAnimationSrcDoc(step: number) {
   return STEP_ANIMATION_HTML?.[step] ?? undefined;
 }
-function hasStepAnimation(step: number) { return STEP_ANIMATION_SET.has(step); }
+function stepAnimationConfig(step: number) {
+  const c = STEP_ANIMATION_CONFIG?.[step];
+  return c?.pattern ? c : undefined;
+}
+function hasStepAnimation(step: number) {
+  return STEP_ANIMATION_SET.has(step) && (Boolean(stepAnimationConfig(step)) || Boolean(stepAnimationSrcDoc(step)));
+}
 `;
 }

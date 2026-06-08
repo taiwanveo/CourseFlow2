@@ -31,7 +31,7 @@ import {
 } from "@/lib/tts-batch-progress";
 import { useElapsedMs } from "@/hooks/useElapsedMs";
 
-const TTS_PROVIDER_ORDER = ["openai", "gemini", "edge-tts"] as const;
+const TTS_PROVIDER_ORDER = ["openai", "openrouter", "gemini", "edge-tts"] as const;
 
 function pickDefaultTtsSelection(
   language: string,
@@ -43,11 +43,23 @@ function pickDefaultTtsSelection(
     TTS_PROVIDER_ORDER.find((provider) => providers.includes(provider)) ??
     TTS_PROVIDER_ORDER.find((provider) => voices.some((voice) => voice.provider === provider)) ??
     (edgeTtsVisibleForLanguage(language) ? "edge-tts" : providers[0] ?? "edge-tts");
-  const preferredVoices = voices.filter((voice) => voice.provider === preferred);
+  const preferredModel = models[preferred]?.[0]?.id ?? "";
+  let preferredVoices = voices.filter((voice) => voice.provider === preferred);
+  if (providerNeedsModel(preferred) && preferredModel) {
+    const modelEntry = models[preferred]?.find((model) => model.id === preferredModel);
+    if (modelEntry?.voices?.length) {
+      preferredVoices = modelEntry.voices;
+    } else {
+      preferredVoices = getTtsVoicesForModel(
+        preferredModel,
+        preferred as Parameters<typeof getTtsVoicesForModel>[1],
+      );
+    }
+  }
   return {
     provider: preferred,
     voiceId: preferredVoices[0]?.id ?? "",
-    model: models[preferred]?.[0]?.id ?? "",
+    model: preferredModel,
   };
 }
 
@@ -206,13 +218,15 @@ export function AudioPhaseClient({
       if (!modelId || !providerNeedsModel(provider)) {
         return voicesForProvider(provider);
       }
+      const modelEntry = modelsForProvider(provider).find((model) => model.id === modelId);
+      if (modelEntry?.voices?.length) {
+        return modelEntry.voices;
+      }
       const perModel = getTtsVoicesForModel(modelId, provider as Parameters<typeof getTtsVoicesForModel>[1]);
-      // 若 per-model 語音清單與 provider 語音完全相同（都是 OPENAI_TTS_VOICES 映射），
-      // 且 provider 本身有更多語音（如邊境語音），優先保留 provider 清單。
       if (perModel.length > 0) return perModel;
       return voicesForProvider(provider);
     },
-    [voicesForProvider],
+    [voicesForProvider, modelsForProvider],
   );
 
   /** 動態抓取指定 provider 的 TTS 模型清單 */
