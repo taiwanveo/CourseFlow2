@@ -461,9 +461,7 @@ export async function materializeChapterFromCraft(
       );
     }
     const effectiveForceTemplate =
-      dataVisualChapter && forceTemplate && forceTemplate !== "visual-mix"
-        ? undefined
-        : forceTemplate;
+      dataVisualChapter && forceTemplate ? undefined : forceTemplate;
     const written = await writeChapterToPresentation(presentationDir, {
       folderName,
       wvpChapterId: craft.wvp_chapter_id,

@@ -27,6 +27,9 @@ import { narrationsForChapter, orderedWvpStepsForChapter } from "@/lib/wvp-chapt
 import { resolveCompositionChapterForCraft, screenContentsForChapter } from "@/lib/wvp-chapter-meta";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
 import type { StepVisualDecision } from "@/lib/wvp-step-visual-config";
+import { HOOK_SLIDE_STEP_MAX } from "@/lib/wvp-hook-constants";
+
+export { HOOK_SLIDE_STEP_MAX };
 
 function checkpointAssetForStep(
   assets: WvpAssetRef[] | undefined,
@@ -142,7 +145,6 @@ function directorHintsFromPlan(plan: VisualDirectorPlan): StepImageDirectorHints
 }
 
 /** Hook 多圖開場：步驟 1–3（0-based）對應三張 slide，與 resolveSlideUrl(slideIndex+1) 一致 */
-export const HOOK_SLIDE_STEP_MAX = 3;
 
 /** 合併啟發式與使用者儲存的「需要配圖」；舊版 hook 曾整章 skip，啟發式改為 true 時可自動升級 */
 export function resolveStepNeedsImage(

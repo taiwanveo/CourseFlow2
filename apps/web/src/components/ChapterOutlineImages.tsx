@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { WvpAssetRef } from "@/lib/wvp-settings";
 import { LottieMark } from "@/components/lottie/LottieMark";
-import { HOOK_SLIDE_STEP_MAX } from "@/lib/wvp-illustration-sync";
+import { HOOK_SLIDE_STEP_MAX } from "@/lib/wvp-hook-constants";
 
 /** 樹狀大綱／Craft 章節列的配圖上傳（綁定 wvpChapterId） */
 export function ChapterOutlineImages({

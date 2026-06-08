@@ -96,13 +96,7 @@ export function WvpPhaseNav({
     const priorLocks = locks;
     const optimistic = lockAllWvpPhases(priorLocks);
     try {
-      if (
-        !isPlayPage &&
-        current !== "play" &&
-        typeof current === "string" &&
-        !locks[current] &&
-        onBeforeLock
-      ) {
+      if (!isPlayPage && !locks[current] && onBeforeLock) {
         await onBeforeLock();
       }
       if (optimistic.ok) {

@@ -360,11 +360,7 @@ export async function generateChapterCraft(
           }
         }
         const effectiveForceTemplate =
-          dataVisualChapter &&
-          opts.forceTemplate &&
-          opts.forceTemplate !== "visual-mix"
-            ? undefined
-            : opts.forceTemplate;
+          dataVisualChapter && opts.forceTemplate ? undefined : opts.forceTemplate;
         const gen = generateChapterSources({
           folderName,
           wvpChapterId,
