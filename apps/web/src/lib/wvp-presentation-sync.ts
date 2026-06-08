@@ -406,6 +406,8 @@ export async function materializeChapterFromCraft(
       narrations,
       chapterTsx: llmTsx,
       chapterCss: rawSource?.chapterCss?.trim() || "/* CourseFlow LLM chapter */\n",
+      chapterDslTs: chapterDslTs || undefined,
+      assets: assets.length ? assets : undefined,
     });
   } else {
     let stepVisualConfigs = craft.checklist_result?.stepVisualConfigs;

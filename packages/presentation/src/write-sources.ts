@@ -1,5 +1,7 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { ChapterAssetInput } from "./codegen/hook-slots.js";
+import { normalizeCachedChapterNarrations } from "./codegen/hook-slots.js";
 import {
   chapterBindsNarrationText,
   chapterCoversAllSteps,
@@ -93,6 +95,8 @@ export interface WriteChapterSourcesInput {
   narrations: string[];
   chapterTsx: string;
   chapterCss: string;
+  chapterDslTs?: string;
+  assets?: ChapterAssetInput[];
 }
 
 /** WVP 模板元件皆為 named export；LLM 常誤寫 default import */
@@ -221,11 +225,15 @@ export async function writeChapterSourcesRaw(
   await mkdir(chapterDir, { recursive: true });
 
   const tsx = sanitizeChapterTsx(normalizeChapterTsx(input.chapterTsx, input.componentName));
+  const narrations = normalizeCachedChapterNarrations(input.narrations, tsx, {
+    chapterDslTs: input.chapterDslTs,
+    assets: input.assets,
+  });
 
   const narrationsTs = `import type { Narration } from "../../registry/types";
 
 export const narrations: Narration[] = [
-${input.narrations.map((n) => `  ${JSON.stringify(n)},`).join("\n")}
+${narrations.map((n) => `  ${JSON.stringify(n)},`).join("\n")}
 ];
 `;
 

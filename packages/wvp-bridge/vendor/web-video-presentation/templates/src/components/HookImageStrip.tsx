@@ -165,8 +165,9 @@ export function HookImageStrip({
     );
   }
 
-  if (step === takeoverStep && takeoverText) {
-    const tone = hkTextTone(takeoverText);
+  if (step === takeoverStep) {
+    const heroText = takeoverText || chapterTitle.trim() || introKicker.trim();
+    const tone = hkTextTone(heroText);
     return (
       <StepEnterFrame
         enterAnimationId={enterAnimationId}
@@ -192,18 +193,22 @@ export function HookImageStrip({
             ),
           )}
         </motion.div>
-        <motion.span
-          className="hk-accent-bar"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1], delay: 0.2 }}
-          style={{ transformOrigin: "center" }}
-        />
-        <h1 className={`hk-hero cf-img-text-stack__copy hk-text--${tone}`}>
-          <MaskReveal show duration={1100}>
-            <span className="serif-cn">{takeoverText}</span>
-          </MaskReveal>
-        </h1>
+        {heroText ? (
+          <>
+            <motion.span
+              className="hk-accent-bar"
+              initial={{ scaleX: 0 }}
+              animate={{ scaleX: 1 }}
+              transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1], delay: 0.2 }}
+              style={{ transformOrigin: "center" }}
+            />
+            <h1 className={`hk-hero cf-img-text-stack__copy hk-text--${tone}`}>
+              <MaskReveal show duration={1100}>
+                <span className="serif-cn">{heroText}</span>
+              </MaskReveal>
+            </h1>
+          </>
+        ) : null}
       </StepEnterFrame>
     );
   }

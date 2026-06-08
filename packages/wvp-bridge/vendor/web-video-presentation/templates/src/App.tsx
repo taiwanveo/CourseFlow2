@@ -7,7 +7,7 @@ import "./styles/image-layout.css";
 import "./styles/animations.css";
 import "./styles/print.css"; // PDF export stylesheet (see hooks/usePdfExport.ts)
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { scheduleStageTextFit } from "./hooks/fitStageText";
 import { AutoStartGate } from "./components/AutoStartGate";
 import { AutoToggle } from "./components/AutoToggle";
@@ -108,6 +108,7 @@ export default function App() {
   // Persisted to localStorage and overridable via `?speed=1.5` URL param.
   const playback = usePlaybackRate();
   const audioRevision = useAudioRevision();
+  const stepAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Audio path follows the convention: /audio/<chapter-id>/<step+1>.mp3
   // (1-indexed file names match what `extract-narrations.ts` outputs.)
@@ -153,6 +154,9 @@ export default function App() {
     onAutoAdvance,
     autoStarted,
     playbackRate: playback.rate,
+    onAudioElement: (audio) => {
+      stepAudioRef.current = audio;
+    },
   });
 
   // Trigger PDF export from TopMenu. Wrapped to drop the Promise so the
@@ -230,7 +234,11 @@ export default function App() {
         onJumpChapter={stepper.jumpToChapter}
       />
       <AutoToggle mode={mode} onCycle={cycleMode} />
-      <SubtitleBar text={stepText} enabled={subtitles.enabled} />
+      <SubtitleBar
+        text={stepText}
+        enabled={subtitles.enabled}
+        audioRef={stepAudioRef}
+      />
       <TopMenu
         mode={mode}
         recording={recording}

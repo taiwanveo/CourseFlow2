@@ -44,6 +44,8 @@ interface Options {
    *  `<audio>` element so both step duration and advance timing shrink
    *  proportionally. Default 1. */
   playbackRate?: number;
+  /** 本步音訊元素建立／清除時回呼（供字幕與 TTS 對齊） */
+  onAudioElement?: (audio: HTMLAudioElement | null) => void;
 }
 
 /**
@@ -149,10 +151,13 @@ export function useAudioPlayer({
   onAutoAdvance,
   autoStarted,
   playbackRate = 1,
+  onAudioElement,
 }: Options) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const onAdvanceRef = useRef(onAutoAdvance);
+  const onAudioElementRef = useRef(onAudioElement);
   onAdvanceRef.current = onAutoAdvance;
+  onAudioElementRef.current = onAudioElement;
 
   useEffect(() => {
     const prev = audioRef.current;
@@ -161,6 +166,7 @@ export function useAudioPlayer({
       prev.removeAttribute("src");
       prev.load();
       audioRef.current = null;
+      onAudioElementRef.current?.(null);
     }
 
     if (mode === "manual") return;
@@ -189,6 +195,7 @@ export function useAudioPlayer({
     if (src) {
       const audio = new Audio(src);
       audioRef.current = audio;
+      onAudioElementRef.current?.(audio);
 
       audio.addEventListener("ended", () => advanceAfter(trailMs));
       audio.addEventListener("error", () => {
@@ -210,6 +217,7 @@ export function useAudioPlayer({
         a.removeAttribute("src");
         a.load();
         audioRef.current = null;
+        onAudioElementRef.current?.(null);
       }
     };
   }, [src, mode, trailMs, estimateFallbackMs, autoStarted, playbackRate]);

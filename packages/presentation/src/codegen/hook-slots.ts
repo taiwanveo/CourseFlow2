@@ -128,3 +128,70 @@ export function hookNarrationsForSlides(
 export function hookStepCount(slideCount: number, includeClose: boolean): number {
   return 1 + slideCount + 1 + (includeClose ? 1 : 0);
 }
+
+function hookSlideCountFromChapterSources(
+  narrations: string[],
+  chapterTsx: string,
+  chapterDslTs?: string,
+  assets?: ChapterAssetInput[],
+): number {
+  let slideCount = hookSlideCount(narrations.length, assets);
+
+  const legacySlides = chapterTsx.match(/const\s+SLIDES\s*=\s*(\[[\s\S]*?\])\s*as\s+const/);
+  if (legacySlides?.[1]) {
+    try {
+      const parsed = JSON.parse(legacySlides[1]) as unknown[];
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        slideCount = Math.max(slideCount, parsed.length);
+      }
+    } catch {
+      /* ignore malformed legacy SLIDES */
+    }
+  }
+
+  const dsl = chapterDslTs?.trim() ?? "";
+  if (dsl.includes("hookBundle")) {
+    const slidesBlock = dsl.match(/"slides"\s*:\s*(\[[\s\S]*?\])\s*,\s*"takeoverTitle"/);
+    if (slidesBlock?.[1]) {
+      try {
+        const parsed = JSON.parse(slidesBlock[1]) as unknown[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          slideCount = Math.max(slideCount, parsed.length);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return slideCount;
+}
+
+/**
+ * 沿用快取 TSX 寫入 narrations.ts 前，補齊 Hook 幽靈格／全屏／takeover 所需步數。
+ */
+export function normalizeCachedChapterNarrations(
+  narrations: string[],
+  chapterTsx: string,
+  opts?: {
+    chapterDslTs?: string;
+    assets?: ChapterAssetInput[];
+  },
+): string[] {
+  const tsx = chapterTsx ?? "";
+  const dsl = opts?.chapterDslTs?.trim() ?? "";
+  const isHook =
+    /HookImageStrip/.test(tsx) ||
+    /chapterLayout["']:\s*["']hook/.test(dsl) ||
+    /"templateKind"\s*:\s*"hook"/.test(dsl);
+
+  if (!isHook) return narrations;
+
+  const slideCount = hookSlideCountFromChapterSources(
+    narrations,
+    tsx,
+    dsl,
+    opts?.assets,
+  );
+  return padNarrationsForHook(narrations, slideCount);
+}
