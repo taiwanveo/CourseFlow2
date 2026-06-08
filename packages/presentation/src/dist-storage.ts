@@ -16,13 +16,21 @@ export function wvpDistStoragePrefix(userId: string, projectId: string): string 
   return `${userId}/${projectId}/wvp-dist`;
 }
 
+export type UploadDistProgress = {
+  current: number;
+  total: number;
+  relPath: string;
+};
+
 /** 上傳 Vite dist 至 Storage（供 Worker 遠端錄製） */
 export async function uploadDistDirectory(
   upload: (storagePath: string, body: Buffer, contentType: string) => Promise<void>,
   storagePrefix: string,
   distDir: string,
+  onProgress?: (progress: UploadDistProgress) => void,
 ): Promise<number> {
   const files = await walkFiles(distDir);
+  const total = files.length;
   let count = 0;
   for (const abs of files) {
     const rel = relative(distDir, abs).replace(/\\/g, "/");
@@ -40,6 +48,7 @@ export async function uploadDistDirectory(
               : "application/octet-stream";
     await upload(`${storagePrefix}/${rel}`, buf, mime);
     count++;
+    onProgress?.({ current: count, total, relPath: rel });
   }
   return count;
 }

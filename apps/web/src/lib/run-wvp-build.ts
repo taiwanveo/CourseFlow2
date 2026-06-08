@@ -63,6 +63,10 @@ export async function runWvpBuild(payload: {
       subCurrent: update?.subCurrent,
       subTotal: update?.subTotal,
       subLabel: update?.subLabel,
+      uploadStartedAt:
+        phase === "upload"
+          ? progress.uploadStartedAt ?? new Date().toISOString()
+          : undefined,
     };
     if (phaseChanged && update?.subCurrent === undefined) {
       progress = {

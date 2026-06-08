@@ -744,6 +744,11 @@ function stepIllustrationsMarkedDone(craft: CraftRow): boolean {
 export type BuildSingleChapterPreviewOpts = {
   themeId?: string;
   onStage?: (stage: string) => Promise<void> | void;
+  onUploadProgress?: (progress: {
+    current: number;
+    total: number;
+    relPath: string;
+  }) => Promise<void> | void;
   /** 第 1 章試執行：寫入 anchorChapterTrialCompleted */
   markAnchorTrial?: boolean;
 };
@@ -899,8 +904,31 @@ export async function buildSingleChapterPreview(
 
   if (requiresDistInStorage()) {
     await opts?.onStage?.("dist-upload-start");
+    let lastUploadProgressEmitAt = 0;
+    const reportUploadProgress = (
+      current: number,
+      total: number,
+      relPath: string,
+    ): void => {
+      const now = Date.now();
+      const done = total > 0 && current >= total;
+      const first = current <= 1;
+      if (
+        !done &&
+        !first &&
+        now - lastUploadProgressEmitAt < 1500 &&
+        current % 8 !== 0
+      ) {
+        return;
+      }
+      lastUploadProgressEmitAt = now;
+      void opts?.onUploadProgress?.({ current, total, relPath });
+    };
     try {
-      await uploadWvpDistToStorage(supabase, userId, projectId);
+      reportUploadProgress(0, 1, "準備上傳");
+      await uploadWvpDistToStorage(supabase, userId, projectId, (progress) => {
+        reportUploadProgress(progress.current, progress.total, progress.relPath);
+      });
     } catch (e) {
       const msg = (e as Error).message;
       console.warn("[wvp-chapter-preview] dist 上傳 Storage 失敗:", msg);
@@ -928,7 +956,7 @@ export async function buildAnchorChapterPreview(
   supabase: SupabaseClient,
   projectId: string,
   userId: string,
-  opts?: { themeId?: string; onStage?: (stage: string) => Promise<void> | void },
+  opts?: BuildSingleChapterPreviewOpts,
 ): Promise<{
   built: boolean;
   wvpChapterId: string;
@@ -1220,9 +1248,41 @@ export async function syncFullWvpProject(
     built = true;
     chaptersVisualUpgraded = result.chaptersVisualUpgraded;
     try {
-      await emitStage?.("upload", { chapterCount: entries.length });
+      let lastUploadProgressEmitAt = 0;
+      const reportUploadProgress = (
+        current: number,
+        total: number,
+        relPath: string,
+      ): void => {
+        const now = Date.now();
+        const done = total > 0 && current >= total;
+        const first = current <= 1;
+        if (
+          !done &&
+          !first &&
+          now - lastUploadProgressEmitAt < 1500 &&
+          current % 8 !== 0
+        ) {
+          return;
+        }
+        lastUploadProgressEmitAt = now;
+        void emitStage?.("upload", {
+          chapterCount: entries.length,
+          subCurrent: current,
+          subTotal: Math.max(total, 1),
+          subLabel: done
+            ? "上傳完成"
+            : total > 0
+              ? `檔案 ${current}/${total}`
+              : relPath,
+        });
+      };
+
+      reportUploadProgress(0, 1, "準備上傳");
       console.log(`[wvp-build] storage upload start project=${projectId}`);
-      await uploadWvpDistToStorage(supabase, userId, projectId);
+      await uploadWvpDistToStorage(supabase, userId, projectId, (progress) => {
+        reportUploadProgress(progress.current, progress.total, progress.relPath);
+      });
       storageUploaded = true;
       console.log(`[wvp-build] storage upload done project=${projectId}`);
     } catch (e) {

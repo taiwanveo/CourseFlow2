@@ -26,6 +26,8 @@ export type WvpBuildProgress = {
   subLabel?: string;
   /** 最近失敗的 API 錯誤原文（供 UI 顯示） */
   lastError?: string;
+  /** 進入上傳預覽階段的時間（供 ETA 依檔案進度推算） */
+  uploadStartedAt?: string;
 };
 
 export type WvpBuildStageUpdate = {
@@ -134,6 +136,24 @@ export function createInitialWvpBuildProgress(chapterCount?: number): WvpBuildPr
 export function estimateWvpBuildRemainingMs(progress: WvpBuildProgress): number | null {
   const { stageDurationsMs, phase } = progress;
   if (stageDurationsMs.length === 0) return null;
+
+  if (
+    phase === "upload" &&
+    progress.uploadStartedAt &&
+    progress.subTotal !== undefined &&
+    progress.subCurrent !== undefined &&
+    progress.subTotal > 0 &&
+    progress.subCurrent > 0 &&
+    progress.subCurrent < progress.subTotal
+  ) {
+    const uploadElapsedMs = Date.now() - new Date(progress.uploadStartedAt).getTime();
+    if (uploadElapsedMs > 500) {
+      const perFile = uploadElapsedMs / progress.subCurrent;
+      const remainingFiles = progress.subTotal - progress.subCurrent;
+      return Math.round(perFile * remainingFiles);
+    }
+  }
+
   const avg = stageDurationsMs.reduce((sum, ms) => sum + ms, 0) / stageDurationsMs.length;
   const currentIdx = WVP_BUILD_PHASE_ORDER.indexOf(phase);
   const remainingPhases = Math.max(0, WVP_BUILD_PHASE_ORDER.length - 1 - currentIdx);

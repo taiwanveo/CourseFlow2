@@ -623,6 +623,11 @@ export async function runAnchorChapterTrial(
     textModel?: string | null;
     themeId: string;
     onStage?: (stage: string) => Promise<void> | void;
+    onUploadProgress?: (progress: {
+      current: number;
+      total: number;
+      relPath: string;
+    }) => Promise<void> | void;
   },
 ): Promise<{
   ok: boolean;
@@ -741,6 +746,7 @@ export async function runAnchorChapterTrial(
   const build = await buildAnchorChapterPreview(supabase, projectId, userId, {
     themeId: opts.themeId,
     onStage: emitStage,
+    onUploadProgress: opts.onUploadProgress,
   });
   await emitStage("preview-built");
 

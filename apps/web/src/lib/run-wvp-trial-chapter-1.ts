@@ -112,7 +112,32 @@ export async function runWvpTrialChapter1(payload: {
         themeId: payload.themeId,
         onStage: async (stage) => {
           console.info(`[wvp-trial-job] stage=${stage} job=${payload.jobRunId}`);
-          await patchRunningProgress(advanceTrialProgress(latestProgress, stage));
+          const next = advanceTrialProgress(latestProgress, stage);
+          await patchRunningProgress({
+            ...next,
+            subCurrent: undefined,
+            subTotal: undefined,
+            subLabel: undefined,
+            uploadStartedAt:
+              stage === "dist-upload-start"
+                ? new Date().toISOString()
+                : undefined,
+          });
+        },
+        onUploadProgress: async ({ current, total, relPath }) => {
+          const done = total > 0 && current >= total;
+          await patchRunningProgress({
+            ...latestProgress,
+            phase: "dist-upload-start",
+            uploadStartedAt: latestProgress.uploadStartedAt ?? new Date().toISOString(),
+            subCurrent: current,
+            subTotal: Math.max(total, 1),
+            subLabel: done
+              ? "上傳完成"
+              : total > 0
+                ? `檔案 ${current}/${total}`
+                : relPath,
+          });
         },
       }),
       timeoutMs,

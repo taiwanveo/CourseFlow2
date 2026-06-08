@@ -6,6 +6,10 @@ export type WvpTrialChapterProgress = {
   startedAt: string;
   stageDurationsMs: number[];
   chapterTitle?: string;
+  subCurrent?: number;
+  subTotal?: number;
+  subLabel?: string;
+  uploadStartedAt?: string;
 };
 
 export const TRIAL_STAGE_ORDER = [
@@ -71,6 +75,23 @@ export function parseWvpTrialProgress(raw: unknown): WvpTrialChapterProgress | n
 export function estimateTrialRemainingMs(progress: WvpTrialChapterProgress): number | null {
   const { stageDurationsMs, phase } = progress;
   if (stageDurationsMs.length === 0) return null;
+
+  if (
+    phase === "dist-upload-start" &&
+    progress.uploadStartedAt &&
+    progress.subTotal !== undefined &&
+    progress.subCurrent !== undefined &&
+    progress.subTotal > 0 &&
+    progress.subCurrent > 0 &&
+    progress.subCurrent < progress.subTotal
+  ) {
+    const uploadElapsedMs = Date.now() - new Date(progress.uploadStartedAt).getTime();
+    if (uploadElapsedMs > 500) {
+      const perFile = uploadElapsedMs / progress.subCurrent;
+      return Math.round(perFile * (progress.subTotal - progress.subCurrent));
+    }
+  }
+
   const avg = stageDurationsMs.reduce((sum, ms) => sum + ms, 0) / stageDurationsMs.length;
   const idx = TRIAL_STAGE_ORDER.indexOf(phase as WvpTrialStage);
   const remaining = idx < 0 ? 4 : Math.max(0, TRIAL_STAGE_ORDER.length - 1 - idx);
@@ -105,8 +126,19 @@ export function toTrialCompactProgress(
     return { id, label: TRIAL_STAGE_LABEL[id] ?? id, status };
   });
 
+  const uploadSub =
+    phaseId === "dist-upload-start" &&
+    progress?.subLabel?.trim()
+      ? ` · ${progress.subLabel.trim()}`
+      : phaseId === "dist-upload-start" &&
+          progress?.subCurrent !== undefined &&
+          progress?.subTotal !== undefined &&
+          progress.subTotal > 0
+        ? ` · 檔案 ${progress.subCurrent}/${progress.subTotal}`
+        : "";
+
   return {
-    phaseLabel: TRIAL_STAGE_LABEL[phaseId] ?? "試執行中",
+    phaseLabel: `${TRIAL_STAGE_LABEL[phaseId] ?? "試執行中"}${uploadSub}`,
     currentIndex: stageIdx,
     totalItems: TRIAL_STAGE_ORDER.length,
     currentLabel: progress?.chapterTitle?.trim() || "第 1 章",

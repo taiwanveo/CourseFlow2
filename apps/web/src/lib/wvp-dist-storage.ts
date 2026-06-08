@@ -14,6 +14,7 @@ import {
   downloadDistDirectory,
   readDistManifest,
   uploadDistDirectory,
+  type UploadDistProgress,
   wvpDistStoragePrefix,
 } from "@courseflow/presentation";
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -136,10 +137,13 @@ export async function uploadWvpDistToStorage(
   supabase: SupabaseClient,
   userId: string,
   projectId: string,
+  onProgress?: (progress: UploadDistProgress) => void,
 ): Promise<{ fileCount: number; storagePrefix: string }> {
   const distDir = presentationDistDir(projectId);
   const manifest = await readDistManifest(distDir);
   const prefix = wvpDistStoragePrefix(userId, projectId);
+  const manifestExtra = 1;
+  let distFileTotal = 0;
 
   const count = await uploadDistDirectory(
     async (path, body, contentType) => {
@@ -151,6 +155,14 @@ export async function uploadWvpDistToStorage(
     },
     prefix,
     distDir,
+    (progress) => {
+      distFileTotal = progress.total;
+      onProgress?.({
+        current: progress.current,
+        total: progress.total + manifestExtra,
+        relPath: progress.relPath,
+      });
+    },
   );
 
   await supabase.storage.from(WVP_DIST_BUCKET).upload(
@@ -158,6 +170,11 @@ export async function uploadWvpDistToStorage(
     Buffer.from(JSON.stringify(manifest)),
     { contentType: "application/json", upsert: true },
   );
+  onProgress?.({
+    current: distFileTotal + manifestExtra,
+    total: distFileTotal + manifestExtra,
+    relPath: "cf-dist-manifest.json",
+  });
 
   invalidateWvpDistCaches(userId, projectId);
 
