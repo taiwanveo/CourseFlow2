@@ -29,6 +29,11 @@ import {
   chapterEffectiveTemplateKind,
   resolveChapterTemplateSelectState,
 } from "@/lib/wvp-chapter-template";
+import {
+  countHookChapterAssets,
+  HOOK_OPENING_HINT,
+  hookPreviewWarningMessage,
+} from "@/lib/wvp-hook-ui";
 import { BatchCraftProgressPanel } from "@/components/BatchCraftProgressPanel";
 import {
   createInitialTrialProgress,
@@ -43,6 +48,7 @@ import {
   type WvpBatchCraftProgress,
 } from "@/lib/wvp-batch-craft-progress";
 import {
+  preloadThemeGalleryImages,
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
 } from "@/data/theme-gallery";
@@ -287,6 +293,8 @@ export function CraftPhaseClient({
   const [wvpHydrated, setWvpHydrated] = useState(false);
   const [themes, setThemes] = useState<ThemeOption[]>([]);
   const [savingTheme, setSavingTheme] = useState(false);
+  const [themePreviewLoaded, setThemePreviewLoaded] = useState(false);
+  const [themePreviewFailed, setThemePreviewFailed] = useState(false);
   const [stylePickerOpen, setStylePickerOpen] = useState(false);
   const [savingImageStyle, setSavingImageStyle] = useState(false);
   const [savingHookAssets, setSavingHookAssets] = useState(false);
@@ -333,13 +341,14 @@ export function CraftPhaseClient({
     providers.length > 0 &&
     !locks.craft;
   const selectedTheme = themes.find((t) => t.id === selectedThemeId);
-  const selectedThemePreview = selectedTheme
-    ? resolveThemeGalleryMeta(
-        selectedTheme.id,
-        selectedTheme.nameZh,
-        selectedTheme.descriptionZh,
-      )
-    : null;
+  const selectedThemePreview = useMemo(() => {
+    if (!selectedThemeId) return null;
+    return resolveThemeGalleryMeta(
+      selectedThemeId,
+      selectedTheme?.nameZh ?? selectedThemeId,
+      selectedTheme?.descriptionZh,
+    );
+  }, [selectedThemeId, selectedTheme?.nameZh, selectedTheme?.descriptionZh]);
 
   useEffect(() => {
     fetch("/api/themes")
@@ -347,8 +356,37 @@ export function CraftPhaseClient({
       .then((d) => setThemes(d.themes ?? []));
   }, []);
 
-  const refreshWvp = useCallback(async () => {
-    const res = await fetch(`/api/projects/${projectId}/wvp`);
+  useEffect(() => {
+    setThemePreviewLoaded(false);
+    setThemePreviewFailed(false);
+  }, [selectedThemePreview?.imageUrl]);
+
+  useEffect(() => {
+    if (!selectedThemePreview?.imageUrl || typeof document === "undefined") return;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = selectedThemePreview.imageUrl;
+    document.head.appendChild(link);
+    return () => {
+      document.head.removeChild(link);
+    };
+  }, [selectedThemePreview?.imageUrl]);
+
+  useEffect(() => {
+    if (!selectedThemeId) return;
+    const ids = themes.length > 0 ? themes.map((t) => t.id) : [selectedThemeId];
+    const idx = ids.indexOf(selectedThemeId);
+    const neighborIds: string[] =
+      idx >= 0
+        ? [ids[idx]!, ...(idx > 0 ? [ids[idx - 1]!] : []), ...(idx < ids.length - 1 ? [ids[idx + 1]!] : [])]
+        : [selectedThemeId];
+    preloadThemeGalleryImages(neighborIds);
+  }, [selectedThemeId, themes]);
+
+  const refreshWvp = useCallback(async (opts?: { hydrateDist?: boolean }) => {
+    const query = opts?.hydrateDist ? "" : "?light=1";
+    const res = await fetch(`/api/projects/${projectId}/wvp${query}`);
     const data = await readResponsePayload(res);
     if (!res.ok) {
       setWvpHydrated(true);
@@ -367,6 +405,13 @@ export function CraftPhaseClient({
 
   useEffect(() => {
     void refreshWvp();
+    const hydrateInBackground = () => void refreshWvp({ hydrateDist: true });
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(hydrateInBackground, { timeout: 5000 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timerId = window.setTimeout(hydrateInBackground, 2000);
+    return () => window.clearTimeout(timerId);
   }, [refreshWvp]);
 
   const saveWvpSettings = useCallback(async (overrideThemeId?: string) => {
@@ -778,6 +823,46 @@ export function CraftPhaseClient({
       toast("請先選擇並儲存簡報主題", "error");
       return;
     }
+    const ch = chapters.find((row) => row.wvp_chapter_id === wvpChapterId);
+    const templateState = ch
+      ? resolveChapterTemplateSelectState(composition, ch)
+      : null;
+    const isHookPreview =
+      templateState !== null && chapterEffectiveTemplateKind(templateState) === "hook";
+    if (isHookPreview) {
+      let illustrationSteps: Array<{
+        stepIndex: number;
+        imageWritten?: boolean;
+        status?: string;
+      }> | undefined;
+      if (countHookChapterAssets(settings.assets, wvpChapterId) < 3) {
+        try {
+          const illusRes = await fetch(
+            `/api/projects/${projectId}/wvp/chapters/${wvpChapterId}/illustrations`,
+          );
+          const illusData = await readResponsePayload(illusRes);
+          if (illusRes.ok && Array.isArray(illusData.steps)) {
+            illustrationSteps = illusData.steps as Array<{
+              stepIndex: number;
+              imageWritten?: boolean;
+              status?: string;
+            }>;
+          }
+        } catch {
+          // 無法載入配圖狀態時仍顯示警告
+        }
+      }
+      const warnMsg = hookPreviewWarningMessage(
+        settings.assets,
+        wvpChapterId,
+        illustrationSteps,
+      );
+      if (warnMsg) {
+        playWarningSound();
+        toast(HOOK_OPENING_HINT, "warning");
+        if (!window.confirm(warnMsg)) return;
+      }
+    }
     const previewTab = openChapterPreviewPlaceholderTab(chapterTitle);
     if (!previewTab) {
       toast(
@@ -1013,14 +1098,34 @@ export function CraftPhaseClient({
 
             <div className="space-y-2">
               <h3 className="text-sm font-medium text-zinc-300">主題預覽</h3>
-              <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40">
+              <div className="relative overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/40">
+                {selectedThemeId && !themePreviewLoaded ? (
+                  <div
+                    className="absolute inset-0 z-10 flex aspect-video w-full items-center justify-center bg-zinc-900/70"
+                    aria-busy="true"
+                    aria-label="主題預覽載入中"
+                  >
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-600 border-t-zinc-300" />
+                  </div>
+                ) : null}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
+                  key={selectedThemeId || "fallback"}
                   src={selectedThemePreview?.imageUrl ?? themeGalleryFallbackImage}
-                  alt={selectedTheme?.nameZh ?? "主題預覽"}
-                  className="aspect-video w-full object-cover"
-                  loading="lazy"
+                  alt={selectedTheme?.nameZh ?? selectedThemePreview?.subtitleZh ?? "主題預覽"}
+                  className={`aspect-video w-full object-cover transition-opacity duration-200 ${themePreviewLoaded ? "opacity-100" : "opacity-0"}`}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
+                  onLoad={() => setThemePreviewLoaded(true)}
+                  onError={() => {
+                    setThemePreviewFailed(true);
+                    setThemePreviewLoaded(true);
+                  }}
                 />
+                {themePreviewFailed ? (
+                  <p className="px-3 py-2 text-[11px] text-amber-500/90">預覽圖載入失敗，請重新整理或稍後再試。</p>
+                ) : null}
                 <div className="space-y-1 px-3 py-2">
                   <p className="text-sm font-medium text-zinc-100">
                     {selectedTheme?.nameZh ?? "請先選擇主題"}
@@ -1280,6 +1385,22 @@ export function CraftPhaseClient({
                         {i === 0 ? " · 第 1 章" : ""}
                       </span>
                     </button>
+                    {isHookChapter && !locks.craft ? (
+                      <div
+                        className="shrink-0 self-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ChapterOutlineImages
+                          projectId={projectId}
+                          wvpChapterId={ch.wvp_chapter_id}
+                          assets={settings.assets ?? []}
+                          locked={locks.craft || savingHookAssets}
+                          variant="hook"
+                          compact
+                          onAssetsChange={(next) => void persistWvpAssets(next)}
+                        />
+                      </div>
+                    ) : null}
                     {!locks.craft ? (
                       <div className="flex shrink-0 items-stretch gap-1">
                         <button
@@ -1319,10 +1440,7 @@ export function CraftPhaseClient({
                               const saved = await saveChapterTemplate(ch.wvp_chapter_id, next);
                               if (next === "hook") {
                                 setSelectedWvpId(ch.wvp_chapter_id);
-                                toast(
-                                  "已指定多圖開場。請在下方上傳開場圖（最多 3 張），再按「AI 畫面」並重新打包預覽。",
-                                  "info",
-                                );
+                                toast(HOOK_OPENING_HINT, "info");
                               } else {
                                 toast(
                                   next === "auto"
@@ -1379,15 +1497,15 @@ export function CraftPhaseClient({
                     >
                       <p className="text-[10px] leading-relaxed text-amber-200/90">
                         <span className="font-medium text-amber-100/95">多圖開場</span>
-                        ：請上傳最多 3 張圖，順序對應預覽步驟 2–4（幽靈格 01–03）。
+                        ：{HOOK_OPENING_HINT}
                         {hookAssetCount < 3
-                          ? ` 目前 ${hookAssetCount} 張。`
-                          : " 已滿 3 張。"}
+                          ? `（目前已上傳 ${hookAssetCount}／3 張）`
+                          : "（已上傳 3 張）"}
                         {savingHookAssets ? " 儲存中…" : ""}
                       </p>
                       <p className="mt-0.5 text-[10px] text-zinc-500">
-                        亦可至下方「配圖工作室 → 步驟配圖」逐張上傳或 AI 生圖。上傳後請按「AI
-                        畫面」，再到「4. 預覽匯出」打包。
+                        順序對應預覽步驟 2–4（幽靈格 01–03）。上傳後請按「AI 畫面」，再到「4.
+                        預覽匯出」打包。
                       </p>
                       <div className="mt-1.5">
                         <ChapterOutlineImages

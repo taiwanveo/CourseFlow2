@@ -6,12 +6,14 @@ import { buildChapterCraftPlan } from "@/lib/wvp-chapters";
 import { parseWvpSettings, type WvpSettings } from "@/lib/wvp-settings";
 import { resolveWvpPhaseLocks } from "@/lib/wvp-locks";
 import { ensureWvpDistLocal } from "@/lib/wvp-dist-storage";
+import { hasBuiltPresentation } from "@/lib/wvp-workdir";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const light = new URL(req.url).searchParams.get("light") === "1";
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,7 +37,9 @@ export async function GET(
   const composition = await loadProjectComposition(supabase, id);
   const plan = composition ? buildChapterCraftPlan(composition) : [];
 
-  const previewBuilt = await ensureWvpDistLocal(supabase, user.id, id);
+  const previewBuilt = light
+    ? await hasBuiltPresentation(id)
+    : await ensureWvpDistLocal(supabase, user.id, id);
 
   const chapterOptions =
     (crafts ?? []).length > 0
@@ -67,6 +71,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const light = new URL(req.url).searchParams.get("light") === "1";
   const supabase = await createClient();
   const {
     data: { user },

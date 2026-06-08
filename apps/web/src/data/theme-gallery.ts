@@ -143,3 +143,22 @@ export function resolveThemeGalleryMeta(
 }
 
 export const themeGalleryFallbackImage = FALLBACK_IMAGE;
+
+export function themeGalleryImageUrl(themeId: string): string {
+  return THEME_GALLERY[themeId]?.imageUrl ?? `${LOCAL_BASE}/${themeId}.webp`;
+}
+
+/** 瀏覽器端預載主題預覽圖（Client Component 使用） */
+export function preloadThemeGalleryImages(themeIds: string[]): void {
+  if (typeof window === "undefined") return;
+  const seen = new Set<string>();
+  for (const themeId of themeIds) {
+    const url = themeGalleryImageUrl(themeId);
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const img = new Image();
+    img.decoding = "async";
+    img.src = url;
+  }
+}
+
