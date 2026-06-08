@@ -92,6 +92,8 @@ function shortDataTitle(text: string, fallback: string): string {
   if (/完成率/.test(text)) return "完成率趨勢";
   if (/營收|营收|季度|季營/.test(text)) return "季度營收";
   if (/方案/.test(text)) return "方案對比";
+  if (/新用[戶户]|使用者數|每月新/.test(text)) return "每月新使用者";
+  if (/成長趨勢|成长趋势|折線|折线/.test(text)) return "成長趨勢";
   const trimmed = text.trim();
   if (trimmed.length <= 16) return trimmed;
   return fallback;
@@ -186,6 +188,7 @@ function isPercentDeltaPhrase(prefix: string): boolean {
 function stripVisualCraftMeta(text: string): string {
   return text
     .replace(/預期產出為[^。；;\n]+/g, "")
+    .replace(/預期產出折線圖[^。；;\n]*/g, "")
     .replace(/預期產出圓餅圖[^。；;\n]*/g, "")
     .replace(/使用表格視覺進行\s*/g, "")
     .replace(/四項加總\s*\d+\s*%?/g, "")
@@ -403,6 +406,44 @@ function extractQualitativeSchemeRows(seg: string): { item: string; 說明: stri
   return out;
 }
 
+/** N月VALUE 趨勢（例：1月100、2月150）— 必須優先於 PAIR_RE，避免月份數字被當 Y 值 */
+function inferMonthlyTrendChart(text: string): VisualConfig | null {
+  const pairs: { label: string; value: number }[] = [];
+
+  for (const m of text.matchAll(/(\d{1,2})月\s*(\d+(?:\.\d+)?)/g)) {
+    const month = Number.parseInt(m[1]!, 10);
+    if (month < 1 || month > 12) continue;
+    const value = parseFloat(m[2]!);
+    if (!Number.isFinite(value)) continue;
+    pairs.push({ label: `${month}月`, value });
+  }
+
+  if (pairs.length < 2) {
+    for (const m of text.matchAll(
+      /([一二三四五六七八九十]+)月\s*([一二三四五六七八九十百\d]+)/g,
+    )) {
+      const monthNum = parseChineseInteger(m[1]!);
+      const val = parseChineseInteger(m[2]!);
+      if (monthNum === null || val === null || monthNum < 1 || monthNum > 12) {
+        continue;
+      }
+      pairs.push({ label: `${monthNum}月`, value: val });
+    }
+  }
+
+  if (pairs.length < 2) return null;
+
+  const seen = new Set<string>();
+  const unique = pairs.filter((p) => {
+    if (seen.has(p.label)) return false;
+    seen.add(p.label);
+    return true;
+  });
+  if (unique.length < 2) return null;
+
+  return chartFromPairs(unique, shortDataTitle(text, "成長趨勢"), undefined, true);
+}
+
 function chartFromPairs(
   pairs: { label: string; value: number }[],
   title: string,
@@ -572,6 +613,9 @@ export function inferVisualConfigFromText(text: string): VisualConfig | null {
   if (seasonPairs.length >= 2) {
     return chartFromPairs(seasonPairs, shortDataTitle(t, "季度營收"), "萬", true);
   }
+
+  const monthlyTrend = inferMonthlyTrendChart(t);
+  if (monthlyTrend) return monthlyTrend;
 
   // 中文百分比：第一週百分之六十五、第四週百分之八十五（排除「增幅達百分之二十」等增量描述）
   const cnPercentPairs: { label: string; value: number }[] = [];

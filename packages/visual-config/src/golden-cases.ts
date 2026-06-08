@@ -26,6 +26,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
     id: "line-trend",
     input: "1月100、2月150、3月210、4月280、5月340、6月420",
     expectKind: "chart",
+    expectChartType: "line",
   },
   {
     id: "kpi-single",
@@ -67,6 +68,14 @@ export const GOLDEN_CASES: GoldenCase[] = [
     id: "month-line",
     input: "每月新用戶 1月100 2月150 3月210 4月280",
     expectKind: "chart",
+    expectChartType: "line",
+  },
+  {
+    id: "growth-trend-craft-meta",
+    input:
+      "成長趨勢：六個月折線圖\n4-4 成長趨勢折線。每月新使用者數分別為1月100、2月150、3月210、4月280、5月340、6月420。預期產出折線圖，呈現六個月遞增趨勢",
+    expectKind: "chart",
+    expectChartType: "line",
   },
   {
     id: "growth-kpi",
