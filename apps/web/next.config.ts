@@ -6,6 +6,28 @@ const webRoot = path.dirname(fileURLToPath(import.meta.url));
 const monorepoRoot = path.join(webRoot, "../..");
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: "/assets/theme-gallery/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/api/theme-gallery/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
   // Windows 本機常因未啟用 symlink 權限而在 standalone 失敗（EPERM）。
   // Render（Linux）仍保留 standalone，利於 Docker 佈署。
   output: process.platform === "win32" ? undefined : "standalone",

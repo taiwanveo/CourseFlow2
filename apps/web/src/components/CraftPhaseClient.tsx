@@ -53,10 +53,15 @@ import {
   type WvpBatchCraftProgress,
 } from "@/lib/wvp-batch-craft-progress";
 import {
+  preloadAllThemeGalleryImages,
   preloadThemeGalleryImages,
   resolveThemeGalleryMeta,
   themeGalleryFallbackImage,
 } from "@/data/theme-gallery";
+import {
+  isThemePreviewCached,
+  markThemePreviewCached,
+} from "@/lib/theme-preview-cache";
 
 type CraftRow = {
   id: string;
@@ -379,26 +384,26 @@ export function CraftPhaseClient({
   }, [selectedThemeId, selectedTheme?.nameZh, selectedTheme?.descriptionZh]);
 
   useEffect(() => {
+    preloadAllThemeGalleryImages();
     fetch("/api/themes")
       .then((r) => r.json())
       .then((d) => setThemes(d.themes ?? []));
   }, []);
 
   useEffect(() => {
+    const url = selectedThemePreview?.imageUrl;
+    if (!url) {
+      setThemePreviewLoaded(false);
+      setThemePreviewFailed(false);
+      return;
+    }
+    if (isThemePreviewCached(url)) {
+      setThemePreviewLoaded(true);
+      setThemePreviewFailed(false);
+      return;
+    }
     setThemePreviewLoaded(false);
     setThemePreviewFailed(false);
-  }, [selectedThemePreview?.imageUrl]);
-
-  useEffect(() => {
-    if (!selectedThemePreview?.imageUrl || typeof document === "undefined") return;
-    const link = document.createElement("link");
-    link.rel = "preload";
-    link.as = "image";
-    link.href = selectedThemePreview.imageUrl;
-    document.head.appendChild(link);
-    return () => {
-      document.head.removeChild(link);
-    };
   }, [selectedThemePreview?.imageUrl]);
 
   useEffect(() => {
@@ -1187,14 +1192,26 @@ export function CraftPhaseClient({
                 ) : null}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  key={selectedThemeId || "fallback"}
                   src={selectedThemePreview?.imageUrl ?? themeGalleryFallbackImage}
                   alt={selectedTheme?.nameZh ?? selectedThemePreview?.subtitleZh ?? "主題預覽"}
                   className={`aspect-video w-full object-cover transition-opacity duration-200 ${themePreviewLoaded ? "opacity-100" : "opacity-0"}`}
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
-                  onLoad={() => setThemePreviewLoaded(true)}
+                  ref={(el) => {
+                    const url = selectedThemePreview?.imageUrl;
+                    if (!el || !url) return;
+                    if (el.complete && el.naturalWidth > 0) {
+                      markThemePreviewCached(url);
+                      if (!themePreviewLoaded) setThemePreviewLoaded(true);
+                    }
+                  }}
+                  onLoad={(e) => {
+                    const url = selectedThemePreview?.imageUrl;
+                    if (url) markThemePreviewCached(url);
+                    setThemePreviewLoaded(true);
+                    void e;
+                  }}
                   onError={() => {
                     setThemePreviewFailed(true);
                     setThemePreviewLoaded(true);

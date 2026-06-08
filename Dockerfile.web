@@ -55,6 +55,7 @@ ENV HOME=/home/nextjs
 ENV NPM_CONFIG_CACHE=/tmp/.npm-cache
 
 COPY --from=builder /app/apps/web/public ./apps/web/public
+COPY --from=builder /app/apps/web/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 # WVP 模板／主題：scaffold 以 fs 讀取 vendor，standalone trace 不會自動打包
