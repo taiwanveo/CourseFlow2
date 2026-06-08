@@ -16,6 +16,7 @@ import { ProgressBar } from "./components/ProgressBar";
 import { Stage } from "./components/Stage";
 import { SubtitleBar } from "./components/SubtitleBar";
 import { TopMenu } from "./components/TopMenu";
+import { useAudioRevision } from "./hooks/useAudioRevision";
 import { unlockAudioPlayback, useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useAutoMode } from "./hooks/useAutoMode";
 import { isExportMode, isRecordingMode, usePauseControl } from "./hooks/usePauseControl";
@@ -106,6 +107,7 @@ export default function App() {
   // playback; chapter animations follow via `var(--speed)` + `--anim-*` tokens.
   // Persisted to localStorage and overridable via `?speed=1.5` URL param.
   const playback = usePlaybackRate();
+  const audioRevision = useAudioRevision();
 
   // Audio path follows the convention: /audio/<chapter-id>/<step+1>.mp3
   // (1-indexed file names match what `extract-narrations.ts` outputs.)
@@ -113,7 +115,9 @@ export default function App() {
   const audioSrc =
     mode === "manual" || stepText === ""
       ? null
-      : `${import.meta.env.BASE_URL}audio/${ch.id}/${stepper.cursor.step + 1}.mp3`;
+      : `${import.meta.env.BASE_URL}audio/${ch.id}/${stepper.cursor.step + 1}.mp3${
+          audioRevision ? `?v=${encodeURIComponent(audioRevision)}` : ""
+        }`;
 
   // Auto-advance with section-mode chapter-end stop (spec §4 D7 + §11 B2):
   // in `section` mode, when the audio at the last step of the current

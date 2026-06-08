@@ -91,6 +91,29 @@ async function downloadAudioBuffer(
  * 依 Craft／WVP 的 narrations 步數寫入 presentation/public/audio/
  * （與 App.tsx 路徑一致：audio/<wvpChapterId>/<1-based>.mp3）
  */
+/** 單步／批次 TTS 完成後，把最新 mp3 寫入 presentation（免完整 rebuild）。 */
+export async function syncPresentationAudioAfterTts(
+  supabase: SupabaseClient,
+  projectId: string,
+  composition: CourseComposition,
+): Promise<WvpAudioSyncResult> {
+  const { data: crafts, error } = await supabase
+    .from("chapter_craft")
+    .select("wvp_chapter_id, title, sort_order, checklist_result")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(error.message);
+  if (!crafts?.length) {
+    return { written: 0, expectedSteps: 0, compositionAudioCount: composition.audio.length };
+  }
+  return syncPresentationAudioFromComposition(
+    supabase,
+    projectId,
+    composition,
+    crafts as CraftRow[],
+  );
+}
+
 export async function syncPresentationAudioFromComposition(
   supabase: SupabaseClient,
   projectId: string,

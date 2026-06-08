@@ -35,6 +35,8 @@ export interface StepAudio {
   storagePath: string;
   publicUrl?: string;
   durationMs: number;
+  /** 語音覆寫／重合成時用於快取破壞（cache busting） */
+  updatedAt?: string;
 }
 
 export interface SubtitleWord {

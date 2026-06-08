@@ -23,5 +23,14 @@ export async function writePresentationAudioFiles(
     await writeFile(join(dir, `${f.stepIndex + 1}.mp3`), f.buffer);
     written++;
   }
+  if (written > 0) {
+    const publicDir = join(presentationDir, "public");
+    await mkdir(publicDir, { recursive: true });
+    await writeFile(
+      join(publicDir, "audio-revision.json"),
+      JSON.stringify({ revision: new Date().toISOString() }),
+      "utf8",
+    );
+  }
   return written;
 }

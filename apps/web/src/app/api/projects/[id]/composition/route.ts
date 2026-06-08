@@ -1,7 +1,11 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import type { CourseComposition } from "@courseflow/core";
-import { assertPhaseEditable, ensureChapterDividerSteps } from "@courseflow/core";
+import {
+  assertPhaseEditable,
+  ensureChapterDividerSteps,
+  mergeStepAudioEntries,
+} from "@courseflow/core";
 import type { PhaseLocks } from "@courseflow/core";
 import { createClient } from "@/lib/supabase/server";
 import { loadProjectComposition, saveComposition } from "@/lib/project-composition";
@@ -41,14 +45,21 @@ export async function PUT(
 
   if (body.phase === "audio") {
     const existing = await loadProjectComposition(supabase, id);
-    const incomingCount = composition.audio.filter(
+    const existingAudio = existing?.audio ?? [];
+    const incomingAudio = composition.audio ?? [];
+    const incomingCount = incomingAudio.filter(
       (a) => a.stepId && (a.storagePath?.trim() || a.publicUrl?.trim()),
     ).length;
-    const existingCount = (existing?.audio ?? []).filter(
+    const existingCount = existingAudio.filter(
       (a) => a.stepId && (a.storagePath?.trim() || a.publicUrl?.trim()),
     ).length;
     if (incomingCount === 0 && existingCount > 0) {
-      composition = { ...composition, audio: existing!.audio };
+      composition = { ...composition, audio: existingAudio };
+    } else if (existingCount > 0) {
+      composition = {
+        ...composition,
+        audio: mergeStepAudioEntries(existingAudio, incomingAudio),
+      };
     }
   }
 

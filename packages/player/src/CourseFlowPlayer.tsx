@@ -6,6 +6,7 @@ import {
   isChapterStep,
   resolveSubtitleStyle,
   resolveSubtitleDisplayText,
+  stepAudioPlaybackUrl,
   visualTextBoxDomStyle,
   visualTextClassName,
 } from "@courseflow/core";
@@ -179,6 +180,10 @@ export function CourseFlowPlayer({
     (cv) => cv.chapterId === step?.chapterId && cv.visualMode !== "animation",
   );
   const audio = composition.audio.find((a) => a.stepId === step?.id);
+  const audioPlaybackUrl = useMemo(
+    () => (audio ? stepAudioPlaybackUrl(audio) : undefined),
+    [audio],
+  );
   const subtitle = composition.subtitles.find((s) => s.stepId === step?.id);
   const subStyle = resolveSubtitleStyle(subtitle?.style);
   const subPos = subtitle?.position;
@@ -277,8 +282,8 @@ export function CourseFlowPlayer({
     let cancelled = false;
     let onEnded: (() => void) | undefined;
 
-    if (audio?.publicUrl && el) {
-      el.src = audio.publicUrl;
+    if (audioPlaybackUrl && el) {
+      el.src = audioPlaybackUrl;
       el.currentTime = 0;
       onEnded = () => {
         // 手動模式：音訊播畢後不自動推進
@@ -300,7 +305,7 @@ export function CourseFlowPlayer({
       if (el && onEnded) el.removeEventListener("ended", onEnded);
       clearScriptTimer();
     };
-  }, [step?.id, audio?.publicUrl, paused, clearScriptTimer]);
+  }, [step?.id, audioPlaybackUrl, paused, clearScriptTimer]);
 
   const prevPausedRef = useRef<boolean | null>(null);
 
@@ -332,7 +337,7 @@ export function CourseFlowPlayer({
       return;
     }
 
-    if (audio?.publicUrl && el?.src) {
+    if (audioPlaybackUrl && el?.src) {
       el.play().catch(() => {
         const remaining =
           scriptRemainingRef.current ?? noAudioAdvanceMs();
@@ -342,7 +347,7 @@ export function CourseFlowPlayer({
       const remaining = scriptRemainingRef.current ?? noAudioAdvanceMs();
       if (remaining > 0) scheduleScriptAdvance(remaining);
     }
-  }, [paused, audio?.publicUrl, step, clearScriptTimer, scheduleScriptAdvance]);
+  }, [paused, audioPlaybackUrl, step, clearScriptTimer, scheduleScriptAdvance]);
 
   useEffect(() => {
     const bgm = bgmRef.current;

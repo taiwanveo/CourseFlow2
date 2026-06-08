@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CourseComposition, WvpPhaseLocks } from "@courseflow/core";
-import { getOrderedSteps } from "@courseflow/core";
+import { getOrderedSteps, stepAudioPlaybackUrl } from "@courseflow/core";
 import type { TtsModel, TtsVoice } from "@courseflow/tts/types";
 import {
   edgeTtsVisibleForLanguage,
@@ -197,6 +197,7 @@ export function AudioPhaseClient({
   const orderedSteps = useMemo(() => getOrderedSteps(composition), [composition]);
   const step = orderedSteps[stepIndex];
   const stepAudio = composition.audio.find((item) => item.stepId === step?.id);
+  const stepAudioSrc = stepAudio ? stepAudioPlaybackUrl(stepAudio) : undefined;
 
   const availableProviders = useMemo(() => {
     const configured = new Set<string>([
@@ -704,6 +705,7 @@ export function AudioPhaseClient({
             : step.estimatedSeconds
               ? step.estimatedSeconds * 1000
               : 3000,
+        updatedAt: new Date().toISOString(),
       };
       const nextComposition = {
         ...composition,
@@ -856,6 +858,7 @@ export function AudioPhaseClient({
         storagePath: uploaded.storagePath,
         publicUrl: uploaded.publicUrl,
         durationMs: recordedDurationMs > 0 ? recordedDurationMs : (step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000),
+        updatedAt: new Date().toISOString(),
       };
       const nextComposition = {
         ...composition,
@@ -1283,8 +1286,14 @@ export function AudioPhaseClient({
                 ) : null}
               </div>
 
-              {stepAudio?.publicUrl ? (
-                <audio controls src={stepAudio.publicUrl} className="w-full" preload="none">
+              {stepAudioSrc ? (
+                <audio
+                  key={stepAudioSrc}
+                  controls
+                  src={stepAudioSrc}
+                  className="w-full"
+                  preload="none"
+                >
                   您的瀏覽器不支援 audio 播放。
                 </audio>
               ) : null}

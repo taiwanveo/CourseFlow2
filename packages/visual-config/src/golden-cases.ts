@@ -34,6 +34,13 @@ export const GOLDEN_CASES: GoldenCase[] = [
     expectChartType: "kpi",
   },
   {
+    id: "kpi-conversion-craft-meta",
+    input:
+      "單一指標：轉換率 KPI\n4-3 單一指標 KPI。轉換率達到3\n轉換率達到38%。預期產出為 KPI 大數字卡片",
+    expectKind: "chart",
+    expectChartType: "kpi",
+  },
+  {
     id: "list-reveal",
     input: "三點：先清洗資料；再訓練模型；最後驗證結果",
     expectKind: "animation",
@@ -41,6 +48,13 @@ export const GOLDEN_CASES: GoldenCase[] = [
   {
     id: "expense-split",
     input: "部門費用：研發 40%、行銷 25%、營運 20%、管理 15%",
+    expectKind: "chart",
+    expectChartType: "pie",
+  },
+  {
+    id: "expense-pie-craft-meta",
+    input:
+      "費用結構：部門圓餅圖\n4-2 費用結構圓餅圖。部門費用分別為研發\n部門費用分別為研發40%、行銷25%、營運20%、管理15%。預期產出圓餅圖，四項加總100%。",
     expectKind: "chart",
     expectChartType: "pie",
   },
@@ -204,6 +218,20 @@ export const GOLDEN_CASES: GoldenCase[] = [
     id: "table-multi-metric",
     input: "方案對照：方案A：轉換率 12、成本 100；方案B：轉換率 18、成本 80",
     expectKind: "table",
+  },
+  {
+    id: "table-compare-compact-craft-meta",
+    input:
+      "方案對比\n預期產出為表格，且依成本欄排序\n方案A成本12、速度80、品質92；方案B成本9、速度70、品質88；方案C成本14、速度92、品質90",
+    expectKind: "table",
+    expectTableSortKey: "成本",
+  },
+  {
+    id: "table-compare-compact-trailing-meta",
+    input:
+      "方案A成本12、速度80、品質92；方案B成本9、速度70、品質88；方案C成本14、速度92、品質90。預期產出為表格，且依成本欄排序",
+    expectKind: "table",
+    expectTableSortKey: "成本",
   },
   {
     id: "cn-percent-line",

@@ -11,6 +11,7 @@ import {
   type TtsSynthesizeJobResult,
 } from "@/lib/tts-batch-progress";
 import { narrationTextForStep } from "@/lib/wvp-step-text";
+import { syncPresentationAudioAfterTts } from "@/lib/wvp-audio-sync";
 
 const STEP_SYNTHESIS_TIMEOUT_MS = 180_000;
 const STEP_PROGRESS_HEARTBEAT_MS = 5_000;
@@ -236,6 +237,7 @@ export async function runSynthesizeAudio(payload: {
           storagePath,
           publicUrl: urlData.publicUrl,
           durationMs: step.estimatedSeconds ? step.estimatedSeconds * 1000 : 3000,
+          updatedAt: new Date().toISOString(),
         };
         const index = audioEntries.findIndex((item) => item.stepId === step.id);
         if (index >= 0) audioEntries[index] = entry;
@@ -262,10 +264,29 @@ export async function runSynthesizeAudio(payload: {
       }
     }
 
-    await saveComposition(supabase, payload.projectId, {
+    const finalComposition = {
       ...composition,
       audio: audioEntries,
-    });
+    };
+    await saveComposition(supabase, payload.projectId, finalComposition);
+
+    try {
+      const synced = await syncPresentationAudioAfterTts(
+        supabase,
+        payload.projectId,
+        finalComposition,
+      );
+      if (synced.written > 0) {
+        console.log(
+          `[tts-batch] presentation audio synced project=${payload.projectId} written=${synced.written}`,
+        );
+      }
+    } catch (syncErr) {
+      console.warn(
+        `[tts-batch] presentation audio sync skipped project=${payload.projectId}:`,
+        syncErr instanceof Error ? syncErr.message : syncErr,
+      );
+    }
 
     progress.phase = "done";
     progress.currentStepIndex = progress.totalSteps;
