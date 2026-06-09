@@ -353,21 +353,23 @@ async function synthesizeOpenRouterChatAudio(
       model,
       messages: [{ role: "user", content: text }],
       modalities: ["text", "audio"],
-      audio: { voice: voiceId, format: "mp3" },
+      // OpenRouter：stream=true 時 audio.format 僅支援 pcm16，不可使用 mp3
+      audio: { voice: voiceId, format: "pcm16" },
       stream: true,
     }),
   });
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗");
+    parseOpenRouterError(res, errText, "OpenRouter TTS 失敗", { model, voice: voiceId });
   }
 
   if (!res.body) {
     throw new Error("OpenRouter TTS 回應缺少 body");
   }
 
-  return parseSseAudioChunks(res.body);
+  const pcm = await parseSseAudioChunks(res.body);
+  return transcodePcm16ToMp3(pcm);
 }
 
 export async function synthesizeOpenRouterSpeech(
