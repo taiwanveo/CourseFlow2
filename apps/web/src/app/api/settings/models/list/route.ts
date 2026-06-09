@@ -23,6 +23,23 @@ export interface ModelsResult {
   };
 }
 
+/** 設定頁下拉選單：依顯示名稱字母排序，同名時再以 id 排序。 */
+function sortModelEntries(entries: ModelEntry[]): ModelEntry[] {
+  return [...entries].sort((a, b) => {
+    const byName = a.name.localeCompare(b.name, "en", { sensitivity: "base" });
+    return byName !== 0
+      ? byName
+      : a.id.localeCompare(b.id, "en", { sensitivity: "base" });
+  });
+}
+
+function sortModelsResult(result: Omit<ModelsResult, "recommendations">): ModelsResult {
+  return {
+    text: sortModelEntries(result.text),
+    image: sortModelEntries(result.image),
+  };
+}
+
 // ── 靜態推薦規則 ────────────────────────────────────────────────────────────
 // 優先序依「能力 × 速度 × 性價比」排列，符合教學影片生成場景
 const TEXT_RECOMMENDATIONS: Record<string, { reason: string; priority: number }> = {
@@ -207,7 +224,11 @@ export async function GET(req: NextRequest) {
     if (!result)
       return NextResponse.json({ error: "不支援的 provider" }, { status: 400 });
 
-    return NextResponse.json({ ...result, recommendations: buildRecommendations(result) });
+    const sorted = sortModelsResult(result);
+    return NextResponse.json({
+      ...sorted,
+      recommendations: buildRecommendations(sorted),
+    });
   } catch (e) {
     return NextResponse.json(
       {
