@@ -75,5 +75,18 @@ export async function generateChapterPlan(opts: {
     `LLM 請求逾時（>${Math.floor(timeout / 1000)} 秒）`,
   );
   const raw = res.choices[0]?.message?.content ?? "{}";
-  return JSON.parse(raw) as Record<string, unknown>;
+  return parseLlmJsonObject(raw);
+}
+
+/** 部分模型（如 Claude）仍會用 ```json 包裹，即使已要求 json_object。 */
+function parseLlmJsonObject(raw: string): Record<string, unknown> {
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  const payload =
+    start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+  return JSON.parse(payload) as Record<string, unknown>;
 }
