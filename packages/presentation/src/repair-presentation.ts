@@ -94,6 +94,8 @@ export async function repairPresentationBeforeBuild(presentationDir: string): Pr
     "NarrationBeat.css",
     "AutoStartGate.tsx",
     "AutoStartGate.css",
+    "SubtitleBar.tsx",
+    "SubtitleBar.css",
   ]) {
     await cp(join(t, "src/components", name), join(componentsDir, name), { force: true });
   }
