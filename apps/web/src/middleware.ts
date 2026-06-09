@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isStaleRefreshError } from "@/lib/supabase/auth-errors";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -26,7 +27,12 @@ export async function middleware(request: NextRequest) {
 
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+
+  if (authError && isStaleRefreshError(authError)) {
+    await supabase.auth.signOut();
+  }
 
   const isAuth = request.nextUrl.pathname.startsWith("/login");
   const isProtected =
@@ -37,7 +43,7 @@ export async function middleware(request: NextRequest) {
   if (!user && isProtected) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-  if (user && isAuth) {
+  if (user && (isAuth || request.nextUrl.pathname === "/")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -45,5 +51,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/projects/:path*", "/settings/:path*", "/login"],
+  matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/projects/:path*",
+    "/settings/:path*",
+    "/login",
+  ],
 };

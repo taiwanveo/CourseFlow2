@@ -1,16 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { BrandMark } from "@/components/BrandMark";
 
-export default async function HomePage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) redirect("/dashboard");
-
+export default function HomePage() {
   return (
     <div className="cf-shell flex min-h-screen flex-col items-center justify-center gap-10 px-6 py-16 text-center">
       <div className="max-w-2xl">
