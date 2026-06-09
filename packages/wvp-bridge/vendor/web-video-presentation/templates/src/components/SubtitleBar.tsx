@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type RefObject } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./SubtitleBar.css";
 
 interface Props {
@@ -8,7 +8,9 @@ interface Props {
    *  `useSubtitleSettings().enabled` (driven by `S` key + `?subs=off`). */
   enabled: boolean;
   /** 與本步 TTS 共用的 `<audio>`，句內切換依實際播放進度對齊 */
-  audioRef?: RefObject<HTMLAudioElement | null>;
+  audioElement?: HTMLAudioElement | null;
+  /** 自動／音訊模式：依播放進度逐句顯示；手動模式應為 false（固定全文） */
+  sentenceSync?: boolean;
 }
 
 /** Split a narration string into sentences by Chinese/English sentence-end punctuation. */
@@ -39,7 +41,12 @@ function estimateSentenceMs(sentence: string): number {
   return Math.max(1200, sentence.replace(/\s+/g, "").length * 280);
 }
 
-export function SubtitleBar({ text, enabled, audioRef }: Props) {
+export function SubtitleBar({
+  text,
+  enabled,
+  audioElement = null,
+  sentenceSync = false,
+}: Props) {
   const sentences = useMemo(() => splitSentences(text ?? ""), [text]);
   const [idx, setIdx] = useState(0);
   const [audioSyncReady, setAudioSyncReady] = useState(false);
@@ -47,11 +54,15 @@ export function SubtitleBar({ text, enabled, audioRef }: Props) {
   useEffect(() => {
     setIdx(0);
     setAudioSyncReady(false);
-  }, [text]);
+  }, [text, audioElement]);
 
   useEffect(() => {
-    const audio = audioRef?.current ?? null;
-    if (!audio || sentences.length <= 1) {
+    if (!sentenceSync || sentences.length <= 1) {
+      setAudioSyncReady(false);
+      return;
+    }
+    const audio = audioElement;
+    if (!audio) {
       setAudioSyncReady(false);
       return;
     }
@@ -82,27 +93,25 @@ export function SubtitleBar({ text, enabled, audioRef }: Props) {
       audio.removeEventListener("playing", syncIdx);
       audio.removeEventListener("ended", syncIdx);
     };
-  }, [audioRef, sentences, text]);
+  }, [audioElement, sentences, text, sentenceSync]);
 
-  const hasStepAudio = Boolean(audioRef?.current);
-
-  // 音訊 metadata 尚未就緒時，用估時逐句推進，避免卡在第一句（Hook 開場多句口播常見）
+  // 音訊 metadata 尚未就緒時，用估時逐句推進（避免卡在第一句）
   useEffect(() => {
-    if (sentences.length <= 1) return;
-    if (!hasStepAudio || audioSyncReady) return;
+    if (!sentenceSync || sentences.length <= 1) return;
+    if (audioSyncReady) return;
     if (idx >= sentences.length - 1) return;
 
     const timer = window.setTimeout(() => {
       setIdx((i) => (i < sentences.length - 1 ? i + 1 : i));
     }, estimateSentenceMs(sentences[idx] ?? ""));
     return () => clearTimeout(timer);
-  }, [idx, sentences, hasStepAudio, audioSyncReady, text]);
+  }, [idx, sentences, audioSyncReady, text, sentenceSync]);
 
   if (!enabled) return null;
   if (!text || !text.trim()) return null;
 
   const display =
-    sentences.length <= 1 || !hasStepAudio
+    !sentenceSync || sentences.length <= 1
       ? text
       : (sentences[idx] ?? text);
 
